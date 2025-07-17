@@ -76,6 +76,46 @@ Before implementing any feature or bugfix:
    - Once resolved, document the resolution and continue
 6. Update the Status to "Completed" once all steps are finished and verified
 
+### Workplan Quality Checklist
+When creating work plans, ensure:
+1. **Include concrete code examples** - Show expected file structure, function signatures
+2. **Specify all dependencies** - Including development dependencies (testing, linting)
+3. **Define boundary conditions** - What validation happens in this phase vs later
+4. **Add framework-specific details** - e.g., Click needs CliRunner for testing
+5. **Include build configuration** - Full pyproject.toml example if relevant
+6. **Clarify success/error handling** - Even MVP needs basic exit codes (0/1)
+7. **Show test examples** - Especially for framework-specific testing patterns
+
+### Research-First Methodology (CRITICAL)
+**Lesson from MVP-DockerRun**: Always validate core assumptions before detailed planning.
+
+**Before creating any workplan**:
+1. **Ecosystem Research** (15-30 min): What existing tools solve this? What's the standard approach?
+2. **Quick Validation** (5-15 min): Can I test the core assumption with a simple experiment?
+3. **Documentation Check**: Are there official tools, APIs, or patterns I should use?
+
+**Research Template**:
+```markdown
+## Research Phase
+- [ ] What existing tools solve this problem?
+- [ ] What's the standard approach in this ecosystem?
+- [ ] Can I test the core assumption in 5 minutes?
+- [ ] What do the docs/examples show?
+- [ ] Are there official libraries/APIs I should use?
+
+## Core Assumptions
+1. Assumption: [statement]
+   - How to test: [quick test]
+   - Risk if wrong: [impact]
+   - Validation: [✅ confirmed / ❌ wrong / ⚠️ needs testing]
+```
+
+**Red Flags That Require Research**:
+- Planning complex custom implementations
+- Assuming how external systems work
+- Building from scratch when ecosystem tools might exist
+- Making architectural decisions without testing
+
 ## Project-Specific Rules
 
 ### 1. Minimum Lovable Product Philosophy
@@ -151,6 +191,9 @@ Before implementing any feature or bugfix:
 - **Don't hide errors**: Surface problems clearly
 - **Don't assume**: When in doubt, ask
 - **Don't break existing functionality**: Each phase builds on the last
+- **Don't plan before research**: Always validate core assumptions first (MVP-DockerRun lesson)
+- **Don't ignore existing tools**: Check if official libraries/APIs exist before custom implementation
+- **Don't guess at external systems**: Test integrations early and often
 
 ### 10. Success Metrics to Keep in Mind
 - **Time-to-first-green**: ≤30 min on fresh laptop
@@ -171,14 +214,41 @@ When implementing features, always consult:
 - **File Structure**: Architecture.md Section 5 - Simplified File Structure
 
 ### 12. Implementation Philosophy
+- **Research first, plan second**: Always validate core assumptions before detailed implementation (MVP-DockerRun lesson)
 - **Check documents first**: Don't guess at requirements - the PRD and UX Plan have specifics
 - **Follow the phases**: Architecture.md defines the build order - respect it
 - **Test assumptions**: When the docs are unclear, create a minimal test to verify
 - **Ask when blocked**: Better to clarify than implement the wrong thing
 - **Make reasonable defaults**: When specifics are missing but intent is clear, document your assumption and proceed
 - **Prefer explicit over implicit**: Clear, obvious code beats clever shortcuts
+- **Use existing tools**: Always check if official libraries/APIs exist before custom implementation
+- **Validate early and often**: 5 minutes of testing can save hours of wrong implementation
+
+### 13. Lessons Learned: MVP-DockerRun Case Study
+**What Happened**: Created detailed implementation plan with custom Docker container execution, then discovered the official SWE-bench harness was the correct approach.
+
+**Key Mistakes**:
+- Assumed Epoch AI containers were standalone (they're repository environments for the harness)
+- Planned complex container interface without testing basic usage
+- Designed 200+ lines of custom code when `python -m swebench.harness.run_evaluation` was the answer
+- Spent hours on wrong implementation that 15 minutes of research would have prevented
+
+**What Worked**:
+- Critical review process caught major gaps
+- Validation with test scripts revealed the truth
+- Willingness to pivot led to better final solution
+
+**Process Improvements Applied**:
+- **Research-First Methodology**: Always validate assumptions before detailed planning
+- **Quick Tests**: 5-minute validation experiments before implementation
+- **Ecosystem Research**: Look for existing tools and standard approaches first
+- **Assumption Registry**: Document and test core assumptions explicitly
+
+**Result**: Final plan using official harness was simpler, more reliable, and had better platform support than original custom approach.
 
 ## Remember
 You're building this for researchers and developers who just want their patches evaluated quickly and reliably. Every decision should make their life easier. When they use this tool, they should feel productive and supported, never frustrated or confused.
 
 The highest compliment we can receive: "It just works."
+
+**Above all: Research first, plan second, validate early, and embrace better solutions when you find them.**

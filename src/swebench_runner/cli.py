@@ -7,6 +7,7 @@ from typing import NoReturn
 import click
 
 from . import __version__
+from .docker_run import run_evaluation
 
 
 @click.group()
@@ -35,11 +36,20 @@ def run(patches: Path) -> NoReturn:
         click.echo(f"Error: {patches} is not a file", err=True)
         sys.exit(1)
 
-    # MVP: Just show what would be run
-    click.echo(f"Would run evaluation with {patches}")
-
-    # Success exit code
-    sys.exit(0)
+    # Run the evaluation
+    try:
+        result = run_evaluation(str(patches))
+        if result.passed:
+            click.echo(f"✅ {result.instance_id}: PASSED")
+            sys.exit(0)
+        else:
+            click.echo(f"❌ {result.instance_id}: FAILED")
+            if result.error:
+                click.echo(f"   Error: {result.error}")
+            sys.exit(1)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -136,7 +136,7 @@ jobs:
     - name: Run security audit
       run: |
         # Audit production dependencies only
-        pip-audit --desc --fix
+        pip-audit --desc
         echo "✅ Security scan passed"
 
   test-install:

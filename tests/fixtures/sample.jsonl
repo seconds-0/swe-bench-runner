@@ -1,0 +1,1 @@
+{"instance_id": "django__django-12345", "patch": "diff --git a/django/test.py b/django/test.py\nindex 1234567..abcdefg 100644\n--- a/django/test.py\n+++ b/django/test.py\n@@ -1,3 +1,3 @@\n def test_function():\n-    return False\n+    return True\n"}

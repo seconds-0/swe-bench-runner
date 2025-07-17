@@ -2,20 +2,59 @@
 
 > Run any subset of SWE-bench with one clear command and fix any issue in minutes, not hours.
 
-⚠️ **Status**: In active development. Not yet ready for use.
+⚠️ **Status**: MVP CLI implemented. Docker execution coming next.
 
 ## Vision
 
 SWE-bench has become the de-facto benchmark for evaluating code-fixing agents, but getting the harness to run locally is still painful. This tool makes SWE-bench evaluation so simple that users think "Holy shit, this is what I wanted the whole time!"
 
-## Target Experience
+## Current Status
+
+**✅ MVP CLI Complete** - Basic command-line interface is ready:
 
 ```bash
 pip install swebench-runner
 swebench run --patches my_patches.jsonl
 ```
 
-That's it. No Docker setup, no config files, no cryptic errors.
+The CLI currently validates patches files and provides foundation for Docker execution (coming next).
+
+## Installation
+
+```bash
+pip install swebench-runner
+```
+
+## Usage
+
+```bash
+# Check version
+swebench --version
+
+# Get help
+swebench --help
+swebench run --help
+
+# Run evaluation (MVP - validation only)
+swebench run --patches predictions.jsonl
+```
+
+## Current Features
+
+- ✅ Click-based CLI with `swebench` command
+- ✅ `run` command with `--patches` flag
+- ✅ File validation (exists, not empty, is file)
+- ✅ Proper error handling and exit codes
+- ✅ Comprehensive test suite (96% coverage)
+- ✅ Type checking with mypy
+- ✅ Linting with ruff
+- ✅ <5KB wheel size
+
+## Coming Next
+
+- 🚧 Docker execution (MVP-DockerRun)
+- 🚧 Basic output formatting (MVP-BasicOutput)
+- 🚧 Progress tracking and HTML reports
 
 ## Documentation
 

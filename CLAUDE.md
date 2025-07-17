@@ -246,9 +246,92 @@ When implementing features, always consult:
 
 **Result**: Final plan using official harness was simpler, more reliable, and had better platform support than original custom approach.
 
+## Critical Implementation Rules (From CI Implementation Experience)
+
+### 1. Research-First Methodology (MANDATORY)
+**Rule**: Always validate core assumptions before detailed implementation
+- **15-minute rule**: Spend 15 minutes researching before writing 100+ lines of code
+- **Compatibility research**: Check dependency versions against all target Python versions (3.8-3.12)
+- **Platform research**: Validate cross-platform behavior before assuming it works
+- **Integration research**: Test external system integration (Docker, subprocess) early
+- **Documentation research**: Check official docs, not just Stack Overflow
+
+### 2. Cross-Platform Compatibility (MANDATORY)
+**Rule**: Every file operation, subprocess call, and path manipulation must work on macOS and Linux
+- **Use pathlib.Path**: Never use string path operations or os.path for new code
+- **Avoid platform-specific shell commands**: Use Python built-ins or cross-platform alternatives
+- **Test subprocess behavior**: Different platforms handle subprocess output differently
+- **Environment variables**: Test environment variable handling across platforms
+- **Signal handling**: Ctrl+C behavior varies between platforms
+
+### 3. Dependency Management (MANDATORY)
+**Rule**: Research compatibility matrices before adding any dependency
+- **Version conflicts**: Check if security fixes are compatible with target Python versions
+- **Build vs runtime**: Understand when dependencies are needed (build-time vs user-time)
+- **Conditional requirements**: Use when necessary to support multiple Python versions
+- **Test dependency installation**: Verify dependencies install correctly across Python versions
+
+### 4. Error Handling & User Experience (MANDATORY)
+**Rule**: Every error message must be actionable and platform-specific
+- **Platform-specific guidance**: "Start Docker Desktop" (macOS) vs "Check docker.sock" (Linux)
+- **Actionable next steps**: Always include what the user should do next
+- **Appropriate exit codes**: Use PRD-specified exit codes (1=general, 2=Docker, 3=network, 4=disk)
+- **Resource warnings**: Warn about memory/disk space before operations fail
+- **Progress indication**: Show progress for long-running operations
+
+### 5. Pre-commit Validation (MANDATORY)
+**Rule**: Run exact CI commands locally before every commit
+- **Linting**: Run `ruff check src/swebench_runner tests` locally
+- **Type checking**: Run `mypy src/swebench_runner` locally
+- **Platform testing**: Test on macOS and Linux when possible
+- **Error scenarios**: Test all error paths produce expected exit codes
+- **Timeout testing**: Test timeout scenarios without waiting for real timeouts
+
+### 6. Testing Strategy (MANDATORY)
+**Rule**: Mock external dependencies comprehensively
+- **No real external calls**: Never call Docker, subprocess, or network in unit tests
+- **Platform-specific mocks**: Test both macOS and Linux code paths
+- **Error scenario testing**: Test all error categories with appropriate exit codes
+- **Resource constraint testing**: Test low memory/disk space scenarios
+- **Threading safety**: Test concurrent operations where applicable
+
+### 7. Documentation & Communication (MANDATORY)
+**Rule**: Document platform-specific behavior and assumptions
+- **Platform differences**: Document when behavior differs between platforms
+- **Error message catalog**: Document all error types and their meanings
+- **Exit code mapping**: Document exit codes and their scenarios
+- **Dependency rationale**: Document why specific versions are required
+- **Cross-platform notes**: Note any platform-specific workarounds
+
+### 8. Code Quality (MANDATORY)
+**Rule**: Write platform-agnostic, defensive code
+- **Defensive programming**: Handle edge cases and invalid inputs gracefully
+- **Resource cleanup**: Always clean up temporary files and processes
+- **Thread safety**: Use proper synchronization for concurrent operations
+- **Type hints**: Use type hints for all public functions and classes
+- **Error propagation**: Propagate errors with context, don't swallow them
+
+### 9. Implementation Phases (MANDATORY)
+**Rule**: Always follow this implementation order
+1. **Research & Validation**: 15-30 minutes of research before implementation
+2. **Core Implementation**: Focus on main functionality first
+3. **Cross-platform Testing**: Test on multiple platforms
+4. **Error Handling**: Add comprehensive error handling
+5. **Pre-commit Validation**: Run exact CI commands locally
+6. **Documentation**: Update plans and documentation
+
+### 10. Lessons Integration (MANDATORY)
+**Rule**: Update plans and documentation with lessons learned
+- **Postmortem process**: After every major implementation, document lessons
+- **Plan updates**: Update workplans with new requirements and constraints
+- **Rule extraction**: Extract general rules for future implementations
+- **Knowledge sharing**: Document platform-specific discoveries for future reference
+
 ## Remember
 You're building this for researchers and developers who just want their patches evaluated quickly and reliably. Every decision should make their life easier. When they use this tool, they should feel productive and supported, never frustrated or confused.
 
 The highest compliment we can receive: "It just works."
 
 **Above all: Research first, plan second, validate early, and embrace better solutions when you find them.**
+
+**New priority: Follow the 10 Critical Implementation Rules above to prevent the debugging sessions we experienced with CI implementation.**

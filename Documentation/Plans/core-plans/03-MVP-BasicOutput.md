@@ -44,6 +44,8 @@ Create a comprehensive output system with the following components:
 - **Proper cleanup**: Signal handlers for Ctrl+C with temp directory cleanup
 - **Error mapping**: Specific error classification with PRD exit codes
 - **Results transformation**: Convert harness output to expected UX format
+- **Cross-platform compatibility**: Use pathlib.Path for all file operations
+- **Robust error handling**: Platform-specific error messages and actionable guidance
 
 ### Expected Output Format (UX Plan Compliant)
 ```
@@ -1029,6 +1031,24 @@ def run_with_output_system(patches_file: Path, temp_dir: Path, harness_results_d
 
 ## Implementation Checklist
 
+### Phase 0: Research & Validation (Critical - Lessons from CI Implementation)
+- [ ] **Cross-Platform Compatibility Research**
+  - [ ] Research threading behavior differences between macOS and Linux
+  - [ ] Validate pathlib.Path usage for results directory creation
+  - [ ] Test subprocess output parsing on different platforms
+  - [ ] Validate terminal progress bar rendering on different terminals
+  - [ ] Research signal handling differences (Ctrl+C, SIGTERM)
+- [ ] **Dependency Compatibility Research**
+  - [ ] Check threading/multiprocessing compatibility across Python 3.8-3.12
+  - [ ] Validate progress bar library compatibility (rich, tqdm, etc.)
+  - [ ] Test HTML report generation cross-platform
+  - [ ] Research file system operation differences (symlinks, permissions)
+- [ ] **Error Handling Strategy**
+  - [ ] Define comprehensive error categories with platform-specific guidance
+  - [ ] Plan graceful degradation for unsupported terminal features
+  - [ ] Design recovery mechanisms for file operation failures
+  - [ ] Create user-friendly error messages for common scenarios
+
 ### Phase 1: Core Infrastructure (PRD Requirements)
 - [ ] **Exit Code Handler** (Critical - PRD requirement)
   - [ ] Create ExitCodeHandler class with determine_exit_code() method
@@ -1334,6 +1354,48 @@ def run_with_output_system(patches_file: Path, temp_dir: Path, harness_results_d
 - **No real-time test updates** - show results after completion only
 - **No detailed timing** - just total duration and estimated remaining
 - **No memory optimization** - load all results into memory (adequate for MVP)
+
+## Critical Lessons from CI Implementation
+
+### Cross-Platform File Operations
+**Problem**: File system operations behave differently across platforms (path separators, permissions, symlinks)
+**Solutions**:
+- Use `pathlib.Path` for all file and directory operations
+- Test symlink creation on both macOS and Linux
+- Handle permission differences gracefully
+- Validate HTML report generation across platforms
+
+### Threading and Subprocess Compatibility
+**Problem**: Threading and subprocess behavior varies between Python versions and platforms
+**Solutions**:
+- Test threading patterns across Python 3.8-3.12
+- Validate subprocess output parsing on different platforms
+- Handle signal handling differences (Ctrl+C behavior)
+- Test progress bar rendering in different terminal environments
+
+### Error Message Localization
+**Problem**: Error messages need to be platform-specific and actionable
+**Solutions**:
+- Provide platform-specific guidance for common errors
+- Include actionable next steps in all error messages
+- Handle graceful degradation for unsupported terminal features
+- Test error scenarios across different environments
+
+### Dependency Management for UI Components
+**Problem**: UI libraries may have different behavior across platforms
+**Solutions**:
+- Research progress bar library compatibility (rich, tqdm)
+- Test HTML generation across different Python versions
+- Validate terminal output rendering on different terminals
+- Handle missing dependencies gracefully
+
+### Pre-commit Validation for Output Components
+Based on CI implementation experience:
+- [ ] Test progress bar rendering in different terminal environments
+- [ ] Validate HTML report generation across platforms
+- [ ] Test file system operations (directory creation, symlinks)
+- [ ] Verify thread safety in concurrent scenarios
+- [ ] Test signal handling (Ctrl+C) behavior
 
 ## Notes
 

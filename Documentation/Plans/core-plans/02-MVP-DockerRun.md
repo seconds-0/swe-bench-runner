@@ -390,50 +390,92 @@ class EvaluationResult:
 
 ## Implementation Checklist
 
-- [ ] Set up prerequisites
+### Phase 1: Research & Validation (CRITICAL - Lessons from CI Implementation)
+- [ ] **Pre-implementation Research**
+  - [ ] Research Docker SDK cross-platform behavior (macOS vs Linux daemon paths)
+  - [ ] Validate SWE-bench harness installation requirements and Python version compatibility
+  - [ ] Test subprocess execution patterns on target platforms
+  - [ ] Verify Epoch AI image availability and sizing (ARM64 vs x86_64)
+  - [ ] Document platform-specific Docker daemon detection methods
+  - [ ] Research environment variable limits for different platforms
+- [ ] **Dependency Compatibility Research**
+  - [ ] Check docker>=6.1.0 compatibility with Python 3.8-3.12
+  - [ ] Verify swebench package installation requirements
+  - [ ] Test subprocess timeout handling across platforms
+  - [ ] Validate pathlib.Path vs os.path for cross-platform compatibility
+- [ ] **Risk Assessment**
+  - [ ] Identify high-risk integration points (Docker daemon, subprocess, image pulling)
+  - [ ] Plan comprehensive mocking strategy for external dependencies
+  - [ ] Define error categories and exit codes before implementation
+  - [ ] Create test matrix for platform-specific scenarios
+
+### Phase 2: Implementation
+- [ ] **Set up prerequisites**
   - [ ] Add docker>=6.1.0 to pyproject.toml dependencies (for daemon checking)
   - [ ] Create docker_run.py module
-  - [ ] Implement Docker daemon availability checking
-  - [ ] Add platform-specific Docker daemon detection
+  - [ ] Implement platform-specific Docker daemon availability checking
+  - [ ] Add cross-platform Docker daemon detection with proper error messages
   - [ ] Implement check_docker_running() with exit code 2
-- [ ] Create data models first
+- [ ] **Create data models first**
   - [ ] Create models.py
   - [ ] Define Patch dataclass with validation
   - [ ] Define EvaluationResult dataclass
-  - [ ] Add basic validation methods
-- [ ] Implement JSONL loading
-  - [ ] Create load_first_patch() function
-  - [ ] Parse JSONL file
-  - [ ] Handle file not found
-  - [ ] Handle invalid JSON
+  - [ ] Add basic validation methods with clear error messages
+- [ ] **Implement JSONL loading**
+  - [ ] Create load_first_patch() function with robust error handling
+  - [ ] Parse JSONL file with proper encoding handling
+  - [ ] Handle file not found with user-friendly messages
+  - [ ] Handle invalid JSON with line number information
   - [ ] Extract first patch only for MVP
-- [ ] Implement SWE-bench harness integration
+- [ ] **Implement SWE-bench harness integration**
   - [ ] Create check_swebench_installed() function
-  - [ ] Implement install_swebench() function
-  - [ ] Create predictions file in SWE-bench format
-  - [ ] Implement platform detection (ARM64 vs x86_64)
-  - [ ] Build subprocess command for harness execution
-  - [ ] Run harness with proper timeout handling
-  - [ ] Parse results from evaluation_results directory
-- [ ] Add error handling
-  - [ ] Handle Docker daemon not running (exit code 2)
-  - [ ] Handle swebench installation failures
-  - [ ] Handle harness execution failures
-  - [ ] Handle harness timeout
-  - [ ] Handle malformed results
-- [ ] Write tests
-  - [ ] Create mock subprocess fixture
-  - [ ] Test Docker availability checking
-  - [ ] Test swebench installation
-  - [ ] Test successful evaluation
-  - [ ] Test timeout scenarios
-  - [ ] Test platform detection
-  - [ ] Test results parsing
-- [ ] Integration with CLI
+  - [ ] Implement install_swebench() function with version compatibility checks
+  - [ ] Create predictions file in SWE-bench format using pathlib.Path
+  - [ ] Implement robust platform detection (ARM64 vs x86_64)
+  - [ ] Build subprocess command for harness execution with cross-platform considerations
+  - [ ] Run harness with proper timeout handling and resource monitoring
+  - [ ] Parse results from evaluation_results directory with error recovery
+- [ ] **Add comprehensive error handling**
+  - [ ] Handle Docker daemon not running (exit code 2) with platform-specific guidance
+  - [ ] Handle swebench installation failures with actionable error messages
+  - [ ] Handle harness execution failures with diagnostic information
+  - [ ] Handle harness timeout with cleanup procedures
+  - [ ] Handle malformed results with fallback parsing
+  - [ ] Handle resource constraints (memory, disk space) with clear warnings
+
+### Phase 3: Testing & Validation
+- [ ] **Write comprehensive tests**
+  - [ ] Create mock subprocess fixture for cross-platform testing
+  - [ ] Test Docker availability checking on multiple platforms
+  - [ ] Test swebench installation with version compatibility scenarios
+  - [ ] Test successful evaluation with mocked external dependencies
+  - [ ] Test timeout scenarios without waiting for real timeouts
+  - [ ] Test platform detection with mocked platform.system()
+  - [ ] Test results parsing with various output formats
+  - [ ] Test error scenarios with proper exit codes
+- [ ] **Cross-platform validation**
+  - [ ] Test on macOS (Docker Desktop) and Linux (docker.sock)
+  - [ ] Validate subprocess behavior differences
+  - [ ] Test pathlib.Path vs os.path compatibility
+  - [ ] Verify environment variable handling across platforms
+- [ ] **Integration with CLI**
   - [ ] Update cli.py run command to call run_evaluation()
-  - [ ] Pass patches file path
-  - [ ] Display progress messages
-  - [ ] Show results (pass/fail)
+  - [ ] Pass patches file path using pathlib.Path
+  - [ ] Display progress messages with platform-appropriate formatting
+  - [ ] Show results (pass/fail) with proper exit codes
+
+### Phase 4: Pre-commit Validation
+- [ ] **Local testing checklist**
+  - [ ] Run exact CI linting commands locally (ruff check, mypy)
+  - [ ] Test with sample patches on local Docker setup
+  - [ ] Verify all error scenarios produce expected exit codes
+  - [ ] Test timeout handling without waiting for real timeouts
+  - [ ] Validate cross-platform path handling
+- [ ] **Integration testing**
+  - [ ] Test with real Docker daemon (if available)
+  - [ ] Test with mock Docker daemon for CI scenarios
+  - [ ] Verify SWE-bench harness integration (if swebench available)
+  - [ ] Test resource constraint scenarios
 
 ## Verification Steps
 
@@ -510,6 +552,49 @@ class EvaluationResult:
 - **Basic validation** - just check patch exists and format
 - **No retry logic** - fail immediately on errors
 - **Temporary files** - creates temp directory for each evaluation
+
+## Critical Lessons from CI Implementation
+
+### Cross-Platform Compatibility Issues
+**Problem**: Platform-specific assumptions cause failures in CI/CD environments
+**Solutions**:
+- Use `pathlib.Path` instead of string paths for cross-platform compatibility
+- Avoid platform-specific shell commands (e.g., `stat -c%s` on Linux only)
+- Use Python built-ins for cross-platform operations (file size, path manipulation)
+- Test subprocess behavior on both macOS and Linux
+
+### Dependency Version Conflicts
+**Problem**: Security fixes may require newer versions than supported Python versions
+**Solutions**:
+- Research compatibility matrices before adding dependencies
+- Use conditional requirements when necessary
+- Validate all dependency versions against target Python versions (3.8-3.12)
+- Consider build vs runtime dependency differences
+
+### Error Handling & User Experience
+**Problem**: Cryptic error messages lead to poor user experience
+**Solutions**:
+- Provide platform-specific guidance ("Start Docker Desktop" vs "Check docker.sock")
+- Include actionable next steps in all error messages
+- Use appropriate exit codes for different error categories
+- Warn about resource constraints (memory, disk space) before failures
+
+### Testing & Validation
+**Problem**: Local testing doesn't match CI environment behavior
+**Solutions**:
+- Run exact CI linting commands locally before committing
+- Mock external dependencies comprehensively
+- Test platform-specific code paths explicitly
+- Validate error scenarios produce expected exit codes
+
+### Pre-commit Validation Checklist
+Based on CI implementation experience:
+- [ ] Run `ruff check src/swebench_runner tests` locally
+- [ ] Run `mypy src/swebench_runner` locally
+- [ ] Test on multiple platforms (macOS, Linux if available)
+- [ ] Verify all error paths produce appropriate exit codes
+- [ ] Test timeout scenarios without waiting for real timeouts
+- [ ] Validate cross-platform path and subprocess handling
 
 ## Notes
 

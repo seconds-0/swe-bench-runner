@@ -16,8 +16,11 @@ jobs:
     
     - name: Check commit format
       run: |
-        # Simple check for conventional commits
-        git log --format="%s" origin/main..HEAD | while read commit; do
+        # Simple check for conventional commits (excluding merge commits)
+        git log --format="%s" origin/main..HEAD --no-merges | while read commit; do
+          if [ -z "$commit" ]; then
+            continue
+          fi
           if ! echo "$commit" | grep -qE "^(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)(\(.+\))?: .+"; then
             echo "Error: Commit message doesn't follow conventional format: $commit"
             echo "Expected format: type(scope): description"

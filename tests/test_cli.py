@@ -4,7 +4,6 @@ import os
 import tempfile
 from pathlib import Path
 
-import pytest
 from click.testing import CliRunner
 
 from swebench_runner.cli import cli
@@ -17,7 +16,7 @@ class TestCLI:
         """Test --version flag shows correct version."""
         runner = CliRunner()
         result = runner.invoke(cli, ["--version"])
-        
+
         assert result.exit_code == 0
         assert "0.1.0" in result.output
 
@@ -25,7 +24,7 @@ class TestCLI:
         """Test --help flag shows usage information."""
         runner = CliRunner()
         result = runner.invoke(cli, ["--help"])
-        
+
         assert result.exit_code == 0
         assert "SWE-bench evaluation runner" in result.output
         assert "Commands:" in result.output
@@ -35,7 +34,7 @@ class TestCLI:
         """Test run command --help shows specific help."""
         runner = CliRunner()
         result = runner.invoke(cli, ["run", "--help"])
-        
+
         assert result.exit_code == 0
         assert "Run SWE-bench evaluation" in result.output
         assert "--patches" in result.output
@@ -45,7 +44,7 @@ class TestCLI:
         """Test run command fails when --patches is missing."""
         runner = CliRunner()
         result = runner.invoke(cli, ["run"])
-        
+
         assert result.exit_code != 0
         assert "Missing option" in result.output
         assert "--patches" in result.output
@@ -54,43 +53,43 @@ class TestCLI:
         """Test run command fails when patches file doesn't exist."""
         runner = CliRunner()
         result = runner.invoke(cli, ["run", "--patches", "nonexistent.jsonl"])
-        
+
         assert result.exit_code != 0
         assert "does not exist" in result.output.lower()
 
     def test_run_with_empty_file(self) -> None:
         """Test run command fails when patches file is empty."""
         runner = CliRunner()
-        
+
         # Use the empty fixture file
         fixtures_dir = Path(__file__).parent / "fixtures"
         empty_file = fixtures_dir / "empty.jsonl"
-        
+
         result = runner.invoke(cli, ["run", "--patches", str(empty_file)])
-        
+
         assert result.exit_code == 1
         assert "Error: Patches file is empty" in result.output
 
     def test_run_with_directory_instead_of_file(self) -> None:
         """Test run command fails when patches path is a directory."""
         runner = CliRunner()
-        
+
         with tempfile.TemporaryDirectory() as temp_dir:
             result = runner.invoke(cli, ["run", "--patches", temp_dir])
-            
+
             assert result.exit_code == 1
             assert "is not a file" in result.output
 
     def test_run_with_valid_file(self) -> None:
         """Test run command succeeds with valid patches file."""
         runner = CliRunner()
-        
+
         # Use the sample fixture file
         fixtures_dir = Path(__file__).parent / "fixtures"
         sample_file = fixtures_dir / "sample.jsonl"
-        
+
         result = runner.invoke(cli, ["run", "--patches", str(sample_file)])
-        
+
         assert result.exit_code == 0
         assert "Would run evaluation with" in result.output
         assert str(sample_file) in result.output
@@ -98,13 +97,13 @@ class TestCLI:
     def test_run_with_multiline_file(self) -> None:
         """Test run command works with multi-patch JSONL file."""
         runner = CliRunner()
-        
+
         # Use the multi-patch fixture file
         fixtures_dir = Path(__file__).parent / "fixtures"
         multi_file = fixtures_dir / "multi_patch.jsonl"
-        
+
         result = runner.invoke(cli, ["run", "--patches", str(multi_file)])
-        
+
         assert result.exit_code == 0
         assert "Would run evaluation with" in result.output
         assert str(multi_file) in result.output
@@ -112,30 +111,31 @@ class TestCLI:
     def test_run_with_relative_path(self) -> None:
         """Test run command works with relative path."""
         runner = CliRunner()
-        
+
         # Change to fixtures directory and use relative path
-        fixtures_dir = Path(__file__).parent / "fixtures"
-        
         with runner.isolated_filesystem():
             # Create a sample file in the isolated filesystem
-            sample_content = '{"instance_id": "test", "patch": "diff --git a/test.py b/test.py\\n+test"}'
+            sample_content = (
+                '{"instance_id": "test", '
+                '"patch": "diff --git a/test.py b/test.py\\n+test"}'
+            )
             with open("test.jsonl", "w") as f:
                 f.write(sample_content)
-            
+
             result = runner.invoke(cli, ["run", "--patches", "test.jsonl"])
-            
+
             assert result.exit_code == 0
             assert "Would run evaluation with" in result.output
 
     def test_run_with_absolute_path(self) -> None:
         """Test run command works with absolute path."""
         runner = CliRunner()
-        
+
         fixtures_dir = Path(__file__).parent / "fixtures"
         sample_file = fixtures_dir / "sample.jsonl"
-        
+
         result = runner.invoke(cli, ["run", "--patches", str(sample_file.absolute())])
-        
+
         assert result.exit_code == 0
         assert "Would run evaluation with" in result.output
 
@@ -150,9 +150,9 @@ class TestCLI:
         """Test that CLI entry point is correctly formatted."""
         # This is more of a validation test for the package structure
         from swebench_runner.cli import cli as cli_function
-        
+
         # Should be a Click command
-        assert hasattr(cli_function, "__call__")
+        assert callable(cli_function)
         assert hasattr(cli_function, "commands")
         assert "run" in cli_function.commands
 
@@ -163,14 +163,14 @@ class TestErrorHandling:
     def test_permission_denied_file(self) -> None:
         """Test behavior when file exists but is not readable."""
         runner = CliRunner()
-        
+
         with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp:
             tmp.write('{"instance_id": "test", "patch": "diff"}')
             tmp.flush()
-            
+
             # Remove read permissions
             os.chmod(tmp.name, 0o000)
-            
+
             try:
                 result = runner.invoke(cli, ["run", "--patches", tmp.name])
                 # Click should handle the permission error gracefully
@@ -183,15 +183,18 @@ class TestErrorHandling:
     def test_special_characters_in_filename(self) -> None:
         """Test run command with special characters in filename."""
         runner = CliRunner()
-        
+
         with runner.isolated_filesystem():
             # Create a file with special characters
             special_filename = "test-file_with.special@chars.jsonl"
-            sample_content = '{"instance_id": "test", "patch": "diff --git a/test.py b/test.py\\n+test"}'
+            sample_content = (
+                '{"instance_id": "test", '
+                '"patch": "diff --git a/test.py b/test.py\\n+test"}'
+            )
             with open(special_filename, "w") as f:
                 f.write(sample_content)
-            
+
             result = runner.invoke(cli, ["run", "--patches", special_filename])
-            
+
             assert result.exit_code == 0
             assert "Would run evaluation with" in result.output

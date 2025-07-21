@@ -12,6 +12,8 @@ from pathlib import Path
 import docker
 from docker.errors import APIError
 
+from .bootstrap import show_memory_warning, show_resource_warning
+from .cache import get_cache_dir, get_logs_dir
 from .models import EvaluationResult, Patch
 
 
@@ -19,38 +21,89 @@ def check_docker_running() -> None:
     """Check if Docker daemon is accessible."""
     try:
         client = docker.from_env()
-        client.ping()
-    except APIError:
-        if platform.system() == "Darwin":
-            print("⛔ Docker Desktop not running. Start it from Applications "
-                  "and wait for whale icon.")
+        client.ping()  # type: ignore[no-untyped-call]
+    except APIError as e:
+        error_msg = str(e).lower()
+        if any(term in error_msg for term in [
+            "network", "connection", "timeout", "unreachable",
+            "resolve", "dns", "timed out", "connection refused"
+        ]):
+            print("❌ Network error connecting to Docker daemon")
+            print("   Check internet connection and Docker network settings")
+            sys.exit(3)  # PRD specified exit code for network failure
         else:
-            print("⛔ Docker daemon unreachable at /var/run/docker.sock")
-        print("ℹ️  Start Docker and try again.")
-        sys.exit(2)  # PRD specified exit code for Docker missing
+            if platform.system() == "Darwin":
+                print("⛔ Docker Desktop not running. Start it from Applications "
+                      "and wait for whale icon.")
+            else:
+                print("⛔ Docker daemon unreachable at /var/run/docker.sock")
+            print("ℹ️  Start Docker and try again.")
+            sys.exit(2)  # PRD specified exit code for Docker missing
+    except Exception as e:
+        error_msg = str(e).lower()
+        if any(term in error_msg for term in [
+            "network", "connection", "timeout", "unreachable",
+            "resolve", "dns"
+        ]):
+            print(f"❌ Network error connecting to Docker: {e}")
+            print("   Check internet connection and Docker network settings")
+            sys.exit(3)  # PRD specified exit code for network failure
+        else:
+            print(f"❌ Error connecting to Docker: {e}")
+            sys.exit(2)  # PRD specified exit code for Docker missing
 
 
-def load_first_patch(patch_file: str) -> Patch:
-    """Load the first patch from a JSONL file."""
+def load_first_patch(patch_source: str, max_size_mb: int = 5) -> Patch:
+    """Load the first patch from a JSONL file or patch directory."""
     try:
-        patch_path = Path(patch_file)
-        with patch_path.open('r', encoding='utf-8') as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    data = json.loads(line)
-                    patch = Patch(
-                        instance_id=data['instance_id'],
-                        patch=data['patch']
-                    )
-                    patch.validate()
-                    return patch
-        raise ValueError("No patches found in file")
+        patch_path = Path(patch_source)
+
+        if patch_path.is_file():
+            # JSONL file
+            with patch_path.open('r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        data = json.loads(line)
+                        patch = Patch(
+                            instance_id=data['instance_id'],
+                            patch=data['patch']
+                        )
+                        patch.validate(max_size_mb=max_size_mb)
+                        return patch
+            raise ValueError("No patches found in file")
+
+        elif patch_path.is_dir():
+            # Patch directory
+            patch_files = list(patch_path.glob("*.patch"))
+            if not patch_files:
+                raise ValueError("No .patch files found in directory")
+
+            # Load the first patch file
+            first_patch_file = sorted(patch_files)[0]
+            instance_id = first_patch_file.stem  # Remove .patch extension
+
+            with first_patch_file.open('r', encoding='utf-8') as f:
+                patch_content = f.read()
+
+            patch = Patch(
+                instance_id=instance_id,
+                patch=patch_content
+            )
+            patch.validate(max_size_mb=max_size_mb)
+            return patch
+
+        else:
+            raise ValueError(f"Path {patch_source} is neither a file nor a directory")
+
     except (json.JSONDecodeError, KeyError, ValueError) as e:
-        print(f"Error: Invalid patch file format: {e}")
+        print(f"Error: Invalid patch format: {e}")
         sys.exit(1)
     except FileNotFoundError:
-        print(f"Error: Patch file not found: {patch_file}")
+        print(f"Error: Patch source not found: {patch_source}")
+        sys.exit(1)
+    except UnicodeDecodeError:
+        print("Error: Patch file contains invalid UTF-8 encoding")
         sys.exit(1)
 
 
@@ -68,8 +121,7 @@ def check_resources() -> None:
                 print("   Increase system memory or close other applications")
                 sys.exit(4)  # PRD specified exit code for resource issues
             elif mem_gb < 16:
-                print(f"⚠️  Warning: {mem_gb:.1f}GB RAM available, 16GB+ recommended")
-                print("   Large evaluations may fail or run slowly")
+                show_memory_warning(mem_gb)
         except ImportError:
             # psutil not available, skip memory check
             pass
@@ -84,9 +136,7 @@ def check_resources() -> None:
                 print("   Free up disk space and try again")
                 sys.exit(4)  # PRD specified exit code for resource issues
             elif free_gb < 120:
-                print(f"⚠️  Warning: {free_gb:.1f}GB free disk space, "
-                      "120GB+ recommended")
-                print("   SWE-bench images require substantial disk space")
+                show_resource_warning(free_gb)
         except Exception:
             # Can't check disk space, skip
             pass
@@ -121,18 +171,37 @@ def install_swebench() -> None:
             timeout=300  # 5 minutes timeout
         )
         if result.returncode != 0:
-            print(f"❌ Failed to install SWE-bench: {result.stderr}")
-            print("   Try: pip install swebench")
-            sys.exit(1)
+            stderr = result.stderr.lower()
+            # Check for network-related errors
+            if any(term in stderr for term in [
+                "network", "connection", "timeout", "unreachable",
+                "resolve", "dns", "timed out", "connection refused"
+            ]):
+                print("❌ Network error during SWE-bench installation")
+                print("   Check internet connection and try again")
+                sys.exit(3)  # PRD specified exit code for network failure
+            else:
+                print(f"❌ Failed to install SWE-bench: {result.stderr}")
+                print("   Try: pip install swebench")
+                sys.exit(1)
         print("✅ SWE-bench harness installed successfully")
     except subprocess.TimeoutExpired:
         print("❌ SWE-bench installation timed out")
-        print("   Try: pip install swebench")
-        sys.exit(1)
+        print("   Check internet connection and try again")
+        sys.exit(3)  # PRD specified exit code for network failure
     except Exception as e:
-        print(f"❌ Error installing SWE-bench: {e}")
-        print("   Try: pip install swebench")
-        sys.exit(1)
+        error_msg = str(e).lower()
+        if any(term in error_msg for term in [
+            "network", "connection", "timeout", "unreachable",
+            "resolve", "dns"
+        ]):
+            print(f"❌ Network error installing SWE-bench: {e}")
+            print("   Check internet connection and try again")
+            sys.exit(3)  # PRD specified exit code for network failure
+        else:
+            print(f"❌ Error installing SWE-bench: {e}")
+            print("   Try: pip install swebench")
+            sys.exit(1)
 
 
 def create_predictions_file(patch: Patch, temp_dir: Path) -> Path:
@@ -256,14 +325,22 @@ def parse_harness_results(temp_dir: Path, patch: Patch) -> EvaluationResult:
         )
 
 
-def run_evaluation(patch_file: str) -> EvaluationResult:
-    """Run a single SWE-bench evaluation."""
+def run_evaluation(
+    patch_source: str, no_input: bool = False, max_patch_size_mb: int = 5
+) -> EvaluationResult:
+    """Run a single SWE-bench evaluation.
+
+    Args:
+        patch_source: Path to JSONL file or directory containing patches
+        no_input: If True, fail on prompts instead of waiting for user input
+        max_patch_size_mb: Maximum allowed patch size in MB
+    """
     # Pre-flight checks
     check_docker_running()
     check_resources()
 
     # Load patch
-    patch = load_first_patch(patch_file)
+    patch = load_first_patch(patch_source, max_size_mb=max_patch_size_mb)
 
     # Check patch size (environment variable limit)
     patch_bytes = patch.patch.encode('utf-8')
@@ -279,6 +356,10 @@ def run_evaluation(patch_file: str) -> EvaluationResult:
         install_swebench()
 
     # Create temporary directory for evaluation
+    # Also ensure cache directory exists
+    get_cache_dir()
+    get_logs_dir()
+
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
 
@@ -291,12 +372,25 @@ def run_evaluation(patch_file: str) -> EvaluationResult:
 
             # Check for subprocess errors
             if result.returncode != 0:
-                return EvaluationResult(
-                    instance_id=patch.instance_id,
-                    passed=False,
-                    error=f"Harness failed with code {result.returncode}: "
-                          f"{result.stderr}"
-                )
+                stderr = result.stderr.lower()
+                # Check for network-related errors
+                if any(term in stderr for term in [
+                    "network", "connection", "timeout", "unreachable",
+                    "resolve", "dns", "timed out", "connection refused",
+                    "failed to pull", "registry", "pull access denied"
+                ]):
+                    return EvaluationResult(
+                        instance_id=patch.instance_id,
+                        passed=False,
+                        error=f"Network error during harness execution: {result.stderr}"
+                    )
+                else:
+                    return EvaluationResult(
+                        instance_id=patch.instance_id,
+                        passed=False,
+                        error=f"Harness failed with code {result.returncode}: "
+                              f"{result.stderr}"
+                    )
 
             # Parse results
             return parse_harness_results(temp_path, patch)

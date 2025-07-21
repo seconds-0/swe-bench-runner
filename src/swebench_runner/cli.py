@@ -9,7 +9,7 @@ from typing import NoReturn
 
 import click
 
-from . import __version__
+from . import __version__, exit_codes
 from .bootstrap import (
     check_and_prompt_first_run,
     show_docker_setup_help,
@@ -63,9 +63,6 @@ def run(
     max_patch_size: int,
 ) -> NoReturn:
     """Run SWE-bench evaluation."""
-    # Check for first-time setup
-    is_first_run = check_and_prompt_first_run(no_input=no_input)
-
     # Auto-detect patches file if none provided
     if patches is None and patches_dir is None:
         if not no_input:
@@ -77,21 +74,21 @@ def run(
             click.echo(
                 "Error: Must provide either --patches or --patches-dir", err=True
             )
-            sys.exit(1)
+            sys.exit(exit_codes.GENERAL_ERROR)
 
     if patches is not None and patches_dir is not None:
         click.echo("Error: Cannot provide both --patches and --patches-dir", err=True)
-        sys.exit(1)
+        sys.exit(exit_codes.GENERAL_ERROR)
 
     # Validate patches file if provided
     if patches is not None:
         if patches.stat().st_size == 0:
             click.echo("Error: Patches file is empty", err=True)
-            sys.exit(1)
+            sys.exit(exit_codes.GENERAL_ERROR)
 
         if not patches.is_file():
             click.echo(f"Error: {patches} is not a file", err=True)
-            sys.exit(1)
+            sys.exit(exit_codes.GENERAL_ERROR)
 
         patch_source = str(patches)
     else:
@@ -100,9 +97,12 @@ def run(
         patch_files = list(patches_dir.glob("*.patch"))
         if not patch_files:
             click.echo(f"Error: No .patch files found in {patches_dir}", err=True)
-            sys.exit(1)
+            sys.exit(exit_codes.GENERAL_ERROR)
 
         patch_source = str(patches_dir)
+
+    # Check for first-time setup after argument validation
+    is_first_run = check_and_prompt_first_run(no_input=no_input)
 
     # Run the evaluation
     try:
@@ -127,17 +127,32 @@ def run(
                 if result.error:
                     click.echo(f"   Error: {result.error}")
 
-        # Check for network errors in result
-        if not result.passed and result.error:
-            error_msg = result.error.lower()
-            if any(term in error_msg for term in [
-                "network error", "connection", "timeout", "unreachable",
-                "resolve", "dns", "timed out", "connection refused",
-                "failed to pull", "registry", "pull access denied"
-            ]):
-                sys.exit(3)  # PRD specified exit code for network failure
+        # Map errors to appropriate exit codes
+        if result.error:
+            error_lower = result.error.lower()
 
-        sys.exit(0 if result.passed else 1)
+            # Check for specific error types and map to exit codes
+            # Check network errors first (includes "failed to pull")
+            if any(term in error_lower for term in [
+                "network", "connection", "unreachable", "registry", "pull",
+                "resolve", "dns", "connection refused", "failed to pull",
+                "pull access denied"
+            ]):
+                sys.exit(exit_codes.NETWORK_ERROR)
+            elif any(term in error_lower for term in ["timeout", "timed out"]):
+                sys.exit(exit_codes.GENERAL_ERROR)  # Timeouts are general errors
+            elif "docker" in error_lower and any(term in error_lower for term in [
+                "not found", "not running", "daemon"
+            ]):
+                sys.exit(exit_codes.DOCKER_NOT_FOUND)
+            elif any(term in error_lower for term in [
+                "disk", "space", "memory", "ram"
+            ]):
+                sys.exit(exit_codes.RESOURCE_ERROR)
+            else:
+                sys.exit(exit_codes.GENERAL_ERROR)
+        else:
+            sys.exit(exit_codes.SUCCESS if result.passed else exit_codes.GENERAL_ERROR)
     except Exception as e:
         if json_output:
             error_output = {
@@ -147,7 +162,7 @@ def run(
             click.echo(json.dumps(error_output))
         else:
             click.echo(f"Error: {e}", err=True)
-        sys.exit(1)
+        sys.exit(exit_codes.GENERAL_ERROR)
 
 
 @cli.command()

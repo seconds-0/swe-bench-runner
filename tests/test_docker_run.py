@@ -154,8 +154,11 @@ class TestCheckResources:
             # If it exits, it should be due to insufficient resources
             pytest.fail("check_resources should not exit with sufficient resources")
 
-    def test_insufficient_disk(self):
+    def test_insufficient_disk(self, monkeypatch):
         """Test with insufficient disk space."""
+        # Override CI mode for this test
+        monkeypatch.delenv("CI", raising=False)
+
         with patch("swebench_runner.docker_run.shutil.disk_usage") as mock_disk_usage:
             mock_disk_usage.return_value.free = 10 * 1024**3  # 10GB
 
@@ -456,9 +459,9 @@ class TestRunEvaluation:
     def test_run_evaluation_large_patch(self, mock_check_resources,
                                        mock_check_docker, tmp_path):
         """Test evaluation with large patch."""
-        # Create test patch file with large patch
+        # Create test patch file with patch larger than default 5MB limit
         patch_file = tmp_path / "large.jsonl"
-        large_patch = "diff --git a/file.py b/file.py\n+" + "x" * (500 * 1024)  # 500KB+
+        large_patch = "diff --git a/file.py b/file.py\n+" + "x" * (6 * 1024 * 1024)  # 6MB
         patch_content = {
             "instance_id": "test__repo-123",
             "patch": large_patch
@@ -469,7 +472,7 @@ class TestRunEvaluation:
 
         assert result.instance_id == "test__repo-123"
         assert result.passed is False
-        assert "too large" in result.error
+        assert "exceeds" in result.error and "limit" in result.error
 
     @patch("swebench_runner.docker_run.check_docker_running")
     @patch("swebench_runner.docker_run.check_resources")

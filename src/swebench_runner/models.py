@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Optional
 
 
 @dataclass
@@ -26,10 +27,12 @@ class Patch:
         # Check patch size (configurable limit)
         patch_bytes = self.patch.encode('utf-8')
         max_size = max_size_mb * 1024 * 1024  # Convert MB to bytes
+
+        # Check against the general limit only
         if len(patch_bytes) > max_size:
             size_mb = len(patch_bytes) / (1024 * 1024)
             raise ValueError(
-                f"patch size {size_mb:.1f}MB exceeds {max_size_mb}MB limit"
+                f"PATCH_TOO_LARGE: {size_mb:.1f}MB exceeds {max_size_mb}MB limit"
             )
 
         # Check for binary file indicators
@@ -67,7 +70,7 @@ class EvaluationResult:
 
     instance_id: str
     passed: bool
-    error: str | None = None
+    error: Optional[str] = None
 
     def __post_init__(self) -> None:
         """Validate result data."""

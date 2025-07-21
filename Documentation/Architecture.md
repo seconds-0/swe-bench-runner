@@ -14,7 +14,7 @@ SWE-Bench Runner is a CLI tool that simplifies running SWE-bench benchmarks. Thi
 ## 2. Technology Stack
 
 ### 2.1 Core Implementation
-- **Language**: Python 3.8+ (matches SWE-bench ecosystem)
+- **Language**: Python 3.10+ (matches SWE-bench ecosystem requirements)
 - **CLI Framework**: Click 8.x (battle-tested, great UX primitives)
 - **Container Runtime**: Docker SDK for Python (official, stable)
 - **HTTP Client**: httpx (async support, retry logic built-in)

@@ -8,6 +8,7 @@ from pathlib import Path
 
 import click
 
+from . import exit_codes
 from .cache import auto_detect_patches_file, is_first_run, mark_first_run_complete
 
 
@@ -102,7 +103,7 @@ def check_and_prompt_first_run(no_input: bool = False) -> bool:
         return True
     else:
         click.echo("Setup cancelled. Run again when ready.")
-        sys.exit(0)
+        sys.exit(exit_codes.SUCCESS)
 
 
 def suggest_patches_file() -> Path | None:

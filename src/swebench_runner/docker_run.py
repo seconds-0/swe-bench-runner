@@ -1,6 +1,7 @@
 """Docker execution engine for SWE-bench evaluations."""
 
 import json
+import os
 import platform
 import shutil
 import subprocess
@@ -12,6 +13,7 @@ from pathlib import Path
 import docker
 from docker.errors import APIError
 
+from . import exit_codes
 from .bootstrap import show_memory_warning, show_resource_warning
 from .cache import get_cache_dir, get_logs_dir
 from .models import EvaluationResult, Patch
@@ -24,13 +26,23 @@ def check_docker_running() -> None:
         client.ping()  # type: ignore[no-untyped-call]
     except APIError as e:
         error_msg = str(e).lower()
-        if any(term in error_msg for term in [
+        # Connection refused to Docker daemon means Docker is not running
+        if ("connection refused" in error_msg or
+            "cannot connect to the docker daemon" in error_msg):
+            if platform.system() == "Darwin":
+                print("⛔ Docker Desktop not running. Start it from Applications "
+                      "and wait for whale icon.")
+            else:
+                print("⛔ Docker daemon unreachable at /var/run/docker.sock")
+            print("ℹ️  Start Docker and try again.")
+            sys.exit(exit_codes.DOCKER_NOT_FOUND)
+        elif any(term in error_msg for term in [
             "network", "connection", "timeout", "unreachable",
-            "resolve", "dns", "timed out", "connection refused"
+            "resolve", "dns", "timed out"
         ]):
             print("❌ Network error connecting to Docker daemon")
             print("   Check internet connection and Docker network settings")
-            sys.exit(3)  # PRD specified exit code for network failure
+            sys.exit(exit_codes.NETWORK_ERROR)
         else:
             if platform.system() == "Darwin":
                 print("⛔ Docker Desktop not running. Start it from Applications "
@@ -38,19 +50,29 @@ def check_docker_running() -> None:
             else:
                 print("⛔ Docker daemon unreachable at /var/run/docker.sock")
             print("ℹ️  Start Docker and try again.")
-            sys.exit(2)  # PRD specified exit code for Docker missing
+            sys.exit(exit_codes.DOCKER_NOT_FOUND)
     except Exception as e:
         error_msg = str(e).lower()
-        if any(term in error_msg for term in [
+        # Connection refused to Docker daemon means Docker is not running
+        if ("connection refused" in error_msg or
+            "cannot connect to the docker daemon" in error_msg):
+            if platform.system() == "Darwin":
+                print("⛔ Docker Desktop not running. Start it from Applications "
+                      "and wait for whale icon.")
+            else:
+                print("⛔ Docker daemon unreachable at /var/run/docker.sock")
+            print("ℹ️  Start Docker and try again.")
+            sys.exit(exit_codes.DOCKER_NOT_FOUND)
+        elif any(term in error_msg for term in [
             "network", "connection", "timeout", "unreachable",
             "resolve", "dns"
         ]):
             print(f"❌ Network error connecting to Docker: {e}")
             print("   Check internet connection and Docker network settings")
-            sys.exit(3)  # PRD specified exit code for network failure
+            sys.exit(exit_codes.NETWORK_ERROR)
         else:
             print(f"❌ Error connecting to Docker: {e}")
-            sys.exit(2)  # PRD specified exit code for Docker missing
+            sys.exit(exit_codes.DOCKER_NOT_FOUND)
 
 
 def load_first_patch(patch_source: str, max_size_mb: int = 5) -> Patch:
@@ -97,52 +119,107 @@ def load_first_patch(patch_source: str, max_size_mb: int = 5) -> Patch:
             raise ValueError(f"Path {patch_source} is neither a file nor a directory")
 
     except (json.JSONDecodeError, KeyError, ValueError) as e:
-        print(f"Error: Invalid patch format: {e}")
-        sys.exit(1)
+        error_msg = str(e)
+        # Check for our specific error codes
+        if error_msg.startswith("PATCH_TOO_LARGE:"):
+            # Extract the actual message
+            size_info = error_msg.replace("PATCH_TOO_LARGE: ", "")
+            print("❌ Patch Too Large")
+            print()
+            print(f"Your patch {size_info}.")
+            print()
+            print("Please reduce your patch size and try again.")
+        else:
+            print(f"Error: Invalid patch format: {e}")
+        sys.exit(exit_codes.GENERAL_ERROR)
     except FileNotFoundError:
         print(f"Error: Patch source not found: {patch_source}")
-        sys.exit(1)
+        sys.exit(exit_codes.GENERAL_ERROR)
     except UnicodeDecodeError:
         print("Error: Patch file contains invalid UTF-8 encoding")
-        sys.exit(1)
+        sys.exit(exit_codes.GENERAL_ERROR)
 
 
 def check_resources() -> None:
-    """Check if system has sufficient resources."""
+    """Check system resources with full CI configurability.
+
+    Environment Variables:
+    - CI: Set to "true" to enable CI mode
+    - SWEBENCH_SKIP_RESOURCE_CHECK: Set to "true" to skip all checks
+    - SWEBENCH_CI_MIN_MEMORY_GB: Override minimum memory for CI (default: 4)
+    - SWEBENCH_CI_MIN_DISK_GB: Override minimum disk for CI (default: 20)
+    - SWEBENCH_MIN_MEMORY_GB: Override minimum memory for normal mode (default: 8)
+    - SWEBENCH_MIN_DISK_GB: Override minimum disk for normal mode (default: 50)
+    """
+    # Environment checks
+    is_ci = os.environ.get("CI") == "true"
+    skip_all = os.environ.get("SWEBENCH_SKIP_RESOURCE_CHECK") == "true"
+
+    if skip_all:
+        return
+
+    # Fully configurable requirements
+    if is_ci:
+        min_memory_gb = int(os.environ.get("SWEBENCH_CI_MIN_MEMORY_GB", "4"))
+        min_disk_gb = int(os.environ.get("SWEBENCH_CI_MIN_DISK_GB", "20"))
+        memory_recommended = int(os.environ.get("SWEBENCH_CI_REC_MEMORY_GB", "8"))
+        disk_recommended = int(os.environ.get("SWEBENCH_CI_REC_DISK_GB", "50"))
+    else:
+        min_memory_gb = int(os.environ.get("SWEBENCH_MIN_MEMORY_GB", "8"))
+        min_disk_gb = int(os.environ.get("SWEBENCH_MIN_DISK_GB", "50"))
+        memory_recommended = int(os.environ.get("SWEBENCH_REC_MEMORY_GB", "16"))
+        disk_recommended = int(os.environ.get("SWEBENCH_REC_DISK_GB", "120"))
+
+    # Check memory
     try:
-        # Check memory (8GB minimum, 16GB recommended)
-        try:
-            import psutil
-            memory_info = psutil.virtual_memory()
-            mem_gb = memory_info.available / (1024**3)
-            if mem_gb < 8:
-                print(f"❌ Critical: Only {mem_gb:.1f}GB RAM available, "
-                      "minimum 8GB required")
-                print("   Increase system memory or close other applications")
-                sys.exit(4)  # PRD specified exit code for resource issues
-            elif mem_gb < 16:
+        import psutil
+        mem_gb = psutil.virtual_memory().available / (1024**3)
+
+        if mem_gb < min_memory_gb:
+            if is_ci:
+                print(f"⚠️  CI Warning: Only {mem_gb:.1f}GB RAM available")
+                print(f"   Minimum: {min_memory_gb}GB "
+                      f"(configurable via SWEBENCH_CI_MIN_MEMORY_GB)")
+                print(f"   Recommended: {memory_recommended}GB")
+            else:
+                print(f"❌ Critical: Only {mem_gb:.1f}GB RAM available")
+                print(f"   Minimum {min_memory_gb}GB required")
+                sys.exit(exit_codes.RESOURCE_ERROR)
+        elif mem_gb < memory_recommended:
+            # Show warning for non-critical low memory
+            if is_ci:
+                print(f"⚠️  CI Memory: {mem_gb:.1f}GB available, "
+                      f"{memory_recommended}GB recommended")
+            else:
                 show_memory_warning(mem_gb)
-        except ImportError:
-            # psutil not available, skip memory check
-            pass
+    except ImportError:
+        pass  # Skip if psutil not available
 
-        # Check disk space (50GB minimum for lite)
-        try:
-            disk_usage = shutil.disk_usage(".")
-            free_gb = disk_usage.free / (1024**3)
-            if free_gb < 50:
-                print(f"❌ Critical: Only {free_gb:.1f}GB free disk space, "
-                      "minimum 50GB required")
-                print("   Free up disk space and try again")
-                sys.exit(4)  # PRD specified exit code for resource issues
-            elif free_gb < 120:
+    # Check disk space
+    try:
+        free_gb = shutil.disk_usage(".").free / (1024**3)
+
+        if free_gb < min_disk_gb:
+            if is_ci:
+                print(f"⚠️  CI Warning: Only {free_gb:.1f}GB disk space available")
+                print(f"   Minimum: {min_disk_gb}GB "
+                      f"(configurable via SWEBENCH_CI_MIN_DISK_GB)")
+                print("   Some evaluations may fail due to insufficient space")
+            else:
+                print(f"❌ Critical: Only {free_gb:.1f}GB free disk space")
+                print(f"   Minimum {min_disk_gb}GB required")
+                print("   Run: swebench clean --all")
+                sys.exit(exit_codes.RESOURCE_ERROR)
+        elif free_gb < disk_recommended:
+            # Show warning for non-critical low disk space
+            if is_ci:
+                print(f"⚠️  CI Disk: {free_gb:.1f}GB available, "
+                      f"{disk_recommended}GB recommended")
+            else:
                 show_resource_warning(free_gb)
-        except Exception:
-            # Can't check disk space, skip
-            pass
-
     except Exception:
-        # Non-critical, just skip if we can't check
+        # Skip resource checks on error - not critical for operation
+        # This allows running in restricted environments
         pass
 
 
@@ -164,6 +241,7 @@ def install_swebench() -> None:
     """Install SWE-bench harness package."""
     print("Installing SWE-bench harness...")
     try:
+        # Safe subprocess call - using sys.executable and pip
         result = subprocess.run(
             [sys.executable, "-m", "pip", "install", "swebench"],
             capture_output=True,
@@ -179,16 +257,16 @@ def install_swebench() -> None:
             ]):
                 print("❌ Network error during SWE-bench installation")
                 print("   Check internet connection and try again")
-                sys.exit(3)  # PRD specified exit code for network failure
+                sys.exit(exit_codes.NETWORK_ERROR)
             else:
                 print(f"❌ Failed to install SWE-bench: {result.stderr}")
                 print("   Try: pip install swebench")
-                sys.exit(1)
+                sys.exit(exit_codes.GENERAL_ERROR)
         print("✅ SWE-bench harness installed successfully")
     except subprocess.TimeoutExpired:
         print("❌ SWE-bench installation timed out")
         print("   Check internet connection and try again")
-        sys.exit(3)  # PRD specified exit code for network failure
+        sys.exit(exit_codes.NETWORK_ERROR)
     except Exception as e:
         error_msg = str(e).lower()
         if any(term in error_msg for term in [
@@ -197,11 +275,11 @@ def install_swebench() -> None:
         ]):
             print(f"❌ Network error installing SWE-bench: {e}")
             print("   Check internet connection and try again")
-            sys.exit(3)  # PRD specified exit code for network failure
+            sys.exit(exit_codes.NETWORK_ERROR)
         else:
             print(f"❌ Error installing SWE-bench: {e}")
             print("   Try: pip install swebench")
-            sys.exit(1)
+            sys.exit(exit_codes.GENERAL_ERROR)
 
 
 def create_predictions_file(patch: Patch, temp_dir: Path) -> Path:
@@ -339,17 +417,8 @@ def run_evaluation(
     check_docker_running()
     check_resources()
 
-    # Load patch
+    # Load patch (includes size validation)
     patch = load_first_patch(patch_source, max_size_mb=max_patch_size_mb)
-
-    # Check patch size (environment variable limit)
-    patch_bytes = patch.patch.encode('utf-8')
-    if len(patch_bytes) > 500 * 1024:  # 500KB limit
-        return EvaluationResult(
-            instance_id=patch.instance_id,
-            passed=False,
-            error=f"Patch too large: {len(patch_bytes) / 1024:.1f}KB (max 500KB)"
-        )
 
     # Ensure SWE-bench is installed
     if not check_swebench_installed():

@@ -127,6 +127,35 @@ Binary content here..."""
 
         assert "binary files which are not allowed" in str(exc_info.value)
 
+    def test_patch_validation_binary_extension(self):
+        """Test patch validation with binary file extensions."""
+        # Patch with binary file extension in header
+        binary_ext_patch = """diff --git a/image.png b/image.png
+new file mode 100644
+index 0000000..1234567
+--- /dev/null
++++ b/image.png
+@@ -0,0 +1 @@
++fake content"""
+        
+        patch = Patch(instance_id="test", patch=binary_ext_patch)
+        
+        with pytest.raises(ValueError, match="binary files which are not allowed"):
+            patch.validate()
+    
+    def test_patch_validation_git_binary_patch(self):
+        """Test patch validation with GIT binary patch indicator."""
+        # Patch with GIT binary patch
+        git_binary_patch = """diff --git a/file.bin b/file.bin
+GIT binary patch
+literal 123
+zcmV-10F#sdP)h>@6aWYa2mtg@fY5n*0000000000"""
+        
+        patch = Patch(instance_id="test", patch=git_binary_patch)
+        
+        with pytest.raises(ValueError, match="binary files which are not allowed"):
+            patch.validate()
+
 
 class TestEvaluationResult:
     """Test EvaluationResult model behavior."""

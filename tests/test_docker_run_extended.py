@@ -126,7 +126,7 @@ class TestResourceChecking:
         # Create a mock psutil module
         mock_psutil = Mock()
         mock_psutil.virtual_memory.return_value = Mock(available=1.5 * 1024**3)  # 1.5GB
-        
+
         # Mock the import statement
         with patch.dict('sys.modules', {'psutil': mock_psutil}):
             # Should only warn in CI mode
@@ -147,7 +147,7 @@ class TestResourceChecking:
     def test_psutil_not_available(self, mock_disk):
         """Test when psutil is not available."""
         mock_disk.return_value = Mock(free=100 * 1024**3)
-        
+
         # Mock the import of psutil to raise ImportError
         with patch.dict('sys.modules', {'psutil': None}):
             # Should not raise even without psutil

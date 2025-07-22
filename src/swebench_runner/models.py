@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Optional
 
@@ -19,6 +20,12 @@ class Patch:
             raise ValueError("instance_id cannot be empty")
         if not self.patch:
             raise ValueError("patch cannot be empty")
+
+        # Validate instance_id format for security (alphanumeric, dash, underscore, dot)
+        if not re.match(r'^[a-zA-Z0-9_\-\.]+$', self.instance_id):
+            raise ValueError(f"Invalid instance_id format: {self.instance_id}. "
+                           "Only alphanumeric characters, dashes, underscores, "
+                           "and dots are allowed.")
 
         # Check for basic patch format
         if not self.patch.strip().startswith(("diff --git", "--- ", "+++ ")):

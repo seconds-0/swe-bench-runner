@@ -91,7 +91,18 @@ def load_first_patch(patch_source: str, max_size_mb: int = 5) -> Patch:
                             instance_id=data['instance_id'],
                             patch=data['patch']
                         )
+                        # Validate using the configurable limit
                         patch.validate(max_size_mb=max_size_mb)
+
+                        # Add informational warning for Docker environment
+                        # variable limits (~500KB for environment variables)
+                        patch_size_kb = len(patch.patch.encode('utf-8')) / 1024
+                        if patch_size_kb > 500:
+                            print(f"ℹ️  Note: {patch_size_kb:.0f}KB patch may exceed "
+                                  "Docker environment limits")
+                            print("   Consider using smaller patches or "
+                                  "file-based patch application")
+
                         return patch
             raise ValueError("No patches found in file")
 
@@ -112,7 +123,17 @@ def load_first_patch(patch_source: str, max_size_mb: int = 5) -> Patch:
                 instance_id=instance_id,
                 patch=patch_content
             )
+            # Validate using the configurable limit
             patch.validate(max_size_mb=max_size_mb)
+
+            # Add informational warning for Docker environment variable limits
+            patch_size_kb = len(patch.patch.encode('utf-8')) / 1024
+            if patch_size_kb > 500:
+                print(f"ℹ️  Note: {patch_size_kb:.0f}KB patch may exceed "
+                      "Docker environment limits")
+                print("   Consider using smaller patches or "
+                      "file-based patch application")
+
             return patch
 
         else:

@@ -18,6 +18,7 @@ from .bootstrap import (
 )
 from .cache import clean_cache, get_cache_usage
 from .docker_run import run_evaluation
+from .error_utils import classify_error
 
 
 @click.group()
@@ -127,30 +128,10 @@ def run(
                 if result.error:
                     click.echo(f"   Error: {result.error}")
 
-        # Map errors to appropriate exit codes
+        # Map errors to appropriate exit codes using shared utility
         if result.error:
-            error_lower = result.error.lower()
-
-            # Check for specific error types and map to exit codes
-            # Check network errors first (includes "failed to pull")
-            if any(term in error_lower for term in [
-                "network", "connection", "unreachable", "registry", "pull",
-                "resolve", "dns", "connection refused", "failed to pull",
-                "pull access denied"
-            ]):
-                sys.exit(exit_codes.NETWORK_ERROR)
-            elif any(term in error_lower for term in ["timeout", "timed out"]):
-                sys.exit(exit_codes.GENERAL_ERROR)  # Timeouts are general errors
-            elif "docker" in error_lower and any(term in error_lower for term in [
-                "not found", "not running", "daemon"
-            ]):
-                sys.exit(exit_codes.DOCKER_NOT_FOUND)
-            elif any(term in error_lower for term in [
-                "disk", "space", "memory", "ram"
-            ]):
-                sys.exit(exit_codes.RESOURCE_ERROR)
-            else:
-                sys.exit(exit_codes.GENERAL_ERROR)
+            exit_code = classify_error(result.error)
+            sys.exit(exit_code)
         else:
             sys.exit(exit_codes.SUCCESS if result.passed else exit_codes.GENERAL_ERROR)
     except Exception as e:

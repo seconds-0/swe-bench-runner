@@ -327,6 +327,65 @@ When implementing features, always consult:
 - **Rule extraction**: Extract general rules for future implementations
 - **Knowledge sharing**: Document platform-specific discoveries for future reference
 
+### 11. Test Environment Parity (MANDATORY)
+**Rule**: Always test in an environment that matches CI
+- **No Docker testing**: Test without Docker to match CI environment
+- **Mock at call site**: Mock functions where they're called, not where they're defined
+- **Resource constraints**: Test with CI-level resource limits
+- **Clean environment**: Test with minimal dependencies installed
+- **Platform testing**: Test on both macOS and Linux when possible
+
+### 12. Pre-Push Validation (MANDATORY)
+**Rule**: Run these checks before every push
+1. `./scripts/check.sh` - Run all CI checks locally
+2. `ruff check --fix` - Auto-fix any linting issues
+3. `mypy src/` - Ensure type checking passes
+4. Test without Docker running
+5. Verify coverage is above threshold
+
+### 13. Error Handling Standards (MANDATORY)
+**Rule**: Use consistent error handling patterns
+- **Use error_utils**: Always use `classify_error()` for exit codes
+- **Clear messages**: Every error must explain how to fix it
+- **Platform-specific**: Provide platform-specific fix instructions
+- **Exit codes**: Use only the defined exit codes from exit_codes.py
+- **Logging**: Log errors for debugging but keep user messages clean
+
+### 14. Documentation Requirements (MANDATORY)
+**Rule**: Document all non-obvious decisions
+- **Magic numbers**: Every hardcoded value needs a comment explaining why
+- **Environment limits**: Document why limits exist (e.g., Docker env var size)
+- **Platform differences**: Document any platform-specific behavior
+- **Test skips**: Document why tests are skipped with clear reasons
+- **Mocking strategy**: Document why mocks are at specific levels
+
+## Development Workflow
+
+### Before Starting Work
+1. Pull latest main
+2. Run `pre-commit install` to set up hooks
+3. Create a workplan in `Documentation/Plans/`
+
+### During Development  
+1. Write tests first (TDD)
+2. Run `./scripts/check.sh` frequently
+3. Test with Docker stopped
+4. Test with minimal resources
+5. Commit with descriptive messages
+
+### Before Pushing
+1. Run `./scripts/check.sh`
+2. Test in fresh virtual environment
+3. Check coverage report for meaningful gaps
+4. Update documentation if needed
+5. Self-review the diff
+
+### After CI Failure
+1. Check exact error in CI logs
+2. Reproduce locally with CI environment
+3. Fix and test locally
+4. Document the issue in commit message
+
 ## Remember
 You're building this for researchers and developers who just want their patches evaluated quickly and reliably. Every decision should make their life easier. When they use this tool, they should feel productive and supported, never frustrated or confused.
 
@@ -334,4 +393,4 @@ The highest compliment we can receive: "It just works."
 
 **Above all: Research first, plan second, validate early, and embrace better solutions when you find them.**
 
-**New priority: Follow the 10 Critical Implementation Rules above to prevent the debugging sessions we experienced with CI implementation.**
+**New priority: Follow the Critical Implementation Rules above to prevent the debugging sessions we experienced with CI implementation.**

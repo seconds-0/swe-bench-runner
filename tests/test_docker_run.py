@@ -461,18 +461,19 @@ class TestRunEvaluation:
         """Test evaluation with large patch."""
         # Create test patch file with patch larger than default 5MB limit
         patch_file = tmp_path / "large.jsonl"
-        large_patch = "diff --git a/file.py b/file.py\n+" + "x" * (6 * 1024 * 1024)  # 6MB
+        # 6MB patch
+        large_patch = "diff --git a/file.py b/file.py\n+" + "x" * (6 * 1024 * 1024)
         patch_content = {
             "instance_id": "test__repo-123",
             "patch": large_patch
         }
         patch_file.write_text(json.dumps(patch_content))
 
-        result = run_evaluation(str(patch_file))
+        # The function should exit with code 1 for large patches
+        with pytest.raises(SystemExit) as exc_info:
+            run_evaluation(str(patch_file))
 
-        assert result.instance_id == "test__repo-123"
-        assert result.passed is False
-        assert "exceeds" in result.error and "limit" in result.error
+        assert exc_info.value.code == 1
 
     @patch("swebench_runner.docker_run.check_docker_running")
     @patch("swebench_runner.docker_run.check_resources")

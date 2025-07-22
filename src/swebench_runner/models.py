@@ -70,7 +70,7 @@ class EvaluationResult:
 
     instance_id: str
     passed: bool
-    error: Optional[str] = None
+    error: Optional[str] = None  # noqa: UP045
 
     def __post_init__(self) -> None:
         """Validate result data."""

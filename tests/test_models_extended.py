@@ -10,7 +10,10 @@ class TestPatchModel:
 
     def test_patch_creation_minimal(self):
         """Test creating patch with minimal fields."""
-        patch = Patch(instance_id="test-123", patch="diff --git a/test.py b/test.py\n+fix")
+        patch = Patch(
+            instance_id="test-123",
+            patch="diff --git a/test.py b/test.py\n+fix"
+        )
 
         assert patch.instance_id == "test-123"
         assert patch.patch == "diff --git a/test.py b/test.py\n+fix"
@@ -36,7 +39,10 @@ index 1234567..abcdefg 100644
 
     def test_patch_validation_small_patch(self):
         """Test validation with small patch."""
-        patch = Patch(instance_id="test", patch="diff --git a/test.py b/test.py\n+small fix")
+        patch = Patch(
+            instance_id="test",
+            patch="diff --git a/test.py b/test.py\n+small fix"
+        )
 
         # Should not raise
         patch.validate(max_size_mb=1)
@@ -70,7 +76,10 @@ index 1234567..abcdefg 100644
     def test_patch_size_calculation(self):
         """Test patch size calculation."""
         # Test with unicode characters (each emoji is multiple bytes)
-        patch = Patch(instance_id="test", patch="diff --git a/test.py b/test.py\n+Hello 👋 World 🌍")
+        patch = Patch(
+            instance_id="test",
+            patch="diff --git a/test.py b/test.py\n+Hello 👋 World 🌍"
+        )
 
         # Should handle unicode properly
         patch.validate(max_size_mb=1)

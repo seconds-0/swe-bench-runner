@@ -125,7 +125,9 @@ class TestCheckAndPromptFirstRun:
     @patch("swebench_runner.bootstrap.click.confirm")
     @patch("swebench_runner.bootstrap.show_welcome_message")
     @patch("swebench_runner.bootstrap.is_first_run")
-    def test_first_run_interactive_yes(self, mock_is_first, mock_welcome, mock_confirm, mock_mark):
+    def test_first_run_interactive_yes(
+        self, mock_is_first, mock_welcome, mock_confirm, mock_mark
+    ):
         """Test first run when user confirms."""
         mock_is_first.return_value = True
         mock_confirm.return_value = True
@@ -140,7 +142,9 @@ class TestCheckAndPromptFirstRun:
     @patch("swebench_runner.bootstrap.click.confirm")
     @patch("swebench_runner.bootstrap.show_welcome_message")
     @patch("swebench_runner.bootstrap.is_first_run")
-    def test_first_run_interactive_no(self, mock_is_first, mock_welcome, mock_confirm, mock_exit):
+    def test_first_run_interactive_no(
+        self, mock_is_first, mock_welcome, mock_confirm, mock_exit
+    ):
         """Test first run when user declines."""
         mock_is_first.return_value = True
         mock_confirm.return_value = False
@@ -157,7 +161,9 @@ class TestSuggestPatchesFile:
     @patch("swebench_runner.bootstrap.click.confirm")
     @patch("swebench_runner.bootstrap.click.echo")
     @patch("swebench_runner.bootstrap.auto_detect_patches_file")
-    def test_suggest_patches_file_found_and_accepted(self, mock_detect, mock_echo, mock_confirm):
+    def test_suggest_patches_file_found_and_accepted(
+        self, mock_detect, mock_echo, mock_confirm
+    ):
         """Test when patches file is found and user accepts."""
         test_path = Path("patches.jsonl")
         mock_detect.return_value = test_path
@@ -201,7 +207,9 @@ class TestShowSuccessMessage:
 
         calls = [str(c) for c in mock_echo.call_args_list]
         assert any("🎉 SUCCESS! 🎉" in str(c) for c in calls)
-        assert any("Congrats on your first successful evaluation" in str(c) for c in calls)
+        assert any(
+            "Congrats on your first successful evaluation" in str(c) for c in calls
+        )
         assert any("test-123" in str(c) for c in calls)
 
     @patch("swebench_runner.bootstrap.click.echo")

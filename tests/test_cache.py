@@ -358,7 +358,9 @@ class TestAutoDetectPatchesFile:
             mock_cwd.return_value = mock_path
 
             # Mock the directory iteration
-            mock_path.__truediv__ = Mock(side_effect=lambda x: Mock(exists=Mock(return_value=False)))
+            mock_path.__truediv__ = Mock(
+                side_effect=lambda x: Mock(exists=Mock(return_value=False))
+            )
 
             result = cache.auto_detect_patches_file()
 

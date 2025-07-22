@@ -129,7 +129,7 @@ class TestResourceChecking:
         # Should only warn in CI mode
         docker_run.check_resources()  # Should not raise
 
-    @patch.dict(os.environ, {"SWEBENCH_MIN_DISK_GB": "100"})
+    @patch.dict(os.environ, {"SWEBENCH_MIN_DISK_GB": "100", "CI": "false"})
     @patch("shutil.disk_usage")
     def test_custom_disk_requirement(self, mock_disk):
         """Test custom disk requirement."""
@@ -142,7 +142,7 @@ class TestResourceChecking:
 
     @patch("psutil.virtual_memory", side_effect=ImportError)
     @patch("shutil.disk_usage")
-    def test_psutil_not_available(self, mock_disk):
+    def test_psutil_not_available(self, mock_disk, mock_memory):
         """Test when psutil is not available."""
         mock_disk.return_value = Mock(free=100 * 1024**3)
 
@@ -150,7 +150,7 @@ class TestResourceChecking:
         docker_run.check_resources()
 
     @patch("shutil.disk_usage", side_effect=Exception("Disk error"))
-    def test_disk_check_failure(self):
+    def test_disk_check_failure(self, mock_disk):
         """Test when disk check fails."""
         # Should not raise even with disk check failure
         docker_run.check_resources()
@@ -287,7 +287,9 @@ class TestRunEvaluationIntegration:
 
         # Create test patch
         patch_file = tmp_path / "test.jsonl"
-        patch_file.write_text('{"instance_id": "test", "patch": "fix"}')
+        patch_file.write_text(
+            '{"instance_id": "test", "patch": "diff --git a/test.py b/test.py\\n+fix"}'
+        )
 
         # Mock harness failure with network error
         mock_run.return_value = Mock(
@@ -311,7 +313,9 @@ class TestRunEvaluationIntegration:
 
         # Create test patch
         patch_file = tmp_path / "test.jsonl"
-        patch_file.write_text('{"instance_id": "test", "patch": "fix"}')
+        patch_file.write_text(
+            '{"instance_id": "test", "patch": "diff --git a/test.py b/test.py\\n+fix"}'
+        )
 
         # Mock unexpected exception
         mock_run.side_effect = Exception("Unexpected error")

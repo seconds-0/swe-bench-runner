@@ -217,16 +217,22 @@ def check_resources() -> None:
                       f"{disk_recommended}GB recommended")
             else:
                 show_resource_warning(free_gb)
-    except Exception:
+    except Exception as e:
         # Skip resource checks on error - not critical for operation
-        # This allows running in restricted environments
-        pass
+        # This allows running in restricted environments where psutil
+        # may not be available or system calls may be restricted
+        if os.getenv("SWEBENCH_DEBUG"):
+            print(f"Debug: Resource check skipped due to: {type(e).__name__}",
+                  file=sys.stderr)
+        pass  # noqa: S110
 
 
 def check_swebench_installed() -> bool:
     """Check if SWE-bench harness is installed."""
     try:
-        result = subprocess.run(
+        # Safe subprocess call: sys.executable is trusted Python interpreter
+        # All arguments are hardcoded strings, no user input
+        result = subprocess.run(  # noqa: S603
             [sys.executable, "-m", "swebench.harness.run_evaluation", "--help"],
             capture_output=True,
             text=True,
@@ -242,7 +248,8 @@ def install_swebench() -> None:
     print("Installing SWE-bench harness...")
     try:
         # Safe subprocess call - using sys.executable and pip
-        result = subprocess.run(
+        # All arguments are hardcoded strings, no user input
+        result = subprocess.run(  # noqa: S603
             [sys.executable, "-m", "pip", "install", "swebench"],
             capture_output=True,
             text=True,
@@ -266,7 +273,7 @@ def install_swebench() -> None:
     except subprocess.TimeoutExpired:
         print("❌ SWE-bench installation timed out")
         print("   Check internet connection and try again")
-        sys.exit(exit_codes.NETWORK_ERROR)
+        sys.exit(exit_codes.GENERAL_ERROR)
     except Exception as e:
         error_msg = str(e).lower()
         if any(term in error_msg for term in [
@@ -336,7 +343,9 @@ def run_swebench_harness(predictions_file: Path, temp_dir: Path,
     print(f"Command: {' '.join(cmd)}")
 
     try:
-        result = subprocess.run(
+        # Safe subprocess call - cmd built from validated inputs
+        # All components are either hardcoded or validated file paths
+        result = subprocess.run(  # noqa: S603
             cmd,
             cwd=temp_dir,
             capture_output=True,

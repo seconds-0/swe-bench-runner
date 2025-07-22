@@ -3,10 +3,12 @@
 import os
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 from click.testing import CliRunner
 
 from swebench_runner.cli import cli
+from swebench_runner.models import EvaluationResult
 
 
 class TestCLI:
@@ -46,8 +48,7 @@ class TestCLI:
         result = runner.invoke(cli, ["run"])
 
         assert result.exit_code != 0
-        assert "Missing option" in result.output
-        assert "--patches" in result.output
+        assert "Error: Must provide either --patches or --patches-dir" in result.output
 
     def test_run_with_nonexistent_file(self) -> None:
         """Test run command fails when patches file doesn't exist."""
@@ -80,8 +81,15 @@ class TestCLI:
             assert result.exit_code == 1
             assert "is not a file" in result.output
 
-    def test_run_with_valid_file(self) -> None:
+    @patch("swebench_runner.cli.run_evaluation")
+    def test_run_with_valid_file(self, mock_run_evaluation) -> None:
         """Test run command succeeds with valid patches file."""
+        mock_run_evaluation.return_value = EvaluationResult(
+            instance_id="test__repo-123",
+            passed=True,
+            error=None
+        )
+
         runner = CliRunner()
 
         # Use the sample fixture file
@@ -91,11 +99,17 @@ class TestCLI:
         result = runner.invoke(cli, ["run", "--patches", str(sample_file)])
 
         assert result.exit_code == 0
-        assert "Would run evaluation with" in result.output
-        assert str(sample_file) in result.output
+        assert "✅ test__repo-123: Evaluation completed successfully" in result.output
 
-    def test_run_with_multiline_file(self) -> None:
+    @patch("swebench_runner.cli.run_evaluation")
+    def test_run_with_multiline_file(self, mock_run_evaluation) -> None:
         """Test run command works with multi-patch JSONL file."""
+        mock_run_evaluation.return_value = EvaluationResult(
+            instance_id="test__repo-456",
+            passed=True,
+            error=None
+        )
+
         runner = CliRunner()
 
         # Use the multi-patch fixture file
@@ -105,11 +119,17 @@ class TestCLI:
         result = runner.invoke(cli, ["run", "--patches", str(multi_file)])
 
         assert result.exit_code == 0
-        assert "Would run evaluation with" in result.output
-        assert str(multi_file) in result.output
+        assert "✅ test__repo-456: Evaluation completed successfully" in result.output
 
-    def test_run_with_relative_path(self) -> None:
+    @patch("swebench_runner.cli.run_evaluation")
+    def test_run_with_relative_path(self, mock_run_evaluation) -> None:
         """Test run command works with relative path."""
+        mock_run_evaluation.return_value = EvaluationResult(
+            instance_id="test",
+            passed=True,
+            error=None
+        )
+
         runner = CliRunner()
 
         # Change to fixtures directory and use relative path
@@ -125,10 +145,17 @@ class TestCLI:
             result = runner.invoke(cli, ["run", "--patches", "test.jsonl"])
 
             assert result.exit_code == 0
-            assert "Would run evaluation with" in result.output
+            assert "✅ test: Evaluation completed successfully" in result.output
 
-    def test_run_with_absolute_path(self) -> None:
+    @patch("swebench_runner.cli.run_evaluation")
+    def test_run_with_absolute_path(self, mock_run_evaluation) -> None:
         """Test run command works with absolute path."""
+        mock_run_evaluation.return_value = EvaluationResult(
+            instance_id="test__repo-123",
+            passed=True,
+            error=None
+        )
+
         runner = CliRunner()
 
         fixtures_dir = Path(__file__).parent / "fixtures"
@@ -137,7 +164,7 @@ class TestCLI:
         result = runner.invoke(cli, ["run", "--patches", str(sample_file.absolute())])
 
         assert result.exit_code == 0
-        assert "Would run evaluation with" in result.output
+        assert "✅ test__repo-123: Evaluation completed successfully" in result.output
 
     def test_cli_module_execution(self) -> None:
         """Test that CLI can be executed as a module."""
@@ -180,8 +207,15 @@ class TestErrorHandling:
                 os.chmod(tmp.name, 0o644)
                 os.unlink(tmp.name)
 
-    def test_special_characters_in_filename(self) -> None:
+    @patch("swebench_runner.cli.run_evaluation")
+    def test_special_characters_in_filename(self, mock_run_evaluation) -> None:
         """Test run command with special characters in filename."""
+        mock_run_evaluation.return_value = EvaluationResult(
+            instance_id="test",
+            passed=True,
+            error=None
+        )
+
         runner = CliRunner()
 
         with runner.isolated_filesystem():
@@ -197,4 +231,4 @@ class TestErrorHandling:
             result = runner.invoke(cli, ["run", "--patches", special_filename])
 
             assert result.exit_code == 0
-            assert "Would run evaluation with" in result.output
+            assert "✅ test: Evaluation completed successfully" in result.output

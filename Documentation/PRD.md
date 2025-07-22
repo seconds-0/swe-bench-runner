@@ -149,7 +149,7 @@ This friction slows down researchers and practitioners who want to iterate on ag
 - **Performance**: Completes Lite split on 8-core/16GB/SSD laptop in < 30 min.
 - **Security**: Runner container runs as non-root user, read-only bind mounts for repo code, no `--privileged` flag.
 - **Resource requirements**: Minimum 8 GB RAM (16 GB recommended), 50 GB free disk for Lite, 200 GB for full.
-- **Python compatibility**: CLI supports Python 3.8+ (runner image may use different Python).
+- **Python compatibility**: CLI supports Python 3.10+ (matches SWE-bench harness requirements).
 - **Arm64 behavior**: Native arm64 images preferred; falls back to x86 emulation with performance warning.
 
 ## 7. Out-of-Scope (v1)

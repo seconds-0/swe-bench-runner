@@ -252,7 +252,7 @@ def setup() -> None:
     try:
         import docker
         client = docker.from_env()
-        client.ping()  # type: ignore[no-untyped-call]
+        client.ping()
         click.echo("✅ Docker is running")
     except Exception:
         click.echo("❌ Docker not available")

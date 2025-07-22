@@ -121,13 +121,16 @@ class TestResourceChecking:
     """Test resource checking with various configurations."""
 
     @patch.dict(os.environ, {"CI": "true", "SWEBENCH_CI_MIN_MEMORY_GB": "2"})
-    @patch("psutil.virtual_memory")
-    def test_ci_mode_custom_memory_requirement(self, mock_memory):
+    def test_ci_mode_custom_memory_requirement(self):
         """Test CI mode with custom memory requirement."""
-        mock_memory.return_value = Mock(available=1.5 * 1024**3)  # 1.5GB
-
-        # Should only warn in CI mode
-        docker_run.check_resources()  # Should not raise
+        # Create a mock psutil module
+        mock_psutil = Mock()
+        mock_psutil.virtual_memory.return_value = Mock(available=1.5 * 1024**3)  # 1.5GB
+        
+        # Mock the import statement
+        with patch.dict('sys.modules', {'psutil': mock_psutil}):
+            # Should only warn in CI mode
+            docker_run.check_resources()  # Should not raise
 
     @patch.dict(os.environ, {"SWEBENCH_MIN_DISK_GB": "100", "CI": "false"})
     @patch("shutil.disk_usage")
@@ -140,14 +143,15 @@ class TestResourceChecking:
 
         assert exc_info.value.code == exit_codes.RESOURCE_ERROR
 
-    @patch("psutil.virtual_memory", side_effect=ImportError)
     @patch("shutil.disk_usage")
-    def test_psutil_not_available(self, mock_disk, mock_memory):
+    def test_psutil_not_available(self, mock_disk):
         """Test when psutil is not available."""
         mock_disk.return_value = Mock(free=100 * 1024**3)
-
-        # Should not raise even without psutil
-        docker_run.check_resources()
+        
+        # Mock the import of psutil to raise ImportError
+        with patch.dict('sys.modules', {'psutil': None}):
+            # Should not raise even without psutil
+            docker_run.check_resources()
 
     @patch("shutil.disk_usage", side_effect=Exception("Disk error"))
     def test_disk_check_failure(self, mock_disk):

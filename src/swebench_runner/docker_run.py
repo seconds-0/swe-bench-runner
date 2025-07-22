@@ -23,7 +23,7 @@ def check_docker_running() -> None:
     """Check if Docker daemon is accessible."""
     try:
         client = docker.from_env()
-        client.ping()  # type: ignore[no-untyped-call]
+        client.ping()
     except APIError as e:
         error_msg = str(e).lower()
         # Connection refused to Docker daemon means Docker is not running

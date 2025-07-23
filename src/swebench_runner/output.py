@@ -1,14 +1,16 @@
 """Output formatting and display utilities for SWE-bench runner."""
 
+from __future__ import annotations
+
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
+from . import __version__
 from .models import EvaluationResult
 
 
-def detect_patches_file() -> Optional[Path]:
+def detect_patches_file() -> Path | None:
     """Auto-detect patches file in priority order.
 
     Looks for predictions.jsonl first, then patches.jsonl.
@@ -24,7 +26,7 @@ def detect_patches_file() -> Optional[Path]:
     return None
 
 
-def display_result(result: EvaluationResult, output_dir: Optional[Path] = None) -> None:
+def display_result(result: EvaluationResult, output_dir: Path | None = None) -> None:
     """Display evaluation result with proper formatting.
 
     Args:
@@ -53,7 +55,7 @@ def display_result(result: EvaluationResult, output_dir: Optional[Path] = None) 
             "passed": result.passed,
             "error": result.error,
             "timestamp": datetime.now().isoformat(),
-            "swe_bench_runner_version": "0.1.0"  # TODO: Get from package version
+            "swe_bench_runner_version": __version__
         }
 
         with open(summary_path, 'w', encoding='utf-8') as f:

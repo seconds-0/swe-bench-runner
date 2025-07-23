@@ -28,7 +28,7 @@ tests/test_models_extended.py     - Test fixes
 ```
 docker_run.py:220 - S110 try-except-pass
 docker_run.py:229 - S603 subprocess security
-docker_run.py:245 - S603 subprocess security  
+docker_run.py:245 - S603 subprocess security
 docker_run.py:339 - S603 subprocess security
 models.py:73      - UP045 Optional[str] syntax
 + Multiple E501 line length errors in tests

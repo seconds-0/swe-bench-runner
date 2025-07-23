@@ -166,4 +166,3 @@ def auto_detect_patches_file(current_dir: Path | None = None) -> Path | None:
             return file_path
 
     return None
-

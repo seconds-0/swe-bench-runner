@@ -1,6 +1,6 @@
 # Work Plan: MVP-BasicOutput - Print Results to Terminal
 
-**Task ID**: MVP-BasicOutput  
+**Task ID**: MVP-BasicOutput
 **Status**: Not Started
 
 ## Problem Statement
@@ -131,7 +131,7 @@ class RunResults:
 
 class ExitCodeHandler:
     """Handle PRD-specified exit codes."""
-    
+
     @staticmethod
     def determine_exit_code(error_type: str, stderr: str = "") -> int:
         """Map error types to PRD exit codes."""
@@ -147,13 +147,13 @@ class ExitCodeHandler:
 
 class SmartDefaults:
     """Auto-detect patches files as specified in Architecture."""
-    
+
     @staticmethod
     def detect_patches_file() -> Optional[Path]:
         """Auto-detect patches file in current directory."""
         candidates = [
             "predictions.jsonl",
-            "patches.jsonl", 
+            "patches.jsonl",
             "model_patches.jsonl"
         ]
         for name in candidates:
@@ -164,7 +164,7 @@ class SmartDefaults:
 
 class ProgressTracker:
     """Thread-safe progress tracking with progress bar rendering."""
-    
+
     def __init__(self):
         self.lock = threading.Lock()
         self.total = 0
@@ -173,30 +173,30 @@ class ProgressTracker:
         self.failed = 0
         self.start_time = None
         self.last_update = time.time()
-    
+
     def start(self, total: int):
         with self.lock:
             self.total = total
             self.start_time = time.time()
             self.last_update = self.start_time
-    
+
     def update(self, completed: int, resolved: int, failed: int):
         with self.lock:
             self.completed = completed
             self.resolved = resolved
             self.failed = failed
             self.last_update = time.time()
-    
+
     def render_progress_bar(self) -> str:
         """Render UX Plan style progress bar."""
         with self.lock:
             if self.total == 0:
                 return ""
-            
+
             percent = (self.completed / self.total) * 100
             filled = int(percent / 20)  # 5 blocks total
             bar = "▇" * filled + "▁" * (5 - filled)
-            
+
             # Calculate estimated remaining time
             if self.start_time and self.completed > 0:
                 elapsed = time.time() - self.start_time
@@ -206,35 +206,35 @@ class ProgressTracker:
                 remaining_str = f"{int(remaining_seconds // 60)}m remaining"
             else:
                 remaining_str = "calculating..."
-            
+
             return f"[{bar}] {self.completed}/{self.total} ({percent:.0f}%) • 🟢 {self.resolved} passed • 🔴 {self.failed} failed • ⏱️ {remaining_str}"
 
 class ResultsManager:
     """Manage results directory structure and file operations."""
-    
+
     def __init__(self, base_dir: Path = Path("./results")):
         self.base_dir = base_dir
         self.latest_dir = base_dir / "latest"
         self.run_id = None
-    
+
     def create_results_structure(self, run_id: str) -> Path:
         """Create proper results directory structure."""
         self.run_id = run_id
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         run_dir = self.base_dir / f"{timestamp}_{run_id}"
-        
+
         # Create directories
         run_dir.mkdir(parents=True, exist_ok=True)
         (run_dir / "logs").mkdir(exist_ok=True)
         (run_dir / "reports").mkdir(exist_ok=True)
-        
+
         # Update latest symlink
         if self.latest_dir.exists():
             self.latest_dir.unlink()
         self.latest_dir.symlink_to(run_dir)
-        
+
         return run_dir
-    
+
     def copy_harness_results(self, harness_results_dir: Path, target_dir: Path):
         """Copy harness results to expected structure."""
         if harness_results_dir.exists():
@@ -242,15 +242,15 @@ class ResultsManager:
 
 class ReportGenerator:
     """Generate HTML and JSON reports as specified in PRD."""
-    
+
     def generate_reports(self, results: RunResults, output_dir: Path):
         """Generate final_report.json and report.html."""
         # Generate JSON report
         self._generate_json_report(results, output_dir / "final_report.json")
-        
+
         # Generate HTML report
         self._generate_html_report(results, output_dir / "report.html")
-    
+
     def _generate_json_report(self, results: RunResults, output_path: Path):
         """Generate JSON report."""
         report_data = {
@@ -276,16 +276,16 @@ class ReportGenerator:
                 for instance_id, result in results.results.items()
             }
         }
-        
+
         with open(output_path, 'w') as f:
             json.dump(report_data, f, indent=2)
-    
+
     def _generate_html_report(self, results: RunResults, output_path: Path):
         """Generate HTML report."""
         total = len(results.results)
         resolved = sum(1 for r in results.results.values() if r.resolved)
         success_rate = (resolved / total * 100) if total > 0 else 0
-        
+
         html_content = f"""
 <!DOCTYPE html>
 <html>
@@ -303,7 +303,7 @@ class ReportGenerator:
 </head>
 <body>
     <h1>SWE-bench Evaluation Report</h1>
-    
+
     <div class="summary">
         <h2>Summary</h2>
         <p><strong>Total Instances:</strong> {total}</p>
@@ -312,74 +312,74 @@ class ReportGenerator:
         <p><strong>Success Rate:</strong> {success_rate:.1f}%</p>
         <p><strong>Duration:</strong> {results.total_duration:.1f}s</p>
     </div>
-    
+
     <h2>Results</h2>
     <div class="results">
 """
-        
+
         for instance_id, result in results.results.items():
             status_class = "resolved" if result.resolved else "unresolved"
             status_text = "✓ RESOLVED" if result.resolved else "✗ UNRESOLVED"
             error_text = f"<br><small>Error: {result.error}</small>" if result.error else ""
-            
+
             html_content += f"""
         <div class="result-item {status_class}">
             <strong>{instance_id}:</strong> {status_text}
             {error_text}
         </div>
 """
-        
+
         html_content += """
     </div>
 </body>
 </html>
 """
-        
+
         with open(output_path, 'w') as f:
             f.write(html_content)
 
 class LogIntegrator:
     """Extract and display logs as specified in PRD."""
-    
+
     def extract_instance_logs(self, harness_logs_dir: Path, results_dir: Path) -> Dict[str, Path]:
         """Extract per-instance logs from harness output."""
         logs_dir = results_dir / "logs"
         logs_dir.mkdir(exist_ok=True)
-        
+
         instance_logs = {}
-        
+
         # Look for harness log files
         if harness_logs_dir.exists():
             for log_file in harness_logs_dir.rglob("*.log"):
                 # Extract instance ID from log file path
                 instance_id = log_file.stem
                 target_log = logs_dir / f"{instance_id}.log"
-                
+
                 # Copy log file
                 shutil.copy2(log_file, target_log)
                 instance_logs[instance_id] = target_log
-        
+
         return instance_logs
-    
+
     def show_failure_logs(self, result: EvaluationResult, max_lines: int = 50):
         """Show last N lines of log on failure."""
         if not result.log_path or not result.log_path.exists():
             return
-        
+
         print(f"\n📄 Last {max_lines} lines of {result.instance_id} log:")
         print("─" * 60)
-        
+
         with open(result.log_path, 'r') as f:
             lines = f.readlines()
             for line in lines[-max_lines:]:
                 print(line.rstrip())
-        
+
         print("─" * 60)
         print(f"💡 Full log: {result.log_path}")
 
 class HarnessOutputParser:
     """Parse SWE-bench harness subprocess output in real-time."""
-    
+
     def __init__(self, results_dir: Path):
         self.results_dir = results_dir
         self.progress_patterns = {
@@ -388,11 +388,11 @@ class HarnessOutputParser:
             'complete': re.compile(r'All instances run'),
             'no_work': re.compile(r'No instances to run')
         }
-    
+
     def parse_progress_line(self, line: str) -> Optional[ProgressUpdate]:
         """Parse a single stdout line for progress information."""
         line = line.strip()
-        
+
         if match := self.progress_patterns['starting'].search(line):
             return ProgressUpdate(type="starting", total=int(match.group(1)))
         elif match := self.progress_patterns['resuming'].search(line):
@@ -401,19 +401,19 @@ class HarnessOutputParser:
             return ProgressUpdate(type="complete")
         elif self.progress_patterns['no_work'].search(line):
             return ProgressUpdate(type="complete", message="No instances to run")
-        
+
         return None
-    
+
     def parse_evaluation_results(self) -> Dict[str, EvaluationResult]:
         """Parse report.json files from evaluation_results directory."""
         results = {}
-        
+
         # Look for report.json files in results directory
         for report_file in self.results_dir.glob("**/report.json"):
             try:
                 with open(report_file) as f:
                     data = json.load(f)
-                    
+
                 for instance_id, result in data.items():
                     results[instance_id] = EvaluationResult(
                         instance_id=instance_id,
@@ -424,41 +424,41 @@ class HarnessOutputParser:
             except (json.JSONDecodeError, FileNotFoundError) as e:
                 # Skip malformed or missing files
                 continue
-                
+
         return results
-    
+
     def _extract_error_message(self, result: dict) -> Optional[str]:
         """Extract error message from result data."""
         if result.get("resolved", False):
             return None
-            
+
         if not result.get("patch_successfully_applied", False):
             return "Patch failed to apply"
-            
+
         # Check test failures
         tests_status = result.get("tests_status", {})
         fail_to_pass = tests_status.get("FAIL_TO_PASS", {})
         pass_to_pass = tests_status.get("PASS_TO_PASS", {})
-        
+
         failed_tests = []
         failed_tests.extend(fail_to_pass.get("failure", []))
         failed_tests.extend(pass_to_pass.get("failure", []))
-        
+
         if failed_tests:
             return f"Tests failed: {', '.join(failed_tests[:3])}{'...' if len(failed_tests) > 3 else ''}"
-        
+
         return "Tests failed"
 
 class SuccessCelebration:
     """Display success celebration and next steps from UX Plan."""
-    
+
     @staticmethod
     def display_success(results: RunResults, results_dir: Path):
         """Display success celebration with next steps."""
         total = len(results.results)
         resolved = sum(1 for r in results.results.values() if r.resolved)
         success_rate = (resolved / total * 100) if total > 0 else 0
-        
+
         print("\n┌───────────────────────────┐")
         print("│   🎆 SUCCESS! 🎆       │")
         print("└───────────────────────────┘")
@@ -477,7 +477,7 @@ class SuccessCelebration:
 
 class ErrorDisplay:
     """Display specific error messages with remediation steps."""
-    
+
     @staticmethod
     def show_docker_error():
         """Show Docker-specific error with remediation."""
@@ -487,7 +487,7 @@ class ErrorDisplay:
         print("2. Install and start Docker Desktop")
         print("3. Wait for whale icon in menu bar")
         print("4. Run 'swebench run --patches ...' again")
-    
+
     @staticmethod
     def show_network_error():
         """Show network-specific error with remediation."""
@@ -496,7 +496,7 @@ class ErrorDisplay:
         print("1. Check your internet connection")
         print("2. Try again in a few minutes")
         print("3. Check if you're behind a firewall")
-    
+
     @staticmethod
     def show_disk_error():
         """Show disk space error with remediation."""
@@ -542,32 +542,32 @@ def run_with_output_system(patches_file: Path, temp_dir: Path, harness_results_d
     parser = HarnessOutputParser(harness_results_dir)
     report_generator = ReportGenerator()
     log_integrator = LogIntegrator()
-    
+
     # Create results structure
     run_id = f"run_{int(time.time())}"
     results_dir = results_manager.create_results_structure(run_id)
-    
+
     try:
         # Show smart defaults if used
         if patches_file.name in ["predictions.jsonl", "patches.jsonl", "model_patches.jsonl"]:
             display_smart_defaults(patches_file)
-        
+
         # Parse results and generate reports
         results = parser.parse_evaluation_results()
-        
+
         # Extract logs
         instance_logs = log_integrator.extract_instance_logs(temp_dir / "logs", results_dir)
-        
+
         # Update results with log paths
         for instance_id, log_path in instance_logs.items():
             if instance_id in results:
                 results[instance_id].log_path = log_path
-        
+
         # Show failure logs for unresolved instances
         for result in results.values():
             if not result.resolved and result.log_path:
                 log_integrator.show_failure_logs(result)
-        
+
         # Generate reports
         run_results = RunResults(
             results=results,
@@ -576,17 +576,17 @@ def run_with_output_system(patches_file: Path, temp_dir: Path, harness_results_d
             total_duration=60.0,  # Would be calculated from actual execution
             results_dir=results_dir
         )
-        
+
         report_generator.generate_reports(run_results, results_dir)
-        
+
         # Copy harness results
         results_manager.copy_harness_results(harness_results_dir, results_dir)
-        
+
         # Display success celebration
         SuccessCelebration.display_success(run_results, results_dir)
-        
+
         return 0  # Success
-        
+
     except Exception as e:
         error_type = str(e)
         return classify_and_display_error(error_type, "", 1)
@@ -601,107 +601,107 @@ def run_with_output_system(patches_file: Path, temp_dir: Path, harness_results_d
    from unittest.mock import Mock, patch
    from swebench_runner.output import (
        HarnessOutputParser, ProgressUpdate, EvaluationResult,
-       ExitCodeHandler, SmartDefaults, ProgressTracker, 
+       ExitCodeHandler, SmartDefaults, ProgressTracker,
        ResultsManager, ReportGenerator, LogIntegrator
    )
-   
+
    class TestExitCodeHandler:
        def test_docker_missing_exit_code(self):
            code = ExitCodeHandler.determine_exit_code("Docker not running")
            assert code == 2
-       
+
        def test_network_failure_exit_code(self):
            code = ExitCodeHandler.determine_exit_code("network timeout")
            assert code == 3
-       
+
        def test_disk_full_exit_code(self):
            code = ExitCodeHandler.determine_exit_code("disk space", "No space left on device")
            assert code == 4
-       
+
        def test_general_error_exit_code(self):
            code = ExitCodeHandler.determine_exit_code("harness failed")
            assert code == 1
-       
+
        def test_success_exit_code(self):
            code = ExitCodeHandler.determine_exit_code("success")
            assert code == 0
-   
+
    class TestSmartDefaults:
        def test_detect_predictions_file(self, tmp_path):
            # Create predictions.jsonl
            predictions_file = tmp_path / "predictions.jsonl"
            predictions_file.write_text('{"instance_id": "test"}')
-           
+
            with patch('pathlib.Path.cwd', return_value=tmp_path):
                detected = SmartDefaults.detect_patches_file()
                assert detected == predictions_file
-       
+
        def test_detect_patches_file(self, tmp_path):
            # Create patches.jsonl
            patches_file = tmp_path / "patches.jsonl"
            patches_file.write_text('{"instance_id": "test"}')
-           
+
            with patch('pathlib.Path.cwd', return_value=tmp_path):
                detected = SmartDefaults.detect_patches_file()
                assert detected == patches_file
-       
+
        def test_no_patches_file_found(self, tmp_path):
            with patch('pathlib.Path.cwd', return_value=tmp_path):
                detected = SmartDefaults.detect_patches_file()
                assert detected is None
-   
+
    class TestProgressTracker:
        def test_progress_tracking(self):
            tracker = ProgressTracker()
            tracker.start(100)
            tracker.update(50, 30, 20)
-           
+
            assert tracker.total == 100
            assert tracker.completed == 50
            assert tracker.resolved == 30
            assert tracker.failed == 20
-       
+
        def test_progress_bar_rendering(self):
            tracker = ProgressTracker()
            tracker.start(100)
            tracker.update(50, 30, 20)
-           
+
            bar = tracker.render_progress_bar()
            assert "[▇▇▁▁▁]" in bar
            assert "50/100 (50%)" in bar
            assert "🟢 30 passed" in bar
            assert "🔴 20 failed" in bar
-   
+
    class TestResultsManager:
        def test_create_results_structure(self, tmp_path):
            manager = ResultsManager(tmp_path)
            run_dir = manager.create_results_structure("test_run")
-           
+
            assert run_dir.exists()
            assert (run_dir / "logs").exists()
            assert (run_dir / "reports").exists()
            assert (tmp_path / "latest").exists()
            assert (tmp_path / "latest").is_symlink()
-       
+
        def test_copy_harness_results(self, tmp_path):
            manager = ResultsManager(tmp_path)
-           
+
            # Create mock harness results
            harness_dir = tmp_path / "harness_results"
            harness_dir.mkdir()
            (harness_dir / "result.json").write_text('{"test": "data"}')
-           
+
            target_dir = tmp_path / "target"
            target_dir.mkdir()
-           
+
            manager.copy_harness_results(harness_dir, target_dir)
            assert (target_dir / "harness_output" / "result.json").exists()
-   
+
    class TestReportGenerator:
        def test_generate_json_report(self, tmp_path):
            from swebench_runner.output import RunResults
            from datetime import datetime
-           
+
            generator = ReportGenerator()
            results = RunResults(
                results={
@@ -715,22 +715,22 @@ def run_with_output_system(patches_file: Path, temp_dir: Path, harness_results_d
                end_time=datetime.now(),
                total_duration=60.0
            )
-           
+
            generator._generate_json_report(results, tmp_path / "report.json")
-           
+
            assert (tmp_path / "report.json").exists()
            import json
            with open(tmp_path / "report.json") as f:
                data = json.load(f)
-           
+
            assert data["summary"]["total"] == 1
            assert data["summary"]["resolved"] == 1
            assert data["results"]["test_instance"]["resolved"] == True
-       
+
        def test_generate_html_report(self, tmp_path):
            from swebench_runner.output import RunResults
            from datetime import datetime
-           
+
            generator = ReportGenerator()
            results = RunResults(
                results={
@@ -744,73 +744,73 @@ def run_with_output_system(patches_file: Path, temp_dir: Path, harness_results_d
                end_time=datetime.now(),
                total_duration=60.0
            )
-           
+
            generator._generate_html_report(results, tmp_path / "report.html")
-           
+
            assert (tmp_path / "report.html").exists()
            content = (tmp_path / "report.html").read_text()
            assert "SWE-bench Evaluation Report" in content
            assert "test_instance" in content
            assert "✓ RESOLVED" in content
-   
+
    class TestLogIntegrator:
        def test_extract_instance_logs(self, tmp_path):
            integrator = LogIntegrator()
-           
+
            # Create mock harness logs
            harness_logs = tmp_path / "harness_logs"
            harness_logs.mkdir()
            (harness_logs / "instance1.log").write_text("log content")
-           
+
            results_dir = tmp_path / "results"
            results_dir.mkdir()
-           
+
            logs = integrator.extract_instance_logs(harness_logs, results_dir)
-           
+
            assert "instance1" in logs
            assert (results_dir / "logs" / "instance1.log").exists()
-       
+
        def test_show_failure_logs(self, tmp_path, capsys):
            integrator = LogIntegrator()
-           
+
            # Create mock log file
            log_file = tmp_path / "test.log"
            log_file.write_text("\\n".join([f"line {i}" for i in range(100)]))
-           
+
            result = EvaluationResult(
                instance_id="test_instance",
                resolved=False,
                patch_applied=True,
                log_path=log_file
            )
-           
+
            integrator.show_failure_logs(result, max_lines=5)
-           
+
            captured = capsys.readouterr()
            assert "Last 5 lines of test_instance log:" in captured.out
            assert "line 95" in captured.out
            assert "line 99" in captured.out
-   
+
    class TestHarnessOutputParser:
        def test_parse_progress_starting(self):
            parser = HarnessOutputParser(Path("/tmp"))
            update = parser.parse_progress_line("Running 5 instances...")
            assert update.type == "starting"
            assert update.total == 5
-       
+
        def test_parse_progress_resuming(self):
            parser = HarnessOutputParser(Path("/tmp"))
            update = parser.parse_progress_line("3 instances already run, skipping...")
            assert update.type == "resuming"
            assert update.completed == 3
-       
+
        def test_parse_evaluation_results(self, tmp_path):
            # Create mock report.json
            results_dir = tmp_path / "evaluation_results"
            results_dir.mkdir()
            instance_dir = results_dir / "run_001"
            instance_dir.mkdir()
-           
+
            report_file = instance_dir / "report.json"
            report_file.write_text('''
            {
@@ -821,10 +821,10 @@ def run_with_output_system(patches_file: Path, temp_dir: Path, harness_results_d
              }
            }
            ''')
-           
+
            parser = HarnessOutputParser(results_dir)
            results = parser.parse_evaluation_results()
-           
+
            assert len(results) == 1
            assert results["django__django-12345"].resolved == True
            assert results["django__django-12345"].error is None
@@ -838,16 +838,16 @@ def run_with_output_system(patches_file: Path, temp_dir: Path, harness_results_d
    from pathlib import Path
    from unittest.mock import Mock, patch
    from swebench_runner.output import run_with_output_system
-   
+
    def test_full_output_system_integration(tmp_path):
        """Test complete output system integration."""
        # Setup test environment
        patches_file = tmp_path / "predictions.jsonl"
        patches_file.write_text('{"instance_id": "test_instance", "patch": "test patch"}')
-       
+
        harness_results_dir = tmp_path / "evaluation_results"
        harness_results_dir.mkdir()
-       
+
        # Create mock harness results
        run_dir = harness_results_dir / "run_001"
        run_dir.mkdir()
@@ -861,69 +861,69 @@ def run_with_output_system(patches_file: Path, temp_dir: Path, harness_results_d
          }
        }
        ''')
-       
+
        # Run output system
        with patch('swebench_runner.output.ResultsManager') as mock_manager:
            mock_manager.return_value.create_results_structure.return_value = tmp_path / "results"
            (tmp_path / "results").mkdir()
-           
+
            exit_code = run_with_output_system(patches_file, tmp_path, harness_results_dir)
-           
+
            assert exit_code == 0
-   
+
    def test_real_time_progress_tracking():
        """Test real-time progress tracking with threading."""
        from swebench_runner.output import ProgressTracker
-       
+
        tracker = ProgressTracker()
        tracker.start(100)
-       
+
        def update_progress():
            for i in range(0, 101, 10):
                tracker.update(i, i//2, i//4)
                time.sleep(0.01)
-       
+
        thread = threading.Thread(target=update_progress)
        thread.start()
-       
+
        # Check progress updates
        time.sleep(0.05)
        bar = tracker.render_progress_bar()
        assert "50/100" in bar or "60/100" in bar  # Progress should be updating
-       
+
        thread.join()
-   
+
    def test_error_handling_and_exit_codes():
        """Test error handling and proper exit codes."""
        from swebench_runner.output import classify_and_display_error
-       
+
        # Test Docker error
        exit_code = classify_and_display_error("Docker not running", "", 1)
        assert exit_code == 2
-       
-       # Test network error  
+
+       # Test network error
        exit_code = classify_and_display_error("network timeout", "", 1)
        assert exit_code == 3
-       
+
        # Test disk error
        exit_code = classify_and_display_error("disk space", "No space left", 1)
        assert exit_code == 4
-       
+
        # Test general error
        exit_code = classify_and_display_error("harness failed", "", 1)
        assert exit_code == 1
-   
+
    def test_smart_defaults_integration():
        """Test smart defaults detection integration."""
        from swebench_runner.output import SmartDefaults, display_smart_defaults
-       
+
        with patch('pathlib.Path.cwd') as mock_cwd:
            mock_cwd.return_value = Path("/test")
-           
+
            with patch('pathlib.Path.exists', return_value=True):
                with patch('pathlib.Path.stat') as mock_stat:
                    mock_stat.return_value.st_size = 1000
-                   
+
                    detected = SmartDefaults.detect_patches_file()
                    assert detected.name == "predictions.jsonl"
    ```
@@ -935,50 +935,50 @@ def run_with_output_system(patches_file: Path, temp_dir: Path, harness_results_d
    from pathlib import Path
    from unittest.mock import Mock, patch
    from swebench_runner.cli import cli
-   
+
    def test_cli_with_smart_defaults(tmp_path):
        """Test CLI integration with smart defaults."""
        # Create predictions.jsonl
        predictions_file = tmp_path / "predictions.jsonl"
        predictions_file.write_text('{"instance_id": "test", "patch": "test"}')
-       
+
        runner = CliRunner()
-       
+
        with patch('swebench_runner.output.SmartDefaults.detect_patches_file') as mock_detect:
            mock_detect.return_value = predictions_file
-           
+
            with patch('swebench_runner.docker_run.run_evaluation') as mock_run:
                mock_run.return_value = Mock(passed=True, instance_id="test")
-               
+
                result = runner.invoke(cli, ['run'], cwd=tmp_path)
-               
+
                assert result.exit_code == 0
                assert "Found predictions.jsonl" in result.output
-   
+
    def test_cli_with_exit_codes(tmp_path):
        """Test CLI returns proper exit codes."""
        runner = CliRunner()
-       
+
        # Test Docker missing
        with patch('swebench_runner.docker_run.run_evaluation') as mock_run:
            mock_run.side_effect = Exception("Docker not running")
-           
+
            result = runner.invoke(cli, ['run', '--patches', 'test.jsonl'], cwd=tmp_path)
-           
+
            assert result.exit_code == 2
-   
+
    def test_cli_progress_display(tmp_path):
        """Test CLI displays progress correctly."""
        patches_file = tmp_path / "test.jsonl"
        patches_file.write_text('{"instance_id": "test", "patch": "test"}')
-       
+
        runner = CliRunner()
-       
+
        with patch('swebench_runner.output.run_with_output_system') as mock_output:
            mock_output.return_value = 0
-           
+
            result = runner.invoke(cli, ['run', '--patches', str(patches_file)], cwd=tmp_path)
-           
+
            assert result.exit_code == 0
            mock_output.assert_called_once()
    ```
@@ -1006,7 +1006,7 @@ def run_with_output_system(patches_file: Path, temp_dir: Path, harness_results_d
 
 ## Dependencies
 
-- **External**: 
+- **External**:
   - subprocess (Python standard library - for harness execution)
   - json (Python standard library - for parsing report.json and generating JSON reports)
   - re (Python standard library - for progress message parsing)
@@ -1017,11 +1017,11 @@ def run_with_output_system(patches_file: Path, temp_dir: Path, harness_results_d
   - time (Python standard library - for progress timing and duration calculations)
   - datetime (Python standard library - for run timestamps)
   - dataclasses (Python standard library - for data structures)
-- **Internal**: 
+- **Internal**:
   - 01-MVP-CLI (CLI structure and command interface - must integrate with exit codes)
   - 02-MVP-DockerRun (subprocess execution and results directory - must pass temp_dir and harness_results_dir)
   - models.py (shared data structures - must add new classes)
-- **Knowledge**: 
+- **Knowledge**:
   - SWE-bench harness output format and progress messages (from research)
   - subprocess real-time output capture techniques
   - JSON parsing and file system monitoring
@@ -1053,7 +1053,7 @@ def run_with_output_system(patches_file: Path, temp_dir: Path, harness_results_d
 - [ ] **Exit Code Handler** (Critical - PRD requirement)
   - [ ] Create ExitCodeHandler class with determine_exit_code() method
   - [ ] Map Docker errors to exit code 2
-  - [ ] Map network errors to exit code 3  
+  - [ ] Map network errors to exit code 3
   - [ ] Map disk errors to exit code 4
   - [ ] Map general errors to exit code 1
   - [ ] Add comprehensive exit code tests
@@ -1183,19 +1183,19 @@ def run_with_output_system(patches_file: Path, temp_dir: Path, harness_results_d
    docker stop $(docker ps -q)  # Stop Docker
    swebench run --patches test.jsonl
    echo $?  # Should be 2
-   
+
    # Test network failure (exit code 3)
    # Simulate network failure during image pull
    echo $?  # Should be 3
-   
+
    # Test disk full (exit code 4)
    # Simulate disk full scenario
    echo $?  # Should be 4
-   
+
    # Test general error (exit code 1)
    swebench run --patches malformed.jsonl
    echo $?  # Should be 1
-   
+
    # Test success (exit code 0)
    swebench run --patches valid.jsonl
    echo $?  # Should be 0
@@ -1206,7 +1206,7 @@ def run_with_output_system(patches_file: Path, temp_dir: Path, harness_results_d
    # Test auto-detection
    echo '{"instance_id": "test", "patch": "test"}' > predictions.jsonl
    swebench run  # Should auto-detect and use predictions.jsonl
-   
+
    # Test priority order
    echo '{"instance_id": "test", "patch": "test"}' > patches.jsonl
    echo '{"instance_id": "test", "patch": "test"}' > predictions.jsonl
@@ -1226,7 +1226,7 @@ def run_with_output_system(patches_file: Path, temp_dir: Path, harness_results_d
    swebench run --patches test.jsonl
    ls ./results/latest/
    # Should show: final_report.json, report.html, logs/, harness_output/
-   
+
    # Test HTML report
    open ./results/latest/report.html
    # Should display proper HTML with summary and results
@@ -1237,7 +1237,7 @@ def run_with_output_system(patches_file: Path, temp_dir: Path, harness_results_d
    # Test log extraction
    swebench run --patches failing.jsonl
    # Should show "📄 Last 50 lines of instance_id log:" for failures
-   
+
    # Test log files
    ls ./results/latest/logs/
    # Should show per-instance log files
@@ -1251,7 +1251,7 @@ def run_with_output_system(patches_file: Path, temp_dir: Path, harness_results_d
    # ┌───────────────────────────┐
    # │   🎆 SUCCESS! 🎆       │
    # └───────────────────────────┘
-   # 
+   #
    # 🏆 Success Rate: 100.0% (1/1)
    # 📁 Results: ./results/latest/
    # 🌐 View in browser: file://...
@@ -1262,10 +1262,10 @@ def run_with_output_system(patches_file: Path, temp_dir: Path, harness_results_d
    ```bash
    # Test Docker error display
    # Should show remediation steps with platform-specific instructions
-   
+
    # Test network error display
    # Should show troubleshooting steps
-   
+
    # Test disk error display
    # Should show cleanup suggestions
    ```
@@ -1275,7 +1275,7 @@ def run_with_output_system(patches_file: Path, temp_dir: Path, harness_results_d
    # Test Ctrl+C handling
    swebench run --patches large.jsonl
    # Press Ctrl+C - should cleanup gracefully
-   
+
    # Test thread safety
    # Run multiple concurrent evaluations
    ```
@@ -1444,7 +1444,7 @@ This plan transforms the basic output system into a comprehensive user experienc
 - **Professional reports** in HTML and JSON formats
 - **Log integration** with failure debugging support
 
-### **Critical Success Factor**: 
+### **Critical Success Factor**:
 The plan now meets 100% of identified requirements and provides a complete, delightful user experience that transforms SWE-bench harness execution into an intuitive, reliable tool.
 
 ### **Completeness Score: 100%**
@@ -1484,7 +1484,7 @@ Based on detailed research of the SWE-bench harness source code, the harness pro
 {
   "instance_id": {
     "patch_is_None": boolean,
-    "patch_exists": boolean, 
+    "patch_exists": boolean,
     "patch_successfully_applied": boolean,
     "resolved": boolean,
     "tests_status": {
@@ -1493,7 +1493,7 @@ Based on detailed research of the SWE-bench harness source code, the harness pro
         "failure": [list of test names]
       },
       "PASS_TO_PASS": {
-        "success": [list of test names], 
+        "success": [list of test names],
         "failure": [list of test names]
       }
     }
@@ -1538,7 +1538,7 @@ Based on detailed research of the SWE-bench harness source code, the harness pro
 result = subprocess.run([
     sys.executable, "-m", "swebench.harness.run_evaluation",
     "--predictions_path", predictions_file,
-    "--max_workers", "1", 
+    "--max_workers", "1",
     "--run_id", run_id,
     "--timeout", "3600"
 ], capture_output=True, text=True, timeout=3600)

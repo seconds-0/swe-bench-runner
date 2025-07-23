@@ -1,13 +1,13 @@
 # UX Plan – SWE-Bench Runner
 
-> Document version 0.1  
+> Document version 0.1
 > Scope: v1 GA release covering all SWE-bench variants
 
 ---
 
 ## 1. High-level Philosophy
 
-* "One clear command" is the primary mental model.  
+* "One clear command" is the primary mental model.
   *CLI must feel as straightforward as `pytest`.*
 * Progressive disclosure – novices see only two flags, power-users can drill into 30+ options via `--help-advanced`.
 * Safe by default – runs as non-root, write-only results dir, prompts before large downloads.
@@ -29,11 +29,11 @@
 
 ### 3.1 Prerequisites Check
 
-1. User types `pip install swebench-runner` (wheel <1 MB).  
+1. User types `pip install swebench-runner` (wheel <1 MB).
 2. First CLI invocation triggers *bootstrap* script:
    1. Verify Docker daemon reachable (socket ping)
       *If not*: print ⛔ `Docker not detected. Install Docker Desktop or podman + docker.sock.` Exit 2.
-   2. Detect platform (`linux/amd64`, `linux/arm64`).  
+   2. Detect platform (`linux/amd64`, `linux/arm64`).
    3. Confirm free disk ≥ 50 GB (configurable).
       *If not*: `Free disk space (12 GB) below required minimum (50 GB). Free space or run 'swebench clean'.` Exit 4.
 3. Prompt:
@@ -61,7 +61,7 @@ Checking prerequisites...
 
 Would you like instructions for:
 1) macOS (Docker Desktop)
-2) Ubuntu/Debian (Docker Engine)  
+2) Ubuntu/Debian (Docker Engine)
 3) Skip
 
 Choice [1-3]: 1
@@ -261,7 +261,7 @@ $ swebench debug django__django-12345
 🧪 Run tests: python -m pytest tests/
 💡 Type 'exit' to quit
 
-root@container:/testbed$ 
+root@container:/testbed$
 ```
 
 ### 7.3 Pre-flight Validation
@@ -362,7 +362,7 @@ $ swebench summary results/latest
 
 Top failures by category:
 - Patch context mismatch: 12 instances
-- Test assertion errors: 45 instances  
+- Test assertion errors: 45 instances
 - Import errors: 18 instances
 - Timeouts: 5 instances (consider --timeout-mins 45)
 ```
@@ -426,7 +426,7 @@ $ swebench run --patches ... --registry docker.io/swebench
 
 ## 11. Accessibility & Internationalisation
 
-* All prompts & messages plain UTF-8 text, no emoji required (CLI flag `--no-color` disables ANSI + emoji).  
+* All prompts & messages plain UTF-8 text, no emoji required (CLI flag `--no-color` disables ANSI + emoji).
 * Minimum terminal width: 80 columns.
 * Screen reader friendly: structured output with `--json` flag.
 * Localisation table planned for v2 (English only v1).
@@ -435,7 +435,7 @@ $ swebench run --patches ... --registry docker.io/swebench
 
 ## 12. Future UX Considerations (deferred)
 
-* `swebench ui` Textual-based dashboard for long-running runs.  
+* `swebench ui` Textual-based dashboard for long-running runs.
 * Support for other benchmarks via `plugins/<name>.py` once their images published.
 * Cloud execution with progress streaming.
 

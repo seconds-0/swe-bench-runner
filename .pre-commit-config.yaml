@@ -1,7 +1,79 @@
-# Just the essentials - fix the actual problems we had
+# Pre-commit hooks that match our CI checks exactly
+# This ensures we catch all CI failures before pushing
+
 repos:
+  # Linting - matches CI lint job
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.0
+    rev: v0.12.4
     hooks:
       - id: ruff
-        args: [--fix]  # Auto-fix whitespace issues
+        args: [--fix]  # Auto-fix when possible
+        files: ^(src/swebench_runner|tests)/
+
+  # Type checking - matches CI lint job
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.17.0
+    hooks:
+      - id: mypy
+        args: [src/swebench_runner]
+        additional_dependencies:
+          - types-requests
+          - click>=8.0
+        pass_filenames: false
+
+  # Conventional commit messages - matches PR checks
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.0.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+
+  # File size check - matches PR checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: check-added-large-files
+        args: ['--maxkb=1024']  # 1MB limit
+
+  # No generated files - matches PR checks
+  - repo: local
+    hooks:
+      - id: no-generated-files
+        name: Check for generated files
+        entry: ./scripts/check-generated-files.sh
+        language: system
+        pass_filenames: false
+
+  # Python syntax and format checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: check-ast  # Valid Python syntax
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-merge-conflict
+
+  # Run tests with coverage - matches CI test job
+  - repo: local
+    hooks:
+      - id: pytest
+        name: Run tests with coverage check
+        entry: bash -c 'pytest tests/ --cov=swebench_runner --cov-fail-under=85 -q'
+        language: system
+        pass_filenames: false
+        stages: [pre-push]  # Only on push to avoid slowing commits
+
+  # Security audit - matches CI security job (lighter version)
+  - repo: local
+    hooks:
+      - id: pip-audit
+        name: Security audit
+        entry: pip-audit --desc
+        language: system
+        pass_filenames: false
+        stages: [pre-push]  # Only on push
+
+# Configure when hooks run
+default_stages: [pre-commit, pre-push]
+fail_fast: false  # Run all hooks even if one fails

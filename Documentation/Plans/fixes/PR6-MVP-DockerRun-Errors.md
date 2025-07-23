@@ -1,9 +1,9 @@
 
 # PR #6 MVP-DockerRun Implementation - Error Report
 
-**PR**: #6 MVP Docker Execution Implementation  
-**Date**: 2025-07-21  
-**Status**: Failed CI, Multiple Critical Issues  
+**PR**: #6 MVP Docker Execution Implementation
+**Date**: 2025-07-21
+**Status**: Failed CI, Multiple Critical Issues
 **Severity**: HIGH - Blocking merge
 
 ## Executive Summary
@@ -13,8 +13,8 @@ The MVP Docker execution implementation (PR #6) encountered significant issues d
 ## Critical Issues Found
 
 ### 1. Bootstrap Flow Breaking All CLI Tests
-**Severity**: CRITICAL  
-**Location**: src/swebench_runner/cli.py:67  
+**Severity**: CRITICAL
+**Location**: src/swebench_runner/cli.py:67
 **Impact**: All CLI tests fail with `SystemExit(0)`
 
 **Issue Details**:
@@ -51,8 +51,8 @@ def test_environment(monkeypatch):
 - No need to modify individual test methods
 
 ### 2. Python Version Compatibility Issues
-**Severity**: HIGH  
-**Location**: pyproject.toml, multiple source files  
+**Severity**: HIGH
+**Location**: pyproject.toml, multiple source files
 **Impact**: Installation fails on Python 3.8 and 3.9
 
 **Issue Details**:
@@ -78,8 +78,8 @@ requires-python = ">=3.10"
 ```
 
 ### 3. Conflicting Patch Size Limits
-**Severity**: MEDIUM  
-**Location**: src/swebench_runner/docker_run.py:347  
+**Severity**: MEDIUM
+**Location**: src/swebench_runner/docker_run.py:347
 **Impact**: Confusing behavior, incorrect error messages
 
 **Issue Details** (CLARIFIED):
@@ -97,12 +97,12 @@ requires-python = ">=3.10"
 def run_evaluation(patch_source: str, no_input: bool = False, max_patch_size_mb: int = 5):
     # Load patch with configurable limit
     patch = load_first_patch(patch_source, max_size_mb=max_patch_size_mb)
-    
+
     # Check if patch needs bind-mount due to Docker env var limit
     patch_bytes = patch.patch.encode('utf-8')
     patch_size_kb = len(patch_bytes) / 1024
     use_bind_mount = patch_size_kb > 500  # 500KB Docker env limit
-    
+
     if use_bind_mount:
         # Clear explanation for users
         if patch_size_kb > max_patch_size_mb * 1024:
@@ -118,12 +118,12 @@ def run_evaluation(patch_source: str, no_input: bool = False, max_patch_size_mb:
 
 def _run_with_bind_mount(patch: PatchInstance, temp_path: Path) -> EvaluationResult:
     """Run evaluation with patch bind-mounted to container.
-    
+
     Used when patch exceeds Docker's 500KB environment variable limit.
     """
     import tempfile
     import os
-    
+
     # Create secure temporary file for patch
     with tempfile.NamedTemporaryFile(
         mode='w',
@@ -133,7 +133,7 @@ def _run_with_bind_mount(patch: PatchInstance, temp_path: Path) -> EvaluationRes
     ) as patch_file:
         patch_file.write(patch.patch)
         patch_file_path = patch_file.name
-    
+
     try:
         # Prepare Docker volume mount
         volumes = {
@@ -142,7 +142,7 @@ def _run_with_bind_mount(patch: PatchInstance, temp_path: Path) -> EvaluationRes
                 'mode': 'ro'  # Read-only for security
             }
         }
-        
+
         # Run harness with bind-mounted patch
         cmd = [
             "python", "-m", "swebench.harness.run_evaluation",
@@ -150,7 +150,7 @@ def _run_with_bind_mount(patch: PatchInstance, temp_path: Path) -> EvaluationRes
             "--patch_path", "/tmp/patch.diff",  # Container path
             # ... other args
         ]
-        
+
         # Execute with volumes
         result = subprocess.run(
             cmd,
@@ -159,9 +159,9 @@ def _run_with_bind_mount(patch: PatchInstance, temp_path: Path) -> EvaluationRes
             text=True,
             timeout=4200
         )
-        
+
         return parse_harness_results(temp_path, patch)
-        
+
     finally:
         # Clean up temporary patch file
         try:
@@ -200,15 +200,15 @@ if use_bind_mount and not BIND_MOUNT_IMPLEMENTED:
 ```
 
 ### 4. Exit Code Mismatches
-**Severity**: HIGH  
-**Location**: Multiple files  
+**Severity**: HIGH
+**Location**: Multiple files
 **Impact**: Incorrect error reporting, test failures
 
 **PRD Specification** (VERIFIED):
 - 0 = success
 - 1 = general harness error
 - 2 = Docker missing
-- 3 = network failure  
+- 3 = network failure
 - 4 = disk full/resource issues
 
 **Specific Problems Found**:
@@ -243,8 +243,8 @@ if result.error:
 ```
 
 ### 5. Resource Check Failures in CI
-**Severity**: MEDIUM  
-**Location**: src/swebench_runner/docker_run.py:133  
+**Severity**: MEDIUM
+**Location**: src/swebench_runner/docker_run.py:133
 **Impact**: CI always fails on resource checks
 
 **Issue Details** (RESEARCHED):
@@ -261,21 +261,21 @@ def check_resources() -> None:
     # Allow CI to skip or reduce requirements
     is_ci = os.environ.get("CI") == "true"
     skip_checks = os.environ.get("SWEBENCH_SKIP_RESOURCE_CHECK") == "true"
-    
+
     if skip_checks:
         return
-    
+
     try:
         # Check memory - lower requirement for CI
         min_memory_gb = 4 if is_ci else 8
         # ... memory check with adjusted limit
-        
+
         # Check disk space - lower requirement for CI
         min_disk_gb = 20 if is_ci else 50
-        
+
         disk_usage = shutil.disk_usage(".")
         free_gb = disk_usage.free / (1024**3)
-        
+
         if free_gb < min_disk_gb:
             if is_ci:
                 # Warning only in CI
@@ -289,13 +289,13 @@ def check_resources() -> None:
 ```
 
 ### 6. Low Test Coverage
-**Severity**: HIGH  
-**Location**: src/swebench_runner/bootstrap.py, cache.py  
+**Severity**: HIGH
+**Location**: src/swebench_runner/bootstrap.py, cache.py
 **Impact**: 45% coverage vs 90% required
 
 **Issue Details** (VERIFIED):
 - bootstrap.py: Only 21% coverage (no test file exists)
-- cache.py: Only 33% coverage (no test file exists)  
+- cache.py: Only 33% coverage (no test file exists)
 - Overall coverage: 45% (target is 90%)
 
 **Fix Required** (DETAILED TEST PLAN):
@@ -320,43 +320,43 @@ from swebench_runner.bootstrap import (
 
 class TestBootstrap:
     """Test all bootstrap functionality."""
-    
+
     @patch("swebench_runner.bootstrap.is_first_run")
     @patch("swebench_runner.bootstrap.mark_first_run_complete")
     def test_check_and_prompt_first_run_ci_mode(self, mock_mark, mock_is_first):
         """Test bootstrap in CI mode (no_input=True)."""
         mock_is_first.return_value = True
-        
+
         result = check_and_prompt_first_run(no_input=True)
-        
+
         assert result is True
         mock_mark.assert_called_once()
-    
+
     @patch("swebench_runner.bootstrap.is_first_run")
     def test_check_and_prompt_not_first_run(self, mock_is_first):
         """Test when not first run."""
         mock_is_first.return_value = False
-        
+
         result = check_and_prompt_first_run(no_input=True)
-        
+
         assert result is False
-    
+
     @patch("swebench_runner.bootstrap.is_first_run")
     @patch("swebench_runner.bootstrap.mark_first_run_complete")
     @patch("swebench_runner.bootstrap.show_welcome_message")
     @patch("click.confirm")
-    def test_check_and_prompt_interactive_accept(self, mock_confirm, mock_welcome, 
+    def test_check_and_prompt_interactive_accept(self, mock_confirm, mock_welcome,
                                                  mock_mark, mock_is_first):
         """Test interactive mode when user accepts."""
         mock_is_first.return_value = True
         mock_confirm.return_value = True
-        
+
         result = check_and_prompt_first_run(no_input=False)
-        
+
         assert result is True
         mock_welcome.assert_called_once()
         mock_mark.assert_called_once()
-    
+
     @patch("swebench_runner.bootstrap.is_first_run")
     @patch("click.confirm")
     @patch("click.echo")
@@ -364,13 +364,13 @@ class TestBootstrap:
         """Test when user cancels setup."""
         mock_is_first.return_value = True
         mock_confirm.return_value = False
-        
+
         with pytest.raises(SystemExit) as exc_info:
             check_and_prompt_first_run(no_input=False)
-        
+
         assert exc_info.value.code == 0
         mock_echo.assert_any_call("Setup cancelled. Run again when ready.")
-    
+
     @patch("swebench_runner.bootstrap.auto_detect_patches_file")
     @patch("click.confirm")
     @patch("click.echo")
@@ -378,74 +378,74 @@ class TestBootstrap:
         """Test patch file suggestion when file found and accepted."""
         mock_detect.return_value = Path("patches.jsonl")
         mock_confirm.return_value = True
-        
+
         result = suggest_patches_file()
-        
+
         assert result == Path("patches.jsonl")
         mock_echo.assert_called_with("💡 Found patches.jsonl in current directory")
-    
+
     @patch("swebench_runner.bootstrap.auto_detect_patches_file")
     def test_suggest_patches_file_not_found(self, mock_detect):
         """Test when no patch file is found."""
         mock_detect.return_value = None
-        
+
         result = suggest_patches_file()
-        
+
         assert result is None
-    
+
     @patch("click.echo")
     def test_show_success_message_first_success(self, mock_echo):
         """Test first success message formatting."""
         show_success_message("test-123", is_first_success=True)
-        
+
         # Verify celebration message shown
         calls = [str(call) for call in mock_echo.call_args_list]
         assert any("🎉 SUCCESS! 🎉" in str(call) for call in calls)
         assert any("Congrats on your first successful evaluation!" in str(call) for call in calls)
-    
+
     @patch("click.echo")
     def test_show_success_message_regular(self, mock_echo):
         """Test regular success message."""
         show_success_message("test-456", is_first_success=False)
-        
+
         mock_echo.assert_called_once_with("✅ test-456: Evaluation completed successfully")
-    
+
     @patch("platform.system")
     @patch("click.echo")
     def test_show_docker_setup_help_macos(self, mock_echo, mock_platform):
         """Test Docker setup help for macOS."""
         mock_platform.return_value = "Darwin"
-        
+
         show_docker_setup_help()
-        
+
         calls = [str(call) for call in mock_echo.call_args_list]
         assert any("Docker Desktop" in str(call) for call in calls)
-    
+
     @patch("platform.system")
     @patch("click.echo")
     def test_show_docker_setup_help_linux(self, mock_echo, mock_platform):
         """Test Docker setup help for Linux."""
         mock_platform.return_value = "Linux"
-        
+
         show_docker_setup_help()
-        
+
         calls = [str(call) for call in mock_echo.call_args_list]
         assert any("sudo apt-get install docker.io" in str(call) for call in calls)
-    
+
     @patch("click.echo")
     def test_show_resource_warning(self, mock_echo):
         """Test resource warning display."""
         show_resource_warning(25.5)
-        
+
         calls = [str(call) for call in mock_echo.call_args_list]
         assert any("Only 25.5GB free disk space" in str(call) for call in calls)
         assert any("swebench clean --all" in str(call) for call in calls)
-    
+
     @patch("click.echo")
     def test_show_memory_warning(self, mock_echo):
         """Test memory warning display."""
         show_memory_warning(6.0)
-        
+
         calls = [str(call) for call in mock_echo.call_args_list]
         assert any("Only 6.0GB RAM available" in str(call) for call in calls)
 ```
@@ -474,118 +474,118 @@ from swebench_runner.cache import (
 
 class TestCache:
     """Test all cache functionality."""
-    
+
     @pytest.fixture
     def isolated_cache_dir(self, tmp_path, monkeypatch):
         """Provide isolated cache directory for tests."""
         cache_dir = tmp_path / "test_cache"
         monkeypatch.setenv("SWEBENCH_CACHE_DIR", str(cache_dir))
         return cache_dir
-    
+
     def test_get_cache_dir_env_var(self, isolated_cache_dir):
         """Test cache dir from environment variable."""
         result = get_cache_dir()
-        
+
         assert result == isolated_cache_dir
         assert result.exists()
         assert (result / "datasets").exists()
         assert (result / "logs").exists()
         assert (result / "results").exists()
-    
+
     def test_get_cache_dir_default(self, monkeypatch):
         """Test default cache directory location."""
         monkeypatch.delenv("SWEBENCH_CACHE_DIR", raising=False)
-        
+
         result = get_cache_dir()
-        
+
         assert result == Path.home() / ".swebench"
-    
+
     def test_is_first_run_true(self, isolated_cache_dir):
         """Test first run detection when config doesn't exist."""
         # Ensure cache dir exists but no config file
         get_cache_dir()
-        
+
         assert is_first_run() is True
-    
+
     def test_is_first_run_false(self, isolated_cache_dir):
         """Test first run detection when config exists."""
         get_cache_dir()
         mark_first_run_complete()
-        
+
         assert is_first_run() is False
-    
+
     def test_mark_first_run_complete(self, isolated_cache_dir):
         """Test marking first run as complete."""
         cache_dir = get_cache_dir()
-        
+
         mark_first_run_complete()
-        
+
         config_file = cache_dir / "config.toml"
         assert config_file.exists()
-        
+
         content = config_file.read_text()
         assert "SWE-bench Runner Configuration" in content
         assert "version = \"0.1.0\"" in content
         assert str(cache_dir) in content
-    
+
     def test_get_cache_usage_empty(self, isolated_cache_dir):
         """Test cache usage calculation for empty cache."""
         get_cache_dir()
-        
+
         usage = get_cache_usage()
-        
+
         assert usage["datasets"] == 0
         assert usage["logs"] == 0
         assert usage["results"] == 0
-    
+
     def test_get_cache_usage_with_files(self, isolated_cache_dir):
         """Test cache usage calculation with files."""
         cache_dir = get_cache_dir()
-        
+
         # Create test files
         (cache_dir / "datasets" / "test.txt").write_text("x" * 1000)
         (cache_dir / "logs" / "test.log").write_text("y" * 2000)
         (cache_dir / "results" / "test.json").write_text("z" * 3000)
-        
+
         # Create subdirectory with files
         (cache_dir / "logs" / "subdir").mkdir()
         (cache_dir / "logs" / "subdir" / "nested.log").write_text("w" * 500)
-        
+
         usage = get_cache_usage()
-        
+
         assert usage["datasets"] == 1000
         assert usage["logs"] == 2500  # 2000 + 500
         assert usage["results"] == 3000
-    
+
     def test_clean_cache_dry_run(self, isolated_cache_dir):
         """Test cache cleaning in dry run mode."""
         cache_dir = get_cache_dir()
-        
+
         # Create test files
         (cache_dir / "datasets" / "test.txt").write_text("x" * 1000)
         (cache_dir / "logs" / "test.log").write_text("y" * 2000)
-        
+
         # Dry run - nothing should be deleted
         removed = clean_cache(
             clean_datasets=True,
             clean_logs=True,
             dry_run=True
         )
-        
+
         assert removed["datasets"] == 1000
         assert removed["logs"] == 2000
         assert (cache_dir / "datasets" / "test.txt").exists()  # Still exists
         assert (cache_dir / "logs" / "test.log").exists()  # Still exists
-    
+
     def test_clean_cache_real(self, isolated_cache_dir):
         """Test actual cache cleaning."""
         cache_dir = get_cache_dir()
-        
+
         # Create test files
         (cache_dir / "datasets" / "test.txt").write_text("x" * 1000)
         (cache_dir / "logs" / "test.log").write_text("y" * 2000)
         (cache_dir / "results" / "test.json").write_text("z" * 3000)
-        
+
         # Clean only logs and datasets
         removed = clean_cache(
             clean_datasets=True,
@@ -593,64 +593,64 @@ class TestCache:
             clean_results=False,
             dry_run=False
         )
-        
+
         assert removed["datasets"] == 1000
         assert removed["logs"] == 2000
         assert removed["results"] == 0
-        
+
         assert not (cache_dir / "datasets" / "test.txt").exists()
         assert not (cache_dir / "logs" / "test.log").exists()
         assert (cache_dir / "results" / "test.json").exists()  # Not cleaned
-    
+
     def test_auto_detect_patches_file_found(self, tmp_path, monkeypatch):
         """Test auto-detection of patch files."""
         monkeypatch.chdir(tmp_path)
-        
+
         # Create various patch files
         (tmp_path / "patches.jsonl").touch()
         (tmp_path / "predictions.jsonl").touch()
         (tmp_path / "other.txt").touch()
-        
+
         result = auto_detect_patches_file()
-        
+
         # Should prefer patches.jsonl
         assert result == Path("patches.jsonl")
-    
+
     def test_auto_detect_patches_file_priority(self, tmp_path, monkeypatch):
         """Test auto-detection priority order."""
         monkeypatch.chdir(tmp_path)
-        
+
         # Only predictions.jsonl exists
         (tmp_path / "predictions.jsonl").touch()
-        
+
         result = auto_detect_patches_file()
         assert result == Path("predictions.jsonl")
-    
+
     def test_auto_detect_patches_file_not_found(self, tmp_path, monkeypatch):
         """Test when no patch files found."""
         monkeypatch.chdir(tmp_path)
-        
+
         result = auto_detect_patches_file()
         assert result is None
-    
+
     def test_get_logs_dir(self, isolated_cache_dir):
         """Test logs directory creation."""
         logs_dir = get_logs_dir()
-        
+
         assert logs_dir == isolated_cache_dir / "logs"
         assert logs_dir.exists()
-    
+
     def test_get_results_dir(self, isolated_cache_dir):
         """Test results directory creation."""
         results_dir = get_results_dir()
-        
+
         assert results_dir == isolated_cache_dir / "results"
         assert results_dir.exists()
-    
+
     def test_cache_dir_permissions(self, isolated_cache_dir):
         """Test cache directory has correct permissions."""
         cache_dir = get_cache_dir()
-        
+
         # Should be readable and writable by owner
         assert os.access(cache_dir, os.R_OK)
         assert os.access(cache_dir, os.W_OK)
@@ -658,8 +658,8 @@ class TestCache:
 ```
 
 ### 7. Security and Linting Violations
-**Severity**: MEDIUM  
-**Location**: Multiple files  
+**Severity**: MEDIUM
+**Location**: Multiple files
 **Impact**: Code quality issues
 
 **Specific Issues** (CATEGORIZED):
@@ -697,7 +697,7 @@ result = subprocess.run(["docker", "info"], capture_output=True)
 
 # After:
 result = subprocess.run(
-    ["docker", "info"], 
+    ["docker", "info"],
     capture_output=True,
     text=True,
     check=False,  # Handle errors explicitly
@@ -716,7 +716,7 @@ def load_patch_file(file_path: Path) -> str:
     # Validate file size first
     if file_path.stat().st_size > MAX_PATCH_SIZE:
         raise ValueError(f"Patch file too large: {file_path}")
-    
+
     # Validate encoding
     with open(file_path, 'rb') as f:
         raw_content = f.read()
@@ -724,7 +724,7 @@ def load_patch_file(file_path: Path) -> str:
             content = raw_content.decode('utf-8')
         except UnicodeDecodeError:
             raise ValueError("Patch file must be UTF-8 encoded")
-    
+
     return content
 ```
 
@@ -797,7 +797,7 @@ from unittest.mock import patch
 @pytest.fixture(autouse=True)
 def test_environment(monkeypatch):
     """Complete test isolation for all tests.
-    
+
     This fixture:
     1. Isolates cache directory to prevent ~/.swebench pollution
     2. Sets CI=true to disable all interactive prompts
@@ -808,10 +808,10 @@ def test_environment(monkeypatch):
         # Isolate cache directory
         cache_dir = Path(tmpdir) / ".swebench"
         monkeypatch.setenv("SWEBENCH_CACHE_DIR", str(cache_dir))
-        
+
         # Force CI mode
         monkeypatch.setenv("CI", "true")
-        
+
         # Mock bootstrap functions
         with patch("swebench_runner.cli.check_and_prompt_first_run", return_value=False), \
              patch("swebench_runner.cli.suggest_patches_file", return_value=None):
@@ -845,7 +845,7 @@ from . import exit_codes
 
 if result.error:
     error_lower = result.error.lower()
-    
+
     # Map specific errors to exit codes
     if any(term in error_lower for term in ["timeout", "timed out"]):
         sys.exit(exit_codes.GENERAL_ERROR)
@@ -870,7 +870,7 @@ else:
 # src/swebench_runner/docker_run.py
 def check_resources() -> None:
     """Check system resources with full CI configurability.
-    
+
     Environment Variables:
     - CI: Set to "true" to enable CI mode
     - SWEBENCH_SKIP_RESOURCE_CHECK: Set to "true" to skip all checks
@@ -882,10 +882,10 @@ def check_resources() -> None:
     # Environment checks
     is_ci = os.environ.get("CI") == "true"
     skip_all = os.environ.get("SWEBENCH_SKIP_RESOURCE_CHECK") == "true"
-    
+
     if skip_all:
         return
-    
+
     # Fully configurable requirements
     if is_ci:
         min_memory_gb = int(os.environ.get("SWEBENCH_CI_MIN_MEMORY_GB", "4"))
@@ -897,12 +897,12 @@ def check_resources() -> None:
         min_disk_gb = int(os.environ.get("SWEBENCH_MIN_DISK_GB", "50"))
         memory_recommended = int(os.environ.get("SWEBENCH_REC_MEMORY_GB", "16"))
         disk_recommended = int(os.environ.get("SWEBENCH_REC_DISK_GB", "120"))
-    
+
     # Check memory
     try:
         import psutil
         mem_gb = psutil.virtual_memory().available / (1024**3)
-        
+
         if mem_gb < min_memory_gb:
             if is_ci:
                 print(f"⚠️  CI Warning: Only {mem_gb:.1f}GB RAM available")
@@ -914,11 +914,11 @@ def check_resources() -> None:
                 sys.exit(exit_codes.RESOURCE_ERROR)
     except ImportError:
         pass  # Skip if psutil not available
-    
+
     # Check disk space
     try:
         free_gb = shutil.disk_usage(".").free / (1024**3)
-        
+
         if free_gb < min_disk_gb:
             if is_ci:
                 print(f"⚠️  CI Warning: Only {free_gb:.1f}GB disk space available")
@@ -999,11 +999,11 @@ from swebench_runner.models import EvaluationResult
 
 class TestExitCodes:
     """Test exit codes match PRD specifications."""
-    
+
     @pytest.fixture
     def runner(self):
         return CliRunner()
-    
+
     @pytest.fixture
     def valid_patch_file(self, tmp_path):
         """Create a valid patch file for testing."""
@@ -1012,7 +1012,7 @@ class TestExitCodes:
             '{"instance_id": "test-123", "patch": "diff --git a/test.py b/test.py\\n+test"}'
         )
         return patch_file
-    
+
     def test_success_exit_code(self, runner, valid_patch_file):
         """Test exit code 0 for successful evaluation."""
         with patch("swebench_runner.cli.run_evaluation") as mock_eval:
@@ -1021,33 +1021,33 @@ class TestExitCodes:
                 passed=True,
                 error=None
             )
-            
+
             result = runner.invoke(cli, [
                 "run", "--patches", str(valid_patch_file), "--no-input"
             ])
-            
+
             assert result.exit_code == exit_codes.SUCCESS
             assert "✅" in result.output
-    
+
     @pytest.mark.parametrize("error_message,expected_code", [
         # Timeout errors -> GENERAL_ERROR (1)
         ("Evaluation timed out after 70 minutes", exit_codes.GENERAL_ERROR),
         ("Process timeout exceeded", exit_codes.GENERAL_ERROR),
-        
+
         # Docker errors -> DOCKER_NOT_FOUND (2)
         ("Docker daemon not found", exit_codes.DOCKER_NOT_FOUND),
         ("Cannot connect to Docker daemon", exit_codes.DOCKER_NOT_FOUND),
         ("Docker is not running", exit_codes.DOCKER_NOT_FOUND),
-        
+
         # Network errors -> NETWORK_ERROR (3)
         ("Network unreachable", exit_codes.NETWORK_ERROR),
         ("Connection refused to registry", exit_codes.NETWORK_ERROR),
         ("Failed to pull image: timeout", exit_codes.NETWORK_ERROR),
-        
+
         # Resource errors -> RESOURCE_ERROR (4)
         ("Insufficient disk space: only 10GB available", exit_codes.RESOURCE_ERROR),
         ("Not enough memory: 2GB RAM available", exit_codes.RESOURCE_ERROR),
-        
+
         # Generic errors -> GENERAL_ERROR (1)
         ("Unknown evaluation error", exit_codes.GENERAL_ERROR),
         ("Harness execution failed", exit_codes.GENERAL_ERROR),
@@ -1060,45 +1060,45 @@ class TestExitCodes:
                 passed=False,
                 error=error_message
             )
-            
+
             result = runner.invoke(cli, [
                 "run", "--patches", str(valid_patch_file), "--no-input"
             ])
-            
+
             assert result.exit_code == expected_code
             assert "❌" in result.output or "Error" in result.output
-    
+
     def test_docker_check_exit_code(self, runner, valid_patch_file):
         """Test Docker check failures return correct exit code."""
         with patch("subprocess.run") as mock_run:
             # Simulate Docker not found
             mock_run.side_effect = FileNotFoundError("docker not found")
-            
+
             result = runner.invoke(cli, [
                 "run", "--patches", str(valid_patch_file), "--no-input"
             ])
-            
+
             assert result.exit_code == exit_codes.DOCKER_NOT_FOUND
-    
+
     def test_resource_check_exit_code(self, runner, valid_patch_file):
         """Test resource check failures return correct exit code."""
         with patch("shutil.disk_usage") as mock_disk:
             # Simulate low disk space
             mock_disk.return_value = MagicMock(free=10 * 1024**3)  # 10GB
-            
+
             with patch("os.environ.get") as mock_env:
                 mock_env.side_effect = lambda k, d=None: None  # Not CI
-                
+
                 result = runner.invoke(cli, [
                     "run", "--patches", str(valid_patch_file), "--no-input"
                 ])
-                
+
                 assert result.exit_code == exit_codes.RESOURCE_ERROR
 
 
 class TestExitCodeIntegration:
     """Integration tests for exit code scenarios."""
-    
+
     def test_full_evaluation_exit_codes(self, tmp_path):
         """Test exit codes in real evaluation scenarios."""
         # This would be an integration test running actual evaluations
@@ -1127,11 +1127,11 @@ from swebench_runner import exit_codes
 
 class TestEndToEndEvaluation:
     """Test complete evaluation flows."""
-    
+
     @pytest.fixture
     def runner(self):
         return CliRunner()
-    
+
     @pytest.fixture
     def mock_docker_environment(self):
         """Mock Docker environment for tests."""
@@ -1142,11 +1142,11 @@ class TestEndToEndEvaluation:
                 stdout="Docker version 24.0.0",
                 stderr=""
             )
-            
+
             # Mock harness installation check
             with patch("swebench_runner.docker_run.check_swebench_installed", return_value=True):
                 yield mock_run
-    
+
     @pytest.fixture
     def valid_patch_file(self, tmp_path):
         """Create a valid patch file for integration testing."""
@@ -1161,11 +1161,11 @@ class TestEndToEndEvaluation:
                 "+import logging\n"
             )
         }
-        
+
         patch_file = tmp_path / "test_patch.jsonl"
         patch_file.write_text(json.dumps(patch_data))
         return patch_file
-    
+
     def test_successful_evaluation_flow(self, runner, mock_docker_environment, valid_patch_file):
         """Test complete successful evaluation flow."""
         with patch("swebench_runner.docker_run.run_swebench_harness") as mock_harness:
@@ -1175,7 +1175,7 @@ class TestEndToEndEvaluation:
                 stdout="✅ Test passed",
                 stderr=""
             )
-            
+
             # Mock results parsing
             with patch("swebench_runner.docker_run.parse_harness_results") as mock_parse:
                 mock_parse.return_value = MagicMock(
@@ -1183,34 +1183,34 @@ class TestEndToEndEvaluation:
                     passed=True,
                     error=None
                 )
-                
+
                 # Run evaluation
                 result = runner.invoke(cli, [
                     "run",
                     "--patches", str(valid_patch_file),
                     "--no-input"
                 ])
-                
+
                 # Verify success
                 assert result.exit_code == exit_codes.SUCCESS
                 assert "✅" in result.output
                 assert "django__django-11999" in result.output
-    
+
     def test_docker_not_found_flow(self, runner, valid_patch_file):
         """Test behavior when Docker is not installed."""
         with patch("subprocess.run") as mock_run:
             # Simulate Docker not found
             mock_run.side_effect = FileNotFoundError("docker not found")
-            
+
             result = runner.invoke(cli, [
                 "run",
                 "--patches", str(valid_patch_file),
                 "--no-input"
             ])
-            
+
             assert result.exit_code == exit_codes.DOCKER_NOT_FOUND
             assert "Docker" in result.output
-    
+
     def test_network_error_flow(self, runner, mock_docker_environment, valid_patch_file):
         """Test network error handling during evaluation."""
         with patch("swebench_runner.docker_run.run_swebench_harness") as mock_harness:
@@ -1220,38 +1220,38 @@ class TestEndToEndEvaluation:
                 stdout="",
                 stderr="Failed to pull image: connection timeout"
             )
-            
+
             with patch("swebench_runner.docker_run.parse_harness_results") as mock_parse:
                 mock_parse.return_value = MagicMock(
                     instance_id="django__django-11999",
                     passed=False,
                     error="Network error: Failed to pull image: connection timeout"
                 )
-                
+
                 result = runner.invoke(cli, [
                     "run",
                     "--patches", str(valid_patch_file),
                     "--no-input"
                 ])
-                
+
                 assert result.exit_code == exit_codes.NETWORK_ERROR
                 assert "Network error" in result.output
-    
+
     def test_resource_constraint_flow(self, runner, valid_patch_file):
         """Test resource check failures."""
         with patch("shutil.disk_usage") as mock_disk:
             # Simulate low disk space
             mock_disk.return_value = MagicMock(free=5 * 1024**3)  # 5GB
-            
+
             result = runner.invoke(cli, [
                 "run",
                 "--patches", str(valid_patch_file),
                 "--no-input"
             ])
-            
+
             assert result.exit_code == exit_codes.RESOURCE_ERROR
             assert "disk space" in result.output
-    
+
     def test_large_patch_handling(self, runner, mock_docker_environment, tmp_path):
         """Test handling of patches exceeding Docker env var limit."""
         # Create large patch (>500KB)
@@ -1260,21 +1260,21 @@ class TestEndToEndEvaluation:
             "instance_id": "test-large",
             "patch": large_patch
         }
-        
+
         patch_file = tmp_path / "large_patch.jsonl"
         patch_file.write_text(json.dumps(patch_data))
-        
+
         result = runner.invoke(cli, [
             "run",
             "--patches", str(patch_file),
             "--no-input"
         ])
-        
+
         # Should fail with clear error about Docker env limit
         assert result.exit_code != exit_codes.SUCCESS
         assert "500KB" in result.output
         assert "Docker" in result.output or "environment variable" in result.output
-    
+
     @pytest.mark.parametrize("ci_env,expected_behavior", [
         ({"CI": "true"}, "warning"),  # CI mode - warnings only
         ({}, "error"),  # Normal mode - hard errors
@@ -1285,14 +1285,14 @@ class TestEndToEndEvaluation:
             with patch("shutil.disk_usage") as mock_disk:
                 # Simulate borderline disk space
                 mock_disk.return_value = MagicMock(free=25 * 1024**3)  # 25GB
-                
+
                 with patch("swebench_runner.docker_run.check_docker_daemon"):
                     result = runner.invoke(cli, [
                         "run",
                         "--patches", str(valid_patch_file),
                         "--no-input"
                     ])
-                    
+
                     if expected_behavior == "warning":
                         # CI mode should show warning but continue
                         assert "⚠️" in result.output
@@ -1303,31 +1303,31 @@ class TestEndToEndEvaluation:
 
 class TestCLIIntegration:
     """Test CLI command integration."""
-    
+
     def test_clean_command_integration(self):
         """Test clean command with cache operations."""
         runner = CliRunner()
-        
+
         with runner.isolated_filesystem():
             # Set up test cache
             cache_dir = Path(".swebench")
             cache_dir.mkdir()
             (cache_dir / "logs").mkdir()
             (cache_dir / "logs" / "test.log").write_text("test log")
-            
+
             with patch("swebench_runner.cache.get_cache_dir", return_value=cache_dir):
                 result = runner.invoke(cli, ["clean", "--logs"])
-                
+
                 assert result.exit_code == 0
                 assert "Cleaning logs" in result.output
-    
+
     def test_setup_command_integration(self):
         """Test setup wizard command."""
         runner = CliRunner()
-        
+
         with patch("swebench_runner.cli.setup_wizard") as mock_wizard:
             result = runner.invoke(cli, ["setup"])
-            
+
             assert result.exit_code == 0
             mock_wizard.assert_called_once()
 ```
@@ -1350,12 +1350,12 @@ def mock_docker_success():
             elif cmd[0] == "python" and "-m" in cmd:
                 return MagicMock(returncode=0, stdout="Evaluation complete")
             return MagicMock(returncode=0)
-        
+
         mock_run.side_effect = docker_side_effect
         yield mock_run
 
 
-@pytest.fixture  
+@pytest.fixture
 def mock_docker_network_error():
     """Mock Docker network errors."""
     with patch("subprocess.run") as mock_run:
@@ -1366,7 +1366,7 @@ def mock_docker_network_error():
                     stderr="network timeout"
                 )
             return MagicMock(returncode=0)
-        
+
         mock_run.side_effect = network_error_side_effect
         yield mock_run
 ```

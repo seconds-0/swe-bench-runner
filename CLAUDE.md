@@ -337,11 +337,10 @@ When implementing features, always consult:
 
 ### 12. Pre-Push Validation (MANDATORY)
 **Rule**: Run these checks before every push
-1. `./scripts/check.sh` - Run all CI checks locally
-2. `ruff check --fix` - Auto-fix any linting issues
-3. `mypy src/` - Ensure type checking passes
-4. Test without Docker running
-5. Verify coverage is above threshold
+1. `pre-commit run --all-files` - Run ALL CI checks locally via pre-commit
+2. `./scripts/check.sh` - Alternative: run all CI checks via script
+3. Test without Docker running using `./scripts/test-no-docker.sh`
+4. **CRITICAL**: Pre-commit hooks MUST match CI exactly (see Documentation/CI-PreCommit-Parity.md)
 
 ### 13. Error Handling Standards (MANDATORY)
 **Rule**: Use consistent error handling patterns
@@ -359,6 +358,22 @@ When implementing features, always consult:
 - **Test skips**: Document why tests are skipped with clear reasons
 - **Mocking strategy**: Document why mocks are at specific levels
 
+### 15. CI-Pre-commit Parity (MANDATORY)
+**Rule**: Pre-commit hooks MUST exactly match CI checks
+- **No drift allowed**: Every CI check must have an equivalent pre-commit hook
+- **Update together**: When changing CI, update pre-commit hooks in the same PR
+- **Document mapping**: Keep Documentation/CI-PreCommit-Parity.md current
+- **Test locally first**: Run `pre-commit run --all-files` before pushing
+- **Hook versions**: Run `pre-commit autoupdate` monthly to stay current
+
+### 16. Pre-PR Validation (MANDATORY)
+**Rule**: Always run `make pre-pr` before opening any pull request
+- **No exceptions**: This catches issues pre-commit misses (builds, installs, multi-Python)
+- **Fix all failures**: Red ❌ errors will break CI - fix them first
+- **Review warnings**: Yellow ⚠️ warnings indicate environment differences
+- **Time investment**: 2-5 minutes locally saves hours of CI debugging
+- **Success criteria**: Only open PR when you see "All critical checks passed!"
+
 ## Development Workflow
 
 ### Before Starting Work
@@ -366,7 +381,7 @@ When implementing features, always consult:
 2. Run `pre-commit install` to set up hooks
 3. Create a workplan in `Documentation/Plans/`
 
-### During Development  
+### During Development
 1. Write tests first (TDD)
 2. Run `./scripts/check.sh` frequently
 3. Test with Docker stopped
@@ -374,11 +389,18 @@ When implementing features, always consult:
 5. Commit with descriptive messages
 
 ### Before Pushing
-1. Run `./scripts/check.sh`
-2. Test in fresh virtual environment
-3. Check coverage report for meaningful gaps
-4. Update documentation if needed
-5. Self-review the diff
+1. Run `./scripts/check.sh` for quick validation
+2. Self-review the diff
+3. Update documentation if needed
+
+### Before Opening a PR (MANDATORY)
+**Rule**: Always run full CI simulation before opening any PR
+1. Run `make pre-pr` or `make ci-full` - This runs EVERYTHING CI will run
+2. Fix ALL failures (red ❌) - These will definitely break CI
+3. Review warnings (yellow ⚠️) - These indicate environment differences
+4. Only open PR when pre-pr shows "All critical checks passed!"
+
+**Why this matters**: PR #6 required multiple iterations due to CI failures that could have been caught locally. The `pre-pr` script fills gaps that pre-commit doesn't cover (builds, installations, multi-Python testing).
 
 ### After CI Failure
 1. Check exact error in CI logs

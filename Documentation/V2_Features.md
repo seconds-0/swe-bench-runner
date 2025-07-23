@@ -13,7 +13,7 @@
   - Schema validation with helpful errors
 
 ### 1.2 Advanced Logging
-- **Commands**: 
+- **Commands**:
   - `--log-level ERROR|WARN|INFO|DEBUG`
   - `--keep-logs N` days for auto-cleanup
   - `--tail INSTANCE_ID` for real-time following

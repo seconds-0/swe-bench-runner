@@ -71,6 +71,27 @@ swebench run --patches predictions.jsonl
 
 This project is being developed with AI assistance following the workplan methodology outlined in [CLAUDE.md](CLAUDE.md).
 
+### Development Commands
+
+```bash
+# Install development environment
+make install        # Install package + dev dependencies
+make hooks         # Install pre-commit hooks
+
+# During development
+make check         # Run quick CI checks
+make test          # Run full test suite
+make lint          # Auto-fix linting issues
+make mypy          # Run type checking
+
+# Before opening a PR
+make pre-pr        # Run FULL CI simulation
+make ci-full       # Alias for pre-pr
+
+# Cleanup
+make clean         # Remove build artifacts and caches
+```
+
 ## License
 
 MIT

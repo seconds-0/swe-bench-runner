@@ -7,6 +7,7 @@ This module provides test isolation to prevent:
 3. Actual bootstrap operations during tests
 """
 
+import os
 from unittest.mock import patch
 
 import pytest
@@ -119,3 +120,28 @@ def cli_runner():
     """
     from click.testing import CliRunner
     return CliRunner()
+
+
+# Markers for Docker tests
+def pytest_configure(config):
+    """Register custom markers."""
+    config.addinivalue_line(
+        "markers",
+        "docker: marks tests that require Docker "
+        "(skip with SWEBENCH_SKIP_DOCKER_TESTS=true)"
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    """Skip Docker tests if environment variable is set."""
+    if os.environ.get("SWEBENCH_SKIP_DOCKER_TESTS") == "true":
+        skip_docker = pytest.mark.skip(
+            reason="Skipping Docker tests (SWEBENCH_SKIP_DOCKER_TESTS=true)"
+        )
+        for item in items:
+            # Skip tests marked with @pytest.mark.docker
+            if "docker" in item.keywords:
+                item.add_marker(skip_docker)
+            # Also skip tests with docker in their name
+            if "docker" in item.name.lower():
+                item.add_marker(skip_docker)

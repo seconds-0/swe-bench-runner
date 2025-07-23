@@ -65,24 +65,37 @@ echo ""
 # 4. Test installation from wheel (missing from pre-commit)
 echo "📥 Testing package installation..."
 # Create a temporary virtual environment
-TEMP_VENV=$(mktemp -d)/venv
-python -m venv $TEMP_VENV
-source $TEMP_VENV/bin/activate
+TEMP_DIR=$(mktemp -d)
+TEMP_VENV="$TEMP_DIR/venv"
 
-if pip install dist/*.whl; then
-    # Test that CLI works
-    if swebench --version && swebench --help > /dev/null; then
-        echo -e "${GREEN}✅ Package installs and CLI works${NC}"
+# Set up cleanup trap
+trap 'deactivate 2>/dev/null || true; rm -rf "$TEMP_DIR" 2>/dev/null || true' EXIT
+
+if ! python -m venv "$TEMP_VENV"; then
+    echo -e "${RED}❌ Failed to create test virtual environment${NC}"
+    ((FAILURES++))
+else
+    source "$TEMP_VENV/bin/activate"
+    
+    if pip install dist/*.whl; then
+        # Test that CLI works
+        if swebench --version && swebench --help > /dev/null; then
+            echo -e "${GREEN}✅ Package installs and CLI works${NC}"
+        else
+            echo -e "${RED}❌ CLI entry point failed${NC}"
+            ((FAILURES++))
+        fi
     else
-        echo -e "${RED}❌ CLI entry point failed${NC}"
+        echo -e "${RED}❌ Package installation failed${NC}"
         ((FAILURES++))
     fi
-else
-    echo -e "${RED}❌ Package installation failed${NC}"
-    ((FAILURES++))
+    
+    deactivate
 fi
-deactivate
-rm -rf $TEMP_VENV
+
+# Remove trap after successful cleanup
+trap - EXIT
+rm -rf "$TEMP_DIR"
 echo ""
 
 # 5. Test on multiple Python versions if available

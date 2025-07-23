@@ -126,7 +126,7 @@ def cli_runner():
 def pytest_configure(config):
     """Register custom markers."""
     config.addinivalue_line(
-        "markers", 
+        "markers",
         "docker: marks tests that require Docker "
         "(skip with SWEBENCH_SKIP_DOCKER_TESTS=true)"
     )

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+import uuid
 from pathlib import Path
 from typing import NoReturn
 
@@ -16,10 +17,34 @@ from .bootstrap import (
     show_success_message,
     suggest_patches_file,
 )
-from .cache import clean_cache, get_cache_usage
+from .cache import clean_cache, get_cache_dir, get_cache_usage
 from .docker_run import run_evaluation
 from .error_utils import classify_error
 from .output import detect_patches_file, display_result
+
+
+def load_failed_instances(results_dir: Path) -> list[str]:
+    """Load instance IDs that failed from a previous run."""
+    failed_instances = []
+
+    # Check for summary.json files
+    for summary_file in results_dir.rglob("summary.json"):
+        try:
+            with open(summary_file) as f:
+                data = json.load(f)
+                if not data.get('passed', True):
+                    failed_instances.append(data['instance_id'])
+        except (json.JSONDecodeError, KeyError):
+            # Skip malformed files
+            continue
+
+    # Alternative: check for FAILED status files
+    if not failed_instances:
+        for failed_file in results_dir.rglob("FAILED"):
+            instance_id = failed_file.parent.name
+            failed_instances.append(instance_id)
+
+    return failed_instances
 
 
 @click.group()
@@ -41,6 +66,38 @@ def cli() -> None:
     help="Directory containing .patch files named {instance_id}.patch",
 )
 @click.option(
+    "-d", "--dataset",
+    type=click.Choice(['lite', 'verified', 'full']),
+    help="Use SWE-bench dataset (auto-downloads from HuggingFace)"
+)
+@click.option(
+    "--instances",
+    help="Comma-separated list of specific instance IDs to run"
+)
+@click.option(
+    "--count",
+    type=int,
+    help="Number of instances to run (random sample)"
+)
+@click.option(
+    "--sample",
+    help="Random percentage of instances (e.g., '10%' or 'random-seed=42')"
+)
+@click.option(
+    "--subset",
+    help="Filter instances by pattern (e.g., 'django__*', 'requests__*')"
+)
+@click.option(
+    "--regex",
+    is_flag=True,
+    help="Treat --subset as regex instead of glob pattern"
+)
+@click.option(
+    "--rerun-failed",
+    type=click.Path(exists=True, path_type=Path),
+    help="Rerun failed instances from a previous run directory"
+)
+@click.option(
     "--no-input",
     is_flag=True,
     help="CI mode: fail on prompts instead of waiting for user input",
@@ -60,14 +117,33 @@ def cli() -> None:
 def run(
     patches: Path | None,
     patches_dir: Path | None,
+    dataset: str | None,
+    instances: str | None,
+    count: int | None,
+    sample: str | None,
+    subset: str | None,
+    regex: bool,
+    rerun_failed: Path | None,
     no_input: bool,
     json_output: bool,
     max_patch_size: int,
 ) -> NoReturn:
     """Run SWE-bench evaluation."""
-    # Auto-detect patches file if none provided
-    if patches is None and patches_dir is None:
-        # Try our detection first
+    # Handle --rerun-failed first
+    if rerun_failed:
+        failed_instances = load_failed_instances(rerun_failed)
+        if not failed_instances:
+            if not json_output:
+                click.echo("✅ No failed instances to rerun")
+            sys.exit(exit_codes.SUCCESS)
+        # Convert to instance list
+        instances = ','.join(failed_instances)
+        if not json_output:
+            click.echo(f"🔄 Rerunning {len(failed_instances)} failed instances")
+
+    # Priority: explicit patches file > dataset selection > auto-detection
+    if not patches and not patches_dir and not dataset and not rerun_failed:
+        # Try auto-detection
         detected = detect_patches_file()
         if detected:
             patches = detected
@@ -79,15 +155,113 @@ def run(
             if suggested_file:
                 patches = suggested_file
 
-        if patches is None and patches_dir is None:
+        if patches is None and patches_dir is None and dataset is None:
             click.echo(
-                "Error: Must provide either --patches or --patches-dir", err=True
+                "Error: Must provide --patches, --patches-dir, or --dataset", err=True
             )
             sys.exit(exit_codes.GENERAL_ERROR)
 
-    if patches is not None and patches_dir is not None:
-        click.echo("Error: Cannot provide both --patches and --patches-dir", err=True)
+    # Validate mutual exclusivity
+    provided_sources = sum(bool(x) for x in [patches, patches_dir, dataset])
+    if provided_sources > 1:
+        click.echo(
+            "Error: Cannot provide multiple sources (--patches, --patches-dir, --dataset)", 
+            err=True
+        )
         sys.exit(exit_codes.GENERAL_ERROR)
+
+    # Handle dataset fetching
+    if dataset and not patches and not patches_dir:
+        try:
+            from .datasets import DatasetManager
+        except ImportError:
+            click.echo(
+                "Error: Dataset features require additional dependencies", err=True
+            )
+            click.echo(
+                "Install with: pip install 'swebench-runner[datasets]'", err=True
+            )
+            sys.exit(exit_codes.GENERAL_ERROR)
+
+        if not json_output:
+            click.echo(f"📥 Loading {dataset} dataset from HuggingFace...")
+
+        try:
+            manager = DatasetManager(get_cache_dir())
+
+            # Parse --sample flag
+            sample_percent = None
+            random_seed = None
+            if sample:
+                if sample.endswith('%'):
+                    sample_percent = float(sample[:-1])
+                elif '=' in sample:
+                    # Handle "random-seed=42" format
+                    parts = sample.split('=')
+                    if parts[0] == 'random-seed':
+                        random_seed = int(parts[1])
+
+            # Parse --instances flag
+            instance_list = None
+            if instances:
+                instance_list = [i.strip() for i in instances.split(',')]
+
+            dataset_instances = manager.get_instances(
+                dataset_name=dataset,
+                instances=instance_list,
+                count=count,
+                sample_percent=sample_percent,
+                subset_pattern=subset,
+                use_regex=regex,
+                random_seed=random_seed
+            )
+
+            if not dataset_instances:
+                click.echo("❌ No instances matched your criteria", err=True)
+                sys.exit(exit_codes.GENERAL_ERROR)
+
+            # Clean up old temp files first to ensure directory exists
+            manager.cleanup_temp_files()
+
+            # Save to temporary JSONL for compatibility with existing code
+            temp_patches = (
+                get_cache_dir() / "temp" / f"{dataset}_{uuid.uuid4().hex[:8]}.jsonl"
+            )
+            manager.save_as_jsonl(dataset_instances, temp_patches)
+            patches = temp_patches
+
+            if not json_output:
+                click.echo(
+                    f"✅ Loaded {len(dataset_instances)} instances from {dataset} dataset"
+                )
+                if instance_list:
+                    instance_preview = ', '.join(instance_list[:3])
+                    suffix = '...' if len(instance_list) > 3 else ''
+                    click.echo(f"   Specific instances: {instance_preview}{suffix}")
+                if sample_percent:
+                    click.echo(f"   Random {sample_percent}% sample")
+                if count:
+                    click.echo(f"   Limited to {count} instances")
+                if subset:
+                    filter_type = 'regex' if regex else 'pattern'
+                    click.echo(f"   Filtered by {filter_type}: {subset}")
+
+        except Exception as e:
+            if "401" in str(e):
+                click.echo("❌ Authentication required for this dataset", err=True)
+                click.echo(
+                    "   Set HF_TOKEN environment variable with your HuggingFace token",
+                    err=True
+                )
+                click.echo(
+                    "   Get a token at: https://huggingface.co/settings/tokens", err=True
+                )
+            elif "Connection" in str(e) or "Network" in str(e):
+                click.echo("❌ Network error downloading dataset", err=True)
+                click.echo("   Check your internet connection", err=True)
+            else:
+                click.echo(f"❌ Failed to load dataset: {e}", err=True)
+            sys.exit(exit_codes.NETWORK_ERROR)
 
     # Validate patches file if provided
     if patches is not None:
@@ -100,15 +274,18 @@ def run(
             sys.exit(exit_codes.GENERAL_ERROR)
 
         patch_source = str(patches)
-    else:
+    elif patches_dir is not None:
         # patches_dir is provided
-        assert patches_dir is not None
         patch_files = list(patches_dir.glob("*.patch"))
         if not patch_files:
             click.echo(f"Error: No .patch files found in {patches_dir}", err=True)
             sys.exit(exit_codes.GENERAL_ERROR)
 
         patch_source = str(patches_dir)
+    else:
+        # This shouldn't happen due to validation above
+        click.echo("Error: No patch source specified", err=True)
+        sys.exit(exit_codes.GENERAL_ERROR)
 
     # Check for first-time setup after argument validation
     is_first_run = check_and_prompt_first_run(no_input=no_input)
@@ -257,6 +434,50 @@ def setup() -> None:
     click.echo()
     click.echo("You're ready to run evaluations!")
     click.echo("Try: swebench run --patches your_patches.jsonl")
+
+
+@cli.command()
+@click.option(
+    '-d', '--dataset',
+    type=click.Choice(['lite', 'verified', 'full']),
+    required=True,
+    help='Dataset to get information about'
+)
+def info(dataset: str) -> None:
+    """Get information about a SWE-bench dataset."""
+    try:
+        from .datasets import DatasetManager
+    except ImportError:
+        click.echo("Error: Dataset features require additional dependencies", err=True)
+        click.echo("Install with: pip install 'swebench-runner[datasets]'", err=True)
+        sys.exit(exit_codes.GENERAL_ERROR)
+
+    try:
+        manager = DatasetManager(get_cache_dir())
+        dataset_info = manager.get_dataset_info(dataset)
+
+        click.echo(f"\n📊 SWE-bench {dataset} dataset:")
+        click.echo(f"   Total instances: {dataset_info['total_instances']:,}")
+        click.echo(f"   Download size: {dataset_info['download_size_mb']:.1f} MB")
+        click.echo(f"   On-disk size: {dataset_info['dataset_size_mb']:.1f} MB")
+        if dataset_info['description']:
+            click.echo(f"   Description: {dataset_info['description'][:100]}...")
+    except Exception as e:
+        if "401" in str(e):
+            click.echo("❌ Authentication required for this dataset", err=True)
+            click.echo(
+                "   Set HF_TOKEN environment variable with your HuggingFace token",
+                err=True
+            )
+            click.echo(
+                "   Get a token at: https://huggingface.co/settings/tokens", err=True
+            )
+        elif "Connection" in str(e) or "Network" in str(e):
+            click.echo("❌ Network error accessing dataset", err=True)
+            click.echo("   Check your internet connection", err=True)
+        else:
+            click.echo(f"❌ Failed to get dataset info: {e}", err=True)
+        sys.exit(exit_codes.NETWORK_ERROR)
 
 
 if __name__ == "__main__":

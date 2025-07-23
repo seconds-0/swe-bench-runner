@@ -15,10 +15,23 @@ Currently, users need to:
 
 This is a major barrier to entry. Users should be able to just run:
 ```bash
-swebench run --dataset lite --count 5
+# Run specific instances
+swebench run --dataset lite --instances django__django-12345,django__django-67890
+
+# Run random 10% of dataset
+swebench run --dataset lite --sample 10%
+
+# Run 5 random instances with seed
+swebench run --dataset lite --count 5 --random-seed 42
+
+# Run all Django instances using regex
+swebench run --dataset lite --subset "django__django-1[0-9]{4}" --regex
+
+# Rerun failed instances from previous run
+swebench run --rerun-failed ./results/latest
 ```
 
-And the tool should automatically fetch and run 5 instances from the SWE-bench lite dataset.
+And the tool should automatically fetch and run the requested instances from the SWE-bench dataset.
 
 ## Research Phase
 
@@ -64,6 +77,11 @@ And the tool should automatically fetch and run 5 instances from the SWE-bench l
 - **Filtering**: Works with list comprehension or dataset.filter()
 - **Sampling**: Can use dataset.select() with indices
 - **Django instances**: 114 out of 300 in Lite dataset
+
+#### 5. Memory & Performance (NEEDS VALIDATION)
+- **Full dataset size**: Need to verify memory usage for 2294 instances
+- **Temp file cleanup**: Must implement cleanup strategy
+- **Dataset versioning**: HuggingFace supports revision pinning
 
 ### Research Tasks (COMPLETED)
 
@@ -158,17 +176,39 @@ class DatasetManager:
         dataset_name: str,
         count: Optional[int] = None,
         subset_pattern: Optional[str] = None,
-        random_seed: Optional[int] = None
+        random_seed: Optional[int] = None,
+        instances: Optional[List[str]] = None,  # NEW: specific instance IDs
+        sample_percent: Optional[float] = None,  # NEW: percentage sampling
+        use_regex: bool = False  # NEW: regex support
     ) -> List[Dict[str, Any]]:
         """Get instances from dataset with optional filtering."""
         dataset = self.fetch_dataset(dataset_name)
 
-        # Apply subset filtering if specified
-        if subset_pattern:
-            import fnmatch
+        # Filter by specific instance IDs first
+        if instances:
             dataset = dataset.filter(
-                lambda x: fnmatch.fnmatch(x['instance_id'], subset_pattern)
+                lambda x: x['instance_id'] in instances
             )
+
+        # Apply pattern filtering
+        if subset_pattern:
+            if use_regex:
+                import re
+                pattern = re.compile(subset_pattern)
+                dataset = dataset.filter(
+                    lambda x: pattern.match(x['instance_id']) is not None
+                )
+            else:
+                import fnmatch
+                dataset = dataset.filter(
+                    lambda x: fnmatch.fnmatch(x['instance_id'], subset_pattern)
+                )
+
+        # Handle percentage sampling
+        if sample_percent:
+            count = int(len(dataset) * sample_percent / 100)
+            if count == 0:
+                count = 1  # At least one instance
 
         # Apply random sampling if count specified
         if count and count < len(dataset):
@@ -195,6 +235,7 @@ class DatasetManager:
 
     def save_as_jsonl(self, instances: List[Dict[str, Any]], output_path: Path) -> None:
         """Save instances as JSONL file for compatibility."""
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         with open(output_path, 'w') as f:
             for instance in instances:
                 # Only save instance_id and patch for compatibility
@@ -203,6 +244,37 @@ class DatasetManager:
                     'patch': instance['patch']
                 }, f)
                 f.write('\n')
+
+    def cleanup_temp_files(self, max_age_hours: int = 24) -> None:
+        """Clean up old temporary JSONL files."""
+        import time
+        temp_dir = self.cache_dir.parent / "temp"
+        if not temp_dir.exists():
+            return
+
+        current_time = time.time()
+        for temp_file in temp_dir.glob("*.jsonl"):
+            file_age_hours = (current_time - temp_file.stat().st_mtime) / 3600
+            if file_age_hours > max_age_hours:
+                temp_file.unlink()
+
+    def get_dataset_info(self, dataset_name: str) -> Dict[str, Any]:
+        """Get information about a dataset without loading it."""
+        from datasets import load_dataset_builder
+
+        if dataset_name not in self.DATASET_MAPPING:
+            raise ValueError(f"Unknown dataset: {dataset_name}")
+
+        builder = load_dataset_builder(self.DATASET_MAPPING[dataset_name])
+        info = builder.info
+
+        return {
+            'name': dataset_name,
+            'total_instances': info.splits['test'].num_examples,
+            'download_size_mb': info.download_size / 1024 / 1024,
+            'dataset_size_mb': info.dataset_size / 1024 / 1024,
+            'description': info.description
+        }
 ```
 
 ### 2. CLI Integration
@@ -211,9 +283,13 @@ class DatasetManager:
 # Update cli.py run command
 @cli.command()
 @click.option(
-    '--dataset',
+    '-d', '--dataset',
     type=click.Choice(['lite', 'verified', 'full']),
     help='Use SWE-bench dataset (auto-downloads from HuggingFace)'
+)
+@click.option(
+    '--instances',
+    help='Comma-separated list of specific instance IDs to run'
 )
 @click.option(
     '--count',
@@ -221,24 +297,43 @@ class DatasetManager:
     help='Number of instances to run (random sample)'
 )
 @click.option(
+    '--sample',
+    help='Random percentage of instances (e.g., "10%" or "random-seed=42")'
+)
+@click.option(
     '--subset',
     help='Filter instances by pattern (e.g., "django__*", "requests__*")'
 )
 @click.option(
-    '--random-seed',
-    type=int,
-    help='Random seed for reproducible sampling'
+    '--regex',
+    is_flag=True,
+    help='Treat --subset as regex instead of glob pattern'
 )
 @click.option(
     '--patches',
     type=click.Path(exists=True),
     help='Path to JSONL file containing patches (alternative to --dataset)'
 )
-def run(dataset, count, subset, random_seed, patches, ...):
+@click.option(
+    '--rerun-failed',
+    type=click.Path(exists=True),
+    help='Rerun failed instances from a previous run directory'
+)
+def run(dataset, instances, count, sample, subset, regex, patches, rerun_failed, ...):
     """Run SWE-bench evaluation."""
 
+    # Handle --rerun-failed first
+    if rerun_failed:
+        failed_instances = load_failed_instances(Path(rerun_failed))
+        if not failed_instances:
+            click.echo("✅ No failed instances to rerun")
+            return
+        # Convert to instance list
+        instances = ','.join(failed_instances)
+        click.echo(f"🔄 Rerunning {len(failed_instances)} failed instances")
+
     # Priority: explicit patches file > dataset selection
-    if not patches and not dataset:
+    if not patches and not dataset and not rerun_failed:
         # Try auto-detection
         detected = detect_patches_file()
         if detected:
@@ -255,28 +350,104 @@ def run(dataset, count, subset, random_seed, patches, ...):
         click.echo(f"📥 Loading {dataset} dataset from HuggingFace...")
 
         manager = DatasetManager(get_cache_dir())
+
+        # Parse --sample flag
+        sample_percent = None
+        random_seed = None
+        if sample:
+            if sample.endswith('%'):
+                sample_percent = float(sample[:-1])
+            elif '=' in sample:
+                # Handle "random-seed=42" format
+                parts = sample.split('=')
+                if parts[0] == 'random-seed':
+                    random_seed = int(parts[1])
+
+        # Parse --instances flag
+        instance_list = None
+        if instances:
+            instance_list = [i.strip() for i in instances.split(',')]
+
         instances = manager.get_instances(
             dataset_name=dataset,
+            instances=instance_list,
             count=count,
+            sample_percent=sample_percent,
             subset_pattern=subset,
+            use_regex=regex,
             random_seed=random_seed
         )
 
+        if not instances:
+            click.echo("❌ No instances matched your criteria")
+            ctx.exit(1)
+
         # Save to temporary JSONL for compatibility with existing code
         temp_patches = get_cache_dir() / "temp" / f"{dataset}_{uuid.uuid4().hex[:8]}.jsonl"
-        temp_patches.parent.mkdir(exist_ok=True)
-
         manager.save_as_jsonl(instances, temp_patches)
         patches = temp_patches
 
+        # Clean up old temp files
+        manager.cleanup_temp_files()
+
         click.echo(f"✅ Loaded {len(instances)} instances from {dataset} dataset")
+        if instance_list:
+            click.echo(f"   Specific instances: {', '.join(instance_list[:3])}{'...' if len(instance_list) > 3 else ''}")
+        if sample_percent:
+            click.echo(f"   Random {sample_percent}% sample")
         if count:
-            click.echo(f"   Random sample with seed: {random_seed or 'auto'}")
+            click.echo(f"   Limited to {count} instances")
         if subset:
-            click.echo(f"   Filtered by pattern: {subset}")
+            click.echo(f"   Filtered by {'regex' if regex else 'pattern'}: {subset}")
 ```
 
-### 3. Environment Variables & Authentication
+### 3. Helper Functions
+
+```python
+# In cli.py or utils.py
+def load_failed_instances(results_dir: Path) -> List[str]:
+    """Load instance IDs that failed from a previous run."""
+    failed_instances = []
+
+    # Check for summary.json files
+    for summary_file in results_dir.rglob("summary.json"):
+        with open(summary_file) as f:
+            data = json.load(f)
+            if not data.get('passed', True):
+                failed_instances.append(data['instance_id'])
+
+    # Alternative: check for FAILED status files
+    if not failed_instances:
+        for failed_file in results_dir.rglob("FAILED"):
+            instance_id = failed_file.parent.name
+            failed_instances.append(instance_id)
+
+    return failed_instances
+
+# Add info command for dataset information
+@cli.command()
+@click.option(
+    '-d', '--dataset',
+    type=click.Choice(['lite', 'verified', 'full']),
+    required=True,
+    help='Dataset to get information about'
+)
+def info(dataset):
+    """Get information about a SWE-bench dataset."""
+    from .datasets import DatasetManager
+
+    manager = DatasetManager(get_cache_dir())
+    info = manager.get_dataset_info(dataset)
+
+    click.echo(f"\n📊 SWE-bench {dataset} dataset:")
+    click.echo(f"   Total instances: {info['total_instances']:,}")
+    click.echo(f"   Download size: {info['download_size_mb']:.1f} MB")
+    click.echo(f"   On-disk size: {info['dataset_size_mb']:.1f} MB")
+    if info['description']:
+        click.echo(f"   Description: {info['description'][:100]}...")
+```
+
+### 4. Environment Variables & Authentication
 
 ```python
 # In datasets.py
@@ -296,7 +467,7 @@ def configure_hf_auth():
     return False
 ```
 
-### 4. Error Handling
+### 5. Error Handling & Memory Management
 
 ```python
 # Enhanced error messages
@@ -311,54 +482,103 @@ except Exception as e:
         click.echo("❌ Network error downloading dataset")
         click.echo("   Check your internet connection")
         click.echo("   Use --offline if you have cached data")
+    elif "MemoryError" in str(e) or "memory" in str(e).lower():
+        click.echo("❌ Not enough memory to load dataset")
+        click.echo("   Try using --count to limit instances")
+        click.echo("   Or use 'lite' dataset instead of 'full'")
     else:
         raise
+
+# Memory estimation before loading
+def estimate_memory_usage(dataset_name: str, num_instances: int) -> float:
+    """Estimate memory usage in MB."""
+    # Rough estimates based on research
+    per_instance_mb = {
+        'lite': 0.012,  # ~3.6MB / 300 instances
+        'verified': 0.015,  # Slightly larger
+        'full': 0.020   # Assume larger instances
+    }
+    return per_instance_mb.get(dataset_name, 0.02) * num_instances
+
+# Add memory check before loading
+if dataset_name == 'full' and not count and not sample_percent:
+    estimated_mb = estimate_memory_usage('full', 2294)
+    if estimated_mb > 500:  # Warn if >500MB
+        click.echo(f"⚠️  Full dataset may use ~{estimated_mb:.0f}MB of memory")
+        if not click.confirm("Continue?"):
+            ctx.exit(0)
 ```
 
 ## Implementation Checklist
 
-- [ ] Research Phase
-  - [ ] Test HuggingFace datasets API locally
-  - [ ] Document exact dataset structure for each variant
-  - [ ] Test authentication flow
-  - [ ] Measure download sizes and times
-  - [ ] Verify patch field names
+- [x] Research Phase
+  - [x] Test HuggingFace datasets API locally
+  - [x] Document exact dataset structure for each variant
+  - [x] Test authentication flow
+  - [x] Measure download sizes and times
+  - [x] Verify patch field names
+  - [ ] Verify memory usage for full dataset
 
 - [ ] Core Implementation
   - [ ] Create `datasets.py` module
-  - [ ] Implement `DatasetManager` class
-  - [ ] Add dataset fetching logic
-  - [ ] Implement filtering by pattern
-  - [ ] Implement random sampling
-  - [ ] Add progress bars for downloads
+  - [ ] Implement `DatasetManager` class with all methods:
+    - [ ] `fetch_dataset()` with version pinning
+    - [ ] `get_instances()` with all filtering options
+    - [ ] `save_as_jsonl()` with directory creation
+    - [ ] `cleanup_temp_files()` for temp file management
+    - [ ] `get_dataset_info()` for dataset information
+  - [ ] Add memory estimation and warnings
+  - [ ] Implement all filtering options:
+    - [ ] Specific instance IDs (--instances)
+    - [ ] Percentage sampling (--sample)
+    - [ ] Pattern filtering with glob (--subset)
+    - [ ] Regex support (--regex)
+    - [ ] Count limiting (--count)
 
 - [ ] CLI Integration
-  - [ ] Add new CLI options (--dataset, --count, --subset, --random-seed)
-  - [ ] Update run command logic
+  - [ ] Add all new CLI options:
+    - [ ] `-d, --dataset` (short flag support)
+    - [ ] `--instances` (comma-separated list)
+    - [ ] `--count` (random N instances)
+    - [ ] `--sample` (percentage with optional seed)
+    - [ ] `--subset` (glob/regex pattern)
+    - [ ] `--regex` (flag for regex mode)
+    - [ ] `--rerun-failed` (rerun from previous)
+  - [ ] Implement `load_failed_instances()` helper
+  - [ ] Add `info` command for dataset information
+  - [ ] Update run command logic with all options
   - [ ] Maintain backward compatibility with --patches
-  - [ ] Add helpful error messages
 
-- [ ] Authentication
-  - [ ] Support HF_TOKEN environment variable
-  - [ ] Handle authenticated vs anonymous access
-  - [ ] Clear error messages for auth failures
+- [ ] Error Handling
+  - [ ] Network errors with retry suggestions
+  - [ ] Memory errors with mitigation options
+  - [ ] Invalid instance IDs with helpful messages
+  - [ ] Pattern matching errors with examples
+  - [ ] Offline mode detection
 
-- [ ] Caching
-  - [ ] Integrate with existing cache directory
-  - [ ] Support offline mode
-  - [ ] Add cache info to clean command
+- [ ] Resource Management
+  - [ ] Temp file cleanup after 24 hours
+  - [ ] Memory usage warnings for full dataset
+  - [ ] Disk space checks before download
+  - [ ] Progress indication during download
 
 - [ ] Testing
   - [ ] Unit tests for DatasetManager
+  - [ ] Test all filtering combinations
+  - [ ] Test percentage sampling accuracy
+  - [ ] Test regex vs glob patterns
+  - [ ] Test specific instance selection
+  - [ ] Test temp file cleanup
+  - [ ] Test memory warnings
   - [ ] Mock HuggingFace API calls
-  - [ ] Test filtering and sampling
-  - [ ] Test error scenarios
   - [ ] Integration tests with CLI
 
 - [ ] Documentation
-  - [ ] Update README with dataset examples
+  - [ ] Update README with all dataset examples
   - [ ] Document authentication setup
   - [ ] Add examples to --help text
+  - [ ] Document memory requirements
+  - [ ] Add troubleshooting section
 
 ## Test Plan
 
@@ -369,43 +589,138 @@ def test_dataset_manager_init():
     manager = DatasetManager(Path("/tmp/test"))
     assert manager.cache_dir.exists()
 
-def test_get_instances_with_filter():
-    """Test filtering instances by pattern."""
-    # Mock dataset
-    mock_dataset = [
-        {'instance_id': 'django__django-123', 'patch': '...'},
-        {'instance_id': 'requests__requests-456', 'patch': '...'}
-    ]
-    instances = manager.get_instances('lite', subset_pattern='django__*')
-    assert len(instances) == 1
-    assert instances[0]['instance_id'].startswith('django__')
+def test_specific_instances():
+    """Test filtering by specific instance IDs."""
+    instances = manager.get_instances(
+        'lite',
+        instances=['django__django-123', 'django__django-456']
+    )
+    assert len(instances) == 2
+    assert all(i['instance_id'] in ['django__django-123', 'django__django-456']
+               for i in instances)
 
-def test_random_sampling_deterministic():
-    """Test random sampling with seed is deterministic."""
-    instances1 = manager.get_instances('lite', count=5, random_seed=42)
-    instances2 = manager.get_instances('lite', count=5, random_seed=42)
-    assert instances1 == instances2
+def test_percentage_sampling():
+    """Test percentage-based sampling."""
+    # Test 10% sampling
+    instances = manager.get_instances('lite', sample_percent=10.0)
+    assert len(instances) == 30  # 10% of 300
+
+def test_regex_filtering():
+    """Test regex pattern matching."""
+    instances = manager.get_instances(
+        'lite',
+        subset_pattern=r'django__django-1[0-9]{4}',
+        use_regex=True
+    )
+    assert all(re.match(r'django__django-1[0-9]{4}', i['instance_id'])
+               for i in instances)
+
+def test_glob_filtering():
+    """Test glob pattern matching."""
+    instances = manager.get_instances(
+        'lite',
+        subset_pattern='django__*',
+        use_regex=False
+    )
+    assert all(i['instance_id'].startswith('django__') for i in instances)
+
+def test_combined_filters():
+    """Test combining multiple filters."""
+    instances = manager.get_instances(
+        'lite',
+        subset_pattern='django__*',
+        count=5,
+        random_seed=42
+    )
+    assert len(instances) == 5
+    assert all(i['instance_id'].startswith('django__') for i in instances)
+
+def test_temp_file_cleanup():
+    """Test temporary file cleanup."""
+    # Create old temp files
+    temp_dir = manager.cache_dir.parent / "temp"
+    old_file = temp_dir / "old_file.jsonl"
+    old_file.touch()
+    # Make it 25 hours old
+    import time
+    old_time = time.time() - (25 * 3600)
+    os.utime(old_file, (old_time, old_time))
+
+    manager.cleanup_temp_files(max_age_hours=24)
+    assert not old_file.exists()
+
+def test_memory_estimation():
+    """Test memory usage estimation."""
+    mb = estimate_memory_usage('full', 2294)
+    assert mb > 40  # Should be ~46MB
 ```
 
 ### Integration Tests
 ```python
 def test_cli_dataset_option(runner):
     """Test CLI with dataset option."""
-    result = runner.invoke(cli, ['run', '--dataset', 'lite', '--count', '1'])
+    result = runner.invoke(cli, ['run', '-d', 'lite', '--count', '1'])
     assert result.exit_code == 0
     assert "Loading lite dataset" in result.output
+
+def test_cli_specific_instances(runner):
+    """Test running specific instances."""
+    result = runner.invoke(cli, [
+        'run', '-d', 'lite',
+        '--instances', 'django__django-123,django__django-456'
+    ])
+    assert "Specific instances:" in result.output
+
+def test_cli_percentage_sample(runner):
+    """Test percentage sampling."""
+    result = runner.invoke(cli, ['run', '-d', 'lite', '--sample', '10%'])
+    assert "Random 10.0% sample" in result.output
+
+def test_cli_regex_subset(runner):
+    """Test regex filtering."""
+    result = runner.invoke(cli, [
+        'run', '-d', 'lite',
+        '--subset', 'django__django-1[0-9]{4}',
+        '--regex'
+    ])
+    assert "Filtered by regex:" in result.output
+
+def test_cli_rerun_failed(runner, tmp_path):
+    """Test rerunning failed instances."""
+    # Create fake failed results
+    failed_dir = tmp_path / "results" / "instance1"
+    failed_dir.mkdir(parents=True)
+    (failed_dir / "FAILED").touch()
+
+    result = runner.invoke(cli, ['run', '--rerun-failed', str(tmp_path)])
+    assert "Rerunning 1 failed instances" in result.output
+
+def test_cli_info_command(runner):
+    """Test dataset info command."""
+    result = runner.invoke(cli, ['info', '-d', 'lite'])
+    assert result.exit_code == 0
+    assert "Total instances: 300" in result.output
+    assert "Download size:" in result.output
 ```
 
 ## Success Criteria
 
 1. ✅ Users can run `swebench run --dataset lite` without any setup
-2. ✅ Dataset downloads are cached and reused
-3. ✅ Random sampling works with reproducible seeds
-4. ✅ Subset filtering works with glob patterns
-5. ✅ Clear progress indication during download
-6. ✅ Helpful error messages for common failures
-7. ✅ Works offline if dataset is cached
-8. ✅ Maintains compatibility with existing --patches workflow
+2. ✅ Users can run specific instances: `swebench run -d lite --instances django__django-123`
+3. ✅ Users can run percentage samples: `swebench run -d lite --sample 10%`
+4. ✅ Users can filter with regex: `swebench run -d lite --subset "django.*1[0-9]{4}" --regex`
+5. ✅ Users can rerun failures: `swebench run --rerun-failed ./results/latest`
+6. ✅ Dataset downloads are cached and reused
+7. ✅ Random sampling works with reproducible seeds
+8. ✅ Subset filtering works with both glob and regex patterns
+9. ✅ Clear progress indication during download
+10. ✅ Memory warnings for large datasets
+11. ✅ Temp files are cleaned up automatically
+12. ✅ Helpful error messages for common failures
+13. ✅ Works offline if dataset is cached
+14. ✅ Maintains compatibility with existing --patches workflow
+15. ✅ Short flag `-d` works for dataset selection
+16. ✅ Dataset info available via `swebench info -d lite`
 
 ## Dependencies
 
@@ -421,8 +736,10 @@ None - all critical questions have been answered through research.
 
 ### Non-blocking
 1. **Progress bar integration**: HuggingFace shows its own progress, may need to capture/redirect
-2. **Large dataset handling**: Full SWE-bench dataset size unknown (need to verify)
+2. **Full dataset memory**: Need to verify actual memory usage for 2294 instances
 3. **Offline mode detection**: How to gracefully handle when user is offline
+4. **Dataset versioning**: Should we pin to specific dataset versions for reproducibility?
+5. **Multimodal support**: SWE-bench_Multimodal exists - should we support it?
 
 ## Acceptable Tradeoffs
 
@@ -433,6 +750,11 @@ None - all critical questions have been answered through research.
 ## Notes
 
 - HuggingFace datasets library handles caching automatically
-- Consider adding --offline flag for airplane mode
-- Future enhancement: streaming mode for very large datasets
-- Consider adding dataset info command: `swebench info --dataset lite`
+- This feature delivers the "magic" - zero setup evaluation
+- Aligns with PRD vision: "Run any subset of SWE-bench with one clear command"
+- Future enhancements:
+  - `--offline` flag for airplane mode
+  - Streaming mode for very large datasets
+  - Support for SWE-bench_Multimodal dataset
+  - Dataset version pinning for reproducibility
+- The `info` command helps users understand what they're downloading before they commit

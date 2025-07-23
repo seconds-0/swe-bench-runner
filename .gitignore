@@ -146,3 +146,4 @@ logs/
 .swebench/
 *.jsonl
 !tests/fixtures/*.jsonl
+.mypy_cache/

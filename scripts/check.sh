@@ -9,15 +9,15 @@ echo "=================================="
 
 # 1. Linting (matches CI lint job)
 echo "📝 Running ruff..."
-ruff check src/swebench_runner tests || (echo "❌ Lint failed - run: ruff check --fix" && exit 1)
+python3 -m ruff check src/swebench_runner tests || (echo "❌ Lint failed - run: python3 -m ruff check --fix" && exit 1)
 
 # 2. Type checking (matches CI lint job)
 echo "🔍 Running mypy..."
-mypy src/swebench_runner || (echo "❌ Type check failed" && exit 1)
+python3 -m mypy src/swebench_runner || (echo "❌ Type check failed" && exit 1)
 
 # 3. Tests with coverage (matches CI test job)
 echo "🧪 Running tests with coverage..."
-pytest tests/ -v --cov=swebench_runner --cov-fail-under=85 || (echo "❌ Tests failed or coverage below 85%" && exit 1)
+python3 -m pytest tests/ -v --cov=swebench_runner --cov-fail-under=85 || (echo "❌ Tests failed or coverage below 85%" && exit 1)
 
 # 4. Check for large files (matches PR checks)
 echo "📦 Checking file sizes..."
@@ -41,9 +41,9 @@ python -m build --wheel --outdir dist-test/ > /dev/null 2>&1 || (echo "❌ Packa
 rm -rf dist-test/
 
 # 7. Security audit (optional - matches CI security job)
-if command -v pip-audit &> /dev/null; then
+if python3 -c "import pip_audit" 2>/dev/null; then
     echo "🔒 Running security audit..."
-    pip-audit --desc || echo "⚠️  Security audit had warnings (non-blocking)"
+    python3 -m pip_audit --desc || echo "⚠️  Security audit had warnings (non-blocking)"
 else
     echo "ℹ️  Skipping security audit (pip-audit not installed)"
 fi

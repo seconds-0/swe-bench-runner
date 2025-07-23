@@ -49,7 +49,7 @@ else
         echo -e "${RED}❌ Wheel validation failed${NC}"
         ((FAILURES++))
     fi
-    
+
     # Check wheel size
     wheel_files=$(find dist -name "*.whl" 2>/dev/null || true)
     if [ -z "$wheel_files" ]; then
@@ -84,7 +84,7 @@ if ! python -m venv "$TEMP_VENV"; then
     ((FAILURES++))
 else
     source "$TEMP_VENV/bin/activate"
-    
+
     if pip install dist/*.whl; then
         # Test that CLI works
         if swebench --version && swebench --help > /dev/null; then
@@ -97,7 +97,7 @@ else
         echo -e "${RED}❌ Package installation failed${NC}"
         ((FAILURES++))
     fi
-    
+
     deactivate
 fi
 
@@ -174,7 +174,7 @@ echo "========================================"
 
 if [ $FAILURES -eq 0 ]; then
     echo -e "${GREEN}✅ All critical checks passed!${NC}"
-    
+
     if [ $WARNINGS -gt 0 ]; then
         echo -e "${YELLOW}⚠️  $WARNINGS warnings (see above)${NC}"
         echo ""
@@ -183,7 +183,7 @@ if [ $FAILURES -eq 0 ]; then
     else
         echo -e "${GREEN}🎉 No warnings - your PR should pass CI!${NC}"
     fi
-    
+
     echo ""
     echo "Ready to open PR? Next steps:"
     echo "1. git push origin $(git branch --show-current)"

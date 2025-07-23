@@ -10,7 +10,7 @@ The PR has received multiple code review comments and all CI checks are failing.
 
 ### 1. Linting Failures
 - **Security warnings (S110, S603)**: subprocess calls and try-except-pass
-- **Type annotation (UP045)**: Use of `Optional[str]` instead of `str | None` 
+- **Type annotation (UP045)**: Use of `Optional[str]` instead of `str | None`
 - **Line length (E501)**: Multiple lines exceed 88 character limit
 
 ### 2. Test Failures
@@ -30,7 +30,7 @@ The PR has received multiple code review comments and all CI checks are failing.
 
 2. **Missing test coverage**:
    - No tests for `bootstrap.py` functions
-   - No tests for `cache.py` functions  
+   - No tests for `cache.py` functions
    - Coverage at 86% but some modules have very low coverage
 
 3. **Security concerns**:
@@ -88,7 +88,7 @@ except Exception as e:
 ```python
 # tests/test_bootstrap.py
 - Test show_welcome_message()
-- Test show_setup_wizard() 
+- Test show_setup_wizard()
 - Test platform-specific instructions
 - Mock webbrowser.open()
 ```
@@ -116,7 +116,7 @@ def run(...):
         else:
             click.echo("Error: Must provide either --patches or --patches-dir", err=True)
             sys.exit(exit_codes.GENERAL_ERROR)
-    
+
     # THEN check for first-time setup
     is_first_run = check_and_prompt_first_run(no_input=no_input)
 ```
@@ -135,7 +135,7 @@ def validate_patch_size(patch: Patch, max_size_mb: int):
     # Check general size limit
     if size_mb > max_size_mb:
         raise ValueError(f"Patch too large: {size_mb:.1f}MB exceeds {max_size_mb}MB limit")
-    
+
     # Warn about Docker env limit
     if size_kb > DOCKER_ENV_VAR_LIMIT_KB:
         print(f"⚠️  Warning: Patch exceeds Docker environment variable limit ({DOCKER_ENV_VAR_LIMIT_KB}KB)")
@@ -150,10 +150,10 @@ def check_resources():
     # Allow skipping in CI
     if os.getenv("SWEBENCH_SKIP_RESOURCE_CHECK"):
         return
-    
+
     # Detect CI environment
     is_ci = os.getenv("CI") == "true"
-    
+
     # Adjust requirements for CI
     min_disk_gb = 20 if is_ci else 50
     min_memory_gb = 4 if is_ci else 8
@@ -167,7 +167,7 @@ Ensure all exit codes match PRD:
 sys.exit(exit_codes.DOCKER_NOT_FOUND)  # 2
 
 # Network errors (timeout, connection refused to registry)
-sys.exit(exit_codes.NETWORK_ERROR)  # 3  
+sys.exit(exit_codes.NETWORK_ERROR)  # 3
 
 # General errors (harness failures, invalid input)
 sys.exit(exit_codes.GENERAL_ERROR)  # 1
@@ -206,7 +206,7 @@ def validate_run_id(run_id: str) -> str:
 
 - [ ] Fix all linting issues (security, type annotations, line length)
 - [ ] Add comprehensive tests for bootstrap.py
-- [ ] Add comprehensive tests for cache.py  
+- [ ] Add comprehensive tests for cache.py
 - [ ] Fix bootstrap flow order (after argument validation)
 - [ ] Resolve patch size limit conflict
 - [ ] Add CI-friendly resource checks

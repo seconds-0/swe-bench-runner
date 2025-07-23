@@ -18,28 +18,28 @@ def create_patch_of_size(size_kb: int) -> str:
     patch += "+++ b/test.py\n"
     patch += "@@ -1,1 +1,1 @@\n"
     patch += "-old line\n"
-    
+
     # Add content to reach desired size
     # Each character is 1 byte, so we need size_kb * 1024 characters
     remaining_bytes = (size_kb * 1024) - len(patch.encode('utf-8'))
-    
+
     # Add lines of ~80 characters each
     line_content = "+" + "x" * 78 + "\n"  # 80 bytes per line
     num_lines = remaining_bytes // 80
-    
+
     for _ in range(num_lines):
         patch += line_content
-    
+
     # Add remaining bytes
     remaining = remaining_bytes % 80
     if remaining > 1:
         patch += "+" + "x" * (remaining - 2) + "\n"
-    
+
     return patch
 
 def test_patch_validation():
     print("=== Testing Patch Validation Error Messages ===\n")
-    
+
     # Test scenarios: (size_kb, max_patch_mb, description)
     test_cases = [
         (100, 5, "Small patch - should pass"),
@@ -48,11 +48,11 @@ def test_patch_validation():
         (600, 0.4, "600KB patch with 0.4MB general limit - exceeds both"),
         (1500, 1, "1.5MB patch with 1MB general limit - exceeds both"),
     ]
-    
+
     for size_kb, max_mb, description in test_cases:
         print(f"Test: {description}")
         print(f"  Patch size: {size_kb}KB, Max limit: {max_mb}MB")
-        
+
         try:
             patch = Patch(
                 instance_id=f"test-{size_kb}kb",
@@ -70,7 +70,7 @@ def test_patch_validation():
                 print(f"     {error_msg.replace('DOCKER_ENV_LIMIT: ', '')}")
             else:
                 print(f"  ❓ Other error: {error_msg}")
-        
+
         print()
 
 if __name__ == "__main__":

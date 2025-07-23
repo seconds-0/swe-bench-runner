@@ -13,7 +13,7 @@ jobs:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0
-    
+
     - name: Check commit format
       run: |
         # Simple check for conventional commits (excluding merge commits)
@@ -34,7 +34,7 @@ jobs:
     timeout-minutes: 5
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Check for large files
       run: |
         # Check for files larger than 1MB
@@ -42,7 +42,7 @@ jobs:
           echo "Error: File $file is larger than 1MB"
           exit 1
         done
-    
+
     - name: Check for generated files
       run: |
         # Ensure no wheel files are committed
@@ -57,20 +57,20 @@ jobs:
     timeout-minutes: 10
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
         cache: 'pip'
         cache-dependency-path: pyproject.toml
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install pytest pytest-cov
         pip install -e .
-    
+
     - name: Check test coverage
       run: |
         pytest tests/ --cov=swebench_runner --cov-fail-under=85

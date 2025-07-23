@@ -381,7 +381,7 @@ When implementing features, always consult:
 2. Run `pre-commit install` to set up hooks
 3. Create a workplan in `Documentation/Plans/`
 
-### During Development  
+### During Development
 1. Write tests first (TDD)
 2. Run `./scripts/check.sh` frequently
 3. Test with Docker stopped

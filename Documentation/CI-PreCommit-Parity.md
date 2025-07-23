@@ -52,7 +52,7 @@ make pre-pr  # or make ci-full
 ## Three Levels of Validation
 
 1. **Pre-commit hooks** (automatic) - Fast checks on every commit/push
-2. **`make check`** (manual) - Quick CI checks before pushing  
+2. **`make check`** (manual) - Quick CI checks before pushing
 3. **`make pre-pr`** (manual) - FULL CI simulation before opening PR
 
 The `pre-pr` script fills gaps that pre-commit doesn't cover:

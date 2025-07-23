@@ -16,7 +16,7 @@ repos:
     hooks:
       - id: mypy
         args: [src/swebench_runner]
-        additional_dependencies: 
+        additional_dependencies:
           - types-requests
           - click>=8.0
         pass_filenames: false
@@ -65,7 +65,7 @@ repos:
         stages: [pre-push]  # Only on push to avoid slowing commits
 
   # Security audit - matches CI security job (lighter version)
-  - repo: local  
+  - repo: local
     hooks:
       - id: pip-audit
         name: Security audit

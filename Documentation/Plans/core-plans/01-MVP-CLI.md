@@ -1,6 +1,6 @@
 # Work Plan: MVP-CLI - Basic CLI Structure
 
-**Task ID**: MVP-CLI  
+**Task ID**: MVP-CLI
 **Status**: Completed
 
 ## Problem Statement
@@ -67,7 +67,7 @@ swebench run --help
    ```python
    from click.testing import CliRunner
    from swebench_runner.cli import cli
-   
+
    def test_version():
        runner = CliRunner()
        result = runner.invoke(cli, ['--version'])
@@ -96,7 +96,7 @@ swebench run --help
 
 ## Dependencies
 
-- **External**: 
+- **External**:
   - Click 8.1.x (CLI framework)
   - pytest >=7.0 (testing)
   - mypy >=1.0 (type checking)
@@ -153,7 +153,7 @@ swebench run --help
    ```bash
    # Install in development mode
    pip install -e .
-   
+
    # Test commands
    swebench --version  # Should show version
    swebench --help     # Should show help

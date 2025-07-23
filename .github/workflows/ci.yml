@@ -13,23 +13,23 @@ jobs:
     timeout-minutes: 10
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
         cache: 'pip'
         cache-dependency-path: pyproject.toml
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install ruff mypy
         pip install -e .
-    
+
     - name: Run ruff
       run: ruff check src/swebench_runner tests
-    
+
     - name: Run mypy
       run: mypy src/swebench_runner
 
@@ -45,27 +45,27 @@ jobs:
       CI: true
       SWEBENCH_CI_MIN_DISK_GB: 15
       SWEBENCH_CI_MIN_MEMORY_GB: 4
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
         cache-dependency-path: pyproject.toml
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install pytest pytest-cov
         pip install -e .
-    
+
     - name: Run tests
       run: |
         pytest tests/ -v --cov=swebench_runner --cov-report=xml --cov-report=term-missing
-    
+
     - name: Upload coverage to Codecov
       if: matrix.python-version == '3.11'
       uses: codecov/codecov-action@v4
@@ -79,22 +79,22 @@ jobs:
     timeout-minutes: 10
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
         cache: 'pip'
         cache-dependency-path: pyproject.toml
-    
+
     - name: Install build dependencies
       run: |
         python -m pip install --upgrade pip
         pip install build twine
-    
+
     - name: Build package
       run: python -m build
-    
+
     - name: Check package
       run: |
         twine check dist/*
@@ -105,13 +105,13 @@ jobs:
           echo "Error: Wheel size exceeds 1MB limit"
           exit 1
         fi
-    
+
     - name: Test installation
       run: |
         pip install dist/*.whl
         swebench --version
         swebench --help
-    
+
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -124,14 +124,14 @@ jobs:
     timeout-minutes: 10
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
         cache: 'pip'
         cache-dependency-path: pyproject.toml
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -139,7 +139,7 @@ jobs:
         pip install pip-audit
         # Ensure setuptools is updated to secure version for Python 3.9+
         python -c "import sys; exit(0 if sys.version_info >= (3, 9) else 1)" && pip install --upgrade 'setuptools>=78.1.1' || true
-    
+
     - name: Run security audit
       run: |
         # Audit production dependencies only
@@ -154,28 +154,28 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
         python-version: ['3.10', '3.11']
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
         cache-dependency-path: pyproject.toml
-    
+
     - name: Test development install
       run: |
         python -m pip install --upgrade pip
         pip install -e .
         python -m swebench_runner --version
-    
+
     - name: Test CLI entry point
       run: |
         swebench --version
         swebench run --help
-    
+
     - name: Test with sample file (dry run)
       run: |
         # Just test that the CLI can parse arguments correctly

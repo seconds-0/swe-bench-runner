@@ -228,4 +228,4 @@ This friction slows down researchers and practitioners who want to iterate on ag
 ```
 
 ---
-*Draft created: <!-- date will be filled automatically by git commit -->* 
+*Draft created: <!-- date will be filled automatically by git commit -->*

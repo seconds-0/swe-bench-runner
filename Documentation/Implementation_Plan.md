@@ -92,7 +92,7 @@ graph TD
     %% Phase 1: MVP
     MVP1[MVP-CLI] --> MVP2[MVP-DockerRun]
     MVP2 --> MVP3[MVP-BasicOutput]
-    
+
     %% Phase 2: Trust
     MVP3 --> TRUST1[TRUST-PatchValidation]
     MVP3 --> TRUST2[TRUST-ExitCodes]
@@ -101,14 +101,14 @@ graph TD
     TRUST3 --> TRUST5[TRUST-ErrorHandling]
     TRUST4 --> TRUST6[TRUST-HTMLReport]
     TRUST5 --> TRUST7[TRUST-Logging]
-    
+
     %% Phase 3: Fast
     TRUST6 --> FAST1[FAST-Parallel]
     TRUST7 --> FAST1
     FAST1 --> FAST2[FAST-Progress]
     FAST2 --> FAST3[FAST-GlobalTimeout]
     FAST3 --> FAST4[FAST-Concurrency]
-    
+
     %% Phase 4: Delight
     FAST4 --> DELIGHT1[DELIGHT-SmartDefaults]
     FAST4 --> DELIGHT2[DELIGHT-RichProgress]
@@ -117,7 +117,7 @@ graph TD
     DELIGHT3 --> DELIGHT5[DELIGHT-ErrorUX]
     DELIGHT4 --> DELIGHT6[DELIGHT-CleanCommand]
     DELIGHT5 --> DELIGHT7[DELIGHT-AdvancedCLI]
-    
+
     %% Phase 5: Robust
     DELIGHT6 --> ROBUST1[ROBUST-Resume]
     DELIGHT7 --> ROBUST2[ROBUST-Retry]
@@ -126,7 +126,7 @@ graph TD
     ROBUST3 --> ROBUST5[ROBUST-NetworkAuth]
     ROBUST4 --> ROBUST6[ROBUST-CIMode]
     ROBUST5 --> ROBUST7[ROBUST-Offline]
-    
+
     %% Phase 6: Flexible
     ROBUST6 --> FLEX1[FLEX-Datasets]
     ROBUST7 --> FLEX2[FLEX-MultimodalSupport]
@@ -135,7 +135,7 @@ graph TD
     FLEX3 --> FLEX5[FLEX-Registry]
     FLEX4 --> FLEX6[FLEX-Timeouts]
     FLEX5 --> FLEX7[FLEX-Security]
-    
+
     %% Styling
     classDef mvp fill:#e1f5fe
     classDef trust fill:#f3e5f5
@@ -143,7 +143,7 @@ graph TD
     classDef delight fill:#fff3e0
     classDef robust fill:#fce4ec
     classDef flex fill:#f1f8e9
-    
+
     class MVP1,MVP2,MVP3 mvp
     class TRUST1,TRUST2,TRUST3,TRUST4,TRUST5,TRUST6,TRUST7 trust
     class FAST1,FAST2,FAST3,FAST4 fast
@@ -170,7 +170,7 @@ Each work plan will be created as a separate file in `Documentation/Plans/` with
 
 **Phase 1: Minimum Viable Magic (0/3)**
 - [ ] MVP-CLI
-- [ ] MVP-DockerRun  
+- [ ] MVP-DockerRun
 - [ ] MVP-BasicOutput
 
 **Phase 2: Make It Trustworthy (0/7)**

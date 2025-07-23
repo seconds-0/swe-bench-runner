@@ -17,16 +17,16 @@ This plan addresses feedback from PR #6 review and CI issues to improve developm
 def load_first_patch(patch_source: str, max_size_mb: int = 5) -> Patch:
     """Load patch with proper size validation."""
     # ... existing code ...
-    
+
     # Remove the hardcoded 500KB check entirely
     # The model validation already handles size limits
     patch.validate(max_size_mb=max_size_mb)
-    
+
     # Add informational warning for Docker limits
     patch_size_kb = len(patch.patch.encode('utf-8')) / 1024
     if patch_size_kb > 500:  # Docker env var limit
         print(f"ℹ️  Note: {patch_size_kb:.0f}KB patch may exceed Docker environment limits")
-    
+
     return patch
 ```
 
@@ -41,7 +41,7 @@ def load_first_patch(patch_source: str, max_size_mb: int = 5) -> Patch:
 def classify_error(error_message: str) -> int:
     """Classify error message to exit code. Moved from cli.py."""
     error_lower = error_message.lower()
-    
+
     # Existing logic from cli.py, just moved to be reusable
     if any(term in error_lower for term in [
         "network", "connection", "unreachable", "registry", "pull",
@@ -180,7 +180,7 @@ Add new section:
 3. Run `pre-commit install` to set up hooks
 4. Create a workplan in `Documentation/Plans/`
 
-### During Development  
+### During Development
 1. Write tests first (TDD)
 2. Run `./scripts/ci-local.sh` frequently
 3. Test with Docker stopped
@@ -203,7 +203,7 @@ Add new section:
 
 ## Implementation Order
 
-1. **Week 1**: 
+1. **Week 1**:
    - Set up pre-commit hooks
    - Create local CI scripts
    - Fix patch size limit conflict

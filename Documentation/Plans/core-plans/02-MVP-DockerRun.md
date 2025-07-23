@@ -1,6 +1,6 @@
 # Work Plan: MVP-DockerRun - Execute Single Instance in Docker
 
-**Task ID**: MVP-DockerRun  
+**Task ID**: MVP-DockerRun
 **Status**: Not Started
 
 ## Problem Statement
@@ -78,7 +78,7 @@ def check_resources(client: docker.DockerClient) -> None:
     \"\"\"Check if Docker has sufficient resources.\"\"\"
     try:
         info = client.info()
-        
+
         # Check memory (16GB+ recommended)
         mem_total = info.get('MemTotal', 0)
         if mem_total > 0:
@@ -89,7 +89,7 @@ def check_resources(client: docker.DockerClient) -> None:
             elif mem_gb < 8:
                 print(f"❌ Critical: Only {mem_gb:.1f}GB RAM available, minimum 8GB required")
                 print("   Increase Docker memory limit in Docker Desktop settings")
-        
+
         # Check disk space (120GB needed for image cache)
         try:
             disk_usage = shutil.disk_usage("/var/lib/docker")
@@ -107,7 +107,7 @@ def check_resources(client: docker.DockerClient) -> None:
                     print("   Ensure sufficient space for Docker images")
             except:
                 pass
-                
+
     except:
         # Non-critical, just skip if we can't check
         pass
@@ -116,7 +116,7 @@ def ensure_image_exists(client: docker.DockerClient, instance_id: str) -> str:
     \"\"\"Ensure Docker image exists, pull if needed. Returns image name.\"\"\"
     # Try Epoch AI's optimized images first
     epoch_image = f"ghcr.io/epoch-research/swe-bench.eval.x86_64.{instance_id}"
-    
+
     try:
         client.images.get(epoch_image)
         print(f"Using existing image: {epoch_image}")
@@ -133,7 +133,7 @@ def ensure_image_exists(client: docker.DockerClient, instance_id: str) -> str:
             if "not found" in str(e).lower():
                 print("💡 This instance is not available in Epoch AI's registry")
                 print("   Falling back to official SWE-bench harness...")
-                
+
                 # TODO: Implement fallback to official SWE-bench harness
                 # For MVP, we'll error out with helpful message
                 print("❌ Fallback to official harness not implemented in MVP")
@@ -145,11 +145,11 @@ def ensure_image_exists(client: docker.DockerClient, instance_id: str) -> str:
                 print("   Check your internet connection and try again")
                 sys.exit(1)
 
-def parse_container_output(instance_id: str, output: str, 
+def parse_container_output(instance_id: str, output: str,
                           wait_result: dict) -> EvaluationResult:
     \"\"\"Parse container output to determine success/failure.\"\"\"
     exit_code = wait_result.get('StatusCode', 1)
-    
+
     # Try to parse JSON output (multiple possible formats)
     try:
         # Find JSON in output (might have other text)
@@ -158,7 +158,7 @@ def parse_container_output(instance_id: str, output: str,
             if line.startswith('{'):
                 try:
                     result_data = json.loads(line)
-                    
+
                     # Check for resolution_status format (verified format)
                     if 'resolution_status' in result_data:
                         passed = result_data['resolution_status'] == 'PASSED' and exit_code == 0
@@ -167,7 +167,7 @@ def parse_container_output(instance_id: str, output: str,
                             passed=passed,
                             error=None if passed else f"Test failed: {result_data.get('test_output', 'No output')}"
                         )
-                    
+
                     # Fallback: check for 'passed' boolean format
                     elif 'passed' in result_data:
                         passed = result_data.get('passed', False) and exit_code == 0
@@ -176,13 +176,13 @@ def parse_container_output(instance_id: str, output: str,
                             passed=passed,
                             error=None if passed else "Test failed"
                         )
-                        
+
                 except json.JSONDecodeError:
                     continue
-                    
+
     except Exception:
         pass
-    
+
     # Fallback: non-zero exit = failure
     return EvaluationResult(
         instance_id=instance_id,
@@ -195,10 +195,10 @@ def run_evaluation(patch_file: str) -> EvaluationResult:
     client = docker.from_env()
     check_docker_running(client)
     check_resources(client)  # Warn if insufficient resources
-    
+
     # Load first patch from JSONL
     patch = load_first_patch(patch_file)
-    
+
     # Check patch size for env var limit (accounting for base64 encoding)
     patch_bytes = patch.patch.encode('utf-8')
     # Base64 encoding increases size by ~33%, so check against 375KB to stay under 500KB limit
@@ -209,16 +209,16 @@ def run_evaluation(patch_file: str) -> EvaluationResult:
         # For MVP, we'll error out
         print("Error: Patch too large for MVP (>500KB after base64 encoding)")
         sys.exit(1)
-    
+
     print(f"Running evaluation for {patch.instance_id}...")
-    
+
     try:
         # Pull image if needed (returns actual image name)
         image = ensure_image_exists(client, patch.instance_id)
-        
+
         # Encode patch as base64 for environment variable
         patch_b64 = base64.b64encode(patch.patch.encode('utf-8')).decode('ascii')
-        
+
         # Run container with SWE-bench Docker interface
         container = client.containers.run(
             image=image,
@@ -231,7 +231,7 @@ def run_evaluation(patch_file: str) -> EvaluationResult:
             remove=False,  # Keep for debugging if needed
             working_dir="/testbed"  # Standard SWE-bench working directory
         )
-        
+
         # Wait for completion with timeout (60 minutes - some evaluations take longer)
         try:
             result = container.wait(timeout=3600)  # 60 minutes
@@ -247,11 +247,11 @@ def run_evaluation(patch_file: str) -> EvaluationResult:
                 passed=False,
                 error="Evaluation timed out after 60 minutes"
             )
-        
+
         # Get output from multiple sources
         logs = container.logs(stdout=True, stderr=True)
         logs_output = logs.decode('utf-8', errors='replace')
-        
+
         # Try to extract result files from container (SWE-bench may generate files)
         file_output = None
         try:
@@ -273,13 +273,13 @@ def run_evaluation(patch_file: str) -> EvaluationResult:
                     continue
         except:
             pass
-        
+
         # Use file output if available, otherwise use logs
         output = file_output or logs_output
-        
+
         # Parse result
         return parse_container_output(patch.instance_id, output, result)
-        
+
     except ContainerError as e:
         return EvaluationResult(
             instance_id=patch.instance_id,
@@ -299,27 +299,27 @@ def run_evaluation(patch_file: str) -> EvaluationResult:
    import pytest
    from unittest.mock import Mock, patch
    from swebench_runner.docker_run import run_evaluation, check_docker_running
-   
+
    @pytest.fixture
    def mock_docker_client():
        """Mock Docker client for testing."""
        client = Mock()
        client.ping.return_value = True
        client.images.pull.return_value = Mock()
-       
+
        # Mock container
        container = Mock()
        container.wait.return_value = {"StatusCode": 0}
        container.logs.return_value = b'{"passed": true}'
        client.containers.run.return_value = container
-       
+
        return client
-   
+
    def test_docker_not_running():
        """Test handling when Docker is not running."""
        client = Mock()
        client.ping.side_effect = docker.errors.APIError("Cannot connect")
-       
+
        with pytest.raises(SystemExit) as exc_info:
            check_docker_running(client)
        assert exc_info.value.code == 2  # Docker missing exit code
@@ -355,7 +355,7 @@ class Patch:
     """Represents a single patch to evaluate."""
     instance_id: str
     patch: str
-    
+
     def validate(self) -> None:
         """Basic validation for MVP."""
         if not self.instance_id:
@@ -373,17 +373,17 @@ class EvaluationResult:
 
 ## Dependencies
 
-- **External**: 
+- **External**:
   - docker>=6.1.0 (Docker SDK for Python - for daemon checking)
   - swebench (official SWE-bench harness - auto-installed)
   - Docker daemon running (20.10.0+ recommended)
   - Epoch AI optimized images (ghcr.io/epoch-research)
   - pytest>=7.0 (for testing)
   - pytest-timeout>=2.0 (for test timeouts)
-- **Internal**: 
+- **Internal**:
   - 01-MVP-CLI (need CLI structure)
   - models.py (data structures)
-- **Knowledge**: 
+- **Knowledge**:
   - [SWE-bench documentation](https://www.swebench.com/SWE-bench/guides/evaluation/)
   - [SWE-bench harness usage](https://github.com/swe-bench/SWE-bench)
   - [Epoch AI optimized images](https://github.com/epoch-research/SWE-bench)
@@ -483,11 +483,11 @@ class EvaluationResult:
    ```bash
    # Ensure Docker is running
    docker version
-   
+
    # Test with sample patch
    echo '{"instance_id": "astropy__astropy-12907", "patch": "diff --git..."}' > test.jsonl
    swebench run --patches test.jsonl
-   
+
    # Should show swebench installation, harness execution, and result
    ```
 
@@ -495,10 +495,10 @@ class EvaluationResult:
    ```bash
    # Check swebench installation
    python -m swebench.harness.run_evaluation --help
-   
+
    # Verify Epoch AI images are used
    docker images | grep epoch-research
-   
+
    # Check evaluation results
    ls evaluation_results/
    ```
@@ -626,7 +626,7 @@ python -m swebench.harness.run_evaluation \
 ```json
 {
   "instance_id": "astropy__astropy-12907",
-  "model": "swebench-runner-mvp", 
+  "model": "swebench-runner-mvp",
   "prediction": "diff --git a/file.py b/file.py\n..."
 }
 ```

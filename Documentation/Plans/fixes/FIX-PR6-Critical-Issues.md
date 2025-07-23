@@ -86,7 +86,7 @@ PR #6 review identified critical blocking issues that prevent merge:
 
 ## Questions/Uncertainties
 - **Blocking**: None
-- **Non-blocking**: 
+- **Non-blocking**:
   - Should we auto-detect GitHub Actions, CircleCI, etc. separately? (Assumption: Use generic CI env var)
   - Should resource requirements be configurable? (Assumption: Use defaults with env override)
 

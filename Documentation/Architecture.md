@@ -43,32 +43,32 @@ graph TB
         CLI[CLI Interface]
         Config[Config Manager]
     end
-    
+
     subgraph "Core Engine"
         Orchestrator[Evaluation Orchestrator]
         Validator[Patch Validator]
         Scheduler[Task Scheduler]
         Reporter[Report Generator]
     end
-    
+
     subgraph "Execution Layer"
         Docker[Docker Manager]
         Worker1[Worker 1]
         Worker2[Worker 2]
         WorkerN[Worker N]
     end
-    
+
     subgraph "Data Layer"
         Cache[Cache Manager]
         Dataset[Dataset Manager]
         Results[Results Store]
     end
-    
+
     subgraph "External Services"
         HF[HuggingFace Hub]
         GHCR[Container Registry]
     end
-    
+
     CLI --> Config
     CLI --> Orchestrator
     Orchestrator --> Validator
@@ -96,11 +96,11 @@ sequenceDiagram
     participant Worker
     participant Docker
     participant Results
-    
+
     User->>CLI: swebench run --patches file.jsonl
     CLI->>Validator: Validate patches
     Validator-->>CLI: Validation results
-    
+
     CLI->>Scheduler: Submit evaluation job
     loop For each instance
         Scheduler->>Worker: Assign instance
@@ -110,7 +110,7 @@ sequenceDiagram
         Docker-->>Worker: Test results
         Worker->>Results: Store result
     end
-    
+
     Scheduler->>CLI: Evaluation complete
     CLI->>Results: Generate report
     CLI->>User: Display summary + report path
@@ -170,14 +170,14 @@ graph LR
         Cache[Cache Directory]
         Results[Results Directory]
     end
-    
+
     subgraph "Runner Container"
         Entrypoint[entrypoint.sh]
         Conda[Conda Envs]
         Testbed[/testbed]
         Scripts[Evaluation Scripts]
     end
-    
+
     CLI -->|docker run| Entrypoint
     Cache -->|mount :ro| Conda
     Results -->|mount :rw| Scripts
@@ -223,7 +223,7 @@ flowchart LR
     Size -->|Yes| Binary{Binary Files?}
     Binary -->|Yes| Error4[Binary Error]
     Binary -->|No| Valid[Valid Patch]
-    
+
     Error1 --> Report[Error Report]
     Error2 --> Report
     Error3 --> Report
@@ -240,20 +240,20 @@ class WorkerPool:
         self.queue = asyncio.Queue()
         self.workers = []
         self.results = {}
-    
+
     async def evaluate_instances(self, instances: List[Instance]):
         # Fill queue
         for instance in instances:
             await self.queue.put(instance)
-        
+
         # Start workers
         for i in range(self.max_workers):
             worker = asyncio.create_task(self._worker(i))
             self.workers.append(worker)
-        
+
         # Wait for completion
         await self.queue.join()
-        
+
     async def _worker(self, worker_id: int):
         while True:
             instance = await self.queue.get()
@@ -318,7 +318,7 @@ swe-bench-runner/
 
 ### 6.1 Monolithic Docker Image
 **Decision**: Single 14GB image with all conda environments pre-built
-**Rationale**: 
+**Rationale**:
 - Eliminates runtime environment setup (30+ min → 0)
 - Predictable performance
 - Simple distribution model
@@ -560,19 +560,19 @@ class TestCriticalPaths:
         (tmp_path / "predictions.jsonl").write_text('{}')
         detected = detect_patches_file()
         assert detected.name == "predictions.jsonl"
-    
+
     def test_resume_interrupted_run(self, mock_state):
         """Test checkpoint/resume functionality"""
         runner = Runner.from_checkpoint(mock_state)
         assert runner.completed_instances == 50
         assert runner.next_instance == 51
-    
+
     def test_docker_limit_detection(self, mock_docker):
         """Test auto-adjustment of worker count"""
         mock_docker.info.return_value = {"Containers": 95}
         workers = calculate_max_workers(requested=10)
         assert workers == 5  # Reduced to stay under limit
-    
+
     def test_flaky_test_retry(self, flaky_container):
         """Test retry logic for flaky tests"""
         result = evaluate_with_retry(flaky_container, retries=2)
@@ -615,14 +615,14 @@ def calculate_max_workers(requested: int) -> int:
     docker_info = docker_client.info()
     current_containers = docker_info.get("Containers", 0)
     max_containers = docker_info.get("ContainersLimit", 100)
-    
+
     # Leave headroom for system
     available = max(1, max_containers - current_containers - 10)
     actual = min(requested, available)
-    
+
     if actual < requested:
         click.echo(f"⚠️ Reduced workers to {actual} due to Docker limits")
-    
+
     return actual
 ```
 
@@ -651,17 +651,17 @@ def check_resources() -> ResourceStatus:
     disk_free = shutil.disk_usage(".").free
     docker_storage = get_docker_storage_free()
     memory_available = psutil.virtual_memory().available
-    
+
     issues = []
     if disk_free < 50 * 1024**3:  # 50GB
         issues.append(f"Low disk space: {disk_free / 1024**3:.1f}GB")
-    
+
     if docker_storage < 30 * 1024**3:  # 30GB
         issues.append(f"Low Docker storage: {docker_storage / 1024**3:.1f}GB")
-    
+
     if memory_available < 8 * 1024**3:  # 8GB
         issues.append(f"Low memory: {memory_available / 1024**3:.1f}GB")
-    
+
     return ResourceStatus(ok=len(issues) == 0, issues=issues)
 ```
 
@@ -672,21 +672,21 @@ class CheckpointManager:
     def __init__(self, run_dir: Path):
         self.checkpoint_file = run_dir / ".checkpoint.json"
         self.lock_file = run_dir / ".lock"
-    
+
     def save(self, state: RunState) -> None:
         """Atomic checkpoint save"""
         temp_file = self.checkpoint_file.with_suffix(".tmp")
         with open(temp_file, "w") as f:
             json.dump(asdict(state), f, indent=2)
-        
+
         # Atomic rename
         temp_file.replace(self.checkpoint_file)
-    
+
     def load(self) -> Optional[RunState]:
         """Load checkpoint if valid"""
         if not self.checkpoint_file.exists():
             return None
-        
+
         try:
             with open(self.checkpoint_file) as f:
                 data = json.load(f)
@@ -719,18 +719,18 @@ def optimize_instance_order(instances: List[Instance]) -> List[Instance]:
     by_repo = defaultdict(list)
     for inst in instances:
         by_repo[inst.repo].append(inst)
-    
+
     # Interleave repositories to maximize cache reuse
     result = []
     iterators = [iter(items) for items in by_repo.values()]
-    
+
     while iterators:
         for it in list(iterators):
             try:
                 result.append(next(it))
             except StopIteration:
                 iterators.remove(it)
-    
+
     return result
 ```
 

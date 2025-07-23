@@ -14,7 +14,7 @@ help:  ## Show this help message
 
 install:  ## Install package in development mode with all dependencies
 	pip install -e .
-	pip install pre-commit pytest pytest-cov ruff mypy pip-audit build twine
+	pip install "pre-commit>=3.5.0" "pytest>=7.4.0" "pytest-cov>=4.1.0" "ruff>=0.1.0" "mypy>=1.5.0" "pip-audit>=2.6.0" "build>=1.0.0" "twine>=4.0.0"
 
 hooks:  ## Install pre-commit hooks
 	pre-commit install --install-hooks

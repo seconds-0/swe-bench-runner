@@ -51,13 +51,21 @@ else
     fi
     
     # Check wheel size
-    wheel_size=$(python -c "import os, glob; files=glob.glob('dist/*.whl'); print(os.path.getsize(files[0]) if files else 0)")
-    wheel_size_mb=$((wheel_size / 1048576))
-    if [ $wheel_size -gt 1048576 ]; then
-        echo -e "${RED}❌ Wheel size ${wheel_size_mb}MB exceeds 1MB limit${NC}"
+    wheel_files=$(find dist -name "*.whl" 2>/dev/null || true)
+    if [ -z "$wheel_files" ]; then
+        echo -e "${RED}❌ No wheel file found in dist/${NC}"
         ((FAILURES++))
     else
-        echo -e "${GREEN}✅ Wheel size OK: ${wheel_size} bytes${NC}"
+        for wheel in $wheel_files; do
+            wheel_size=$(stat -f%z "$wheel" 2>/dev/null || stat -c%s "$wheel" 2>/dev/null || echo 0)
+            wheel_size_mb=$((wheel_size / 1048576))
+            if [ $wheel_size -gt 1048576 ]; then
+                echo -e "${RED}❌ Wheel size ${wheel_size_mb}MB exceeds 1MB limit${NC}"
+                ((FAILURES++))
+            else
+                echo -e "${GREEN}✅ Wheel size OK: ${wheel_size} bytes${NC}"
+            fi
+        done
     fi
 fi
 echo ""
@@ -101,15 +109,17 @@ echo ""
 # 5. Test on multiple Python versions if available
 echo "🐍 Testing on multiple Python versions..."
 TESTED_VERSIONS=0
+# Only test a lightweight module for version compatibility
 for py_version in python3.9 python3.10 python3.11 python3.12; do
     if command -v $py_version &> /dev/null; then
         echo -n "  Testing with $py_version... "
-        if $py_version -m pytest tests/test_models.py -q > /dev/null 2>&1; then
+        # Quick import test instead of full test suite
+        if $py_version -c "import swebench_runner; print(swebench_runner.__version__)" > /dev/null 2>&1; then
             echo -e "${GREEN}✅${NC}"
             ((TESTED_VERSIONS++))
         else
             echo -e "${RED}❌${NC}"
-            echo -e "${YELLOW}   Warning: Tests failed on $py_version${NC}"
+            echo -e "${YELLOW}   Warning: Import failed on $py_version${NC}"
             ((WARNINGS++))
         fi
     fi

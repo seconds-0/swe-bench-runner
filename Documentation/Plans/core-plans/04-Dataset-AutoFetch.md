@@ -78,10 +78,10 @@ And the tool should automatically fetch and run the requested instances from the
 - **Sampling**: Can use dataset.select() with indices
 - **Django instances**: 114 out of 300 in Lite dataset
 
-#### 5. Memory & Performance (NEEDS VALIDATION)
-- **Full dataset size**: Need to verify memory usage for 2294 instances
-- **Temp file cleanup**: Must implement cleanup strategy
-- **Dataset versioning**: HuggingFace supports revision pinning
+#### 5. Performance Notes
+- **All datasets are tiny**: Even full dataset is <20MB
+- **No memory concerns**: Load everything, filter in memory
+- **Caching works great**: HuggingFace handles it automatically
 
 ### Research Tasks (COMPLETED)
 
@@ -245,18 +245,13 @@ class DatasetManager:
                 }, f)
                 f.write('\n')
 
-    def cleanup_temp_files(self, max_age_hours: int = 24) -> None:
-        """Clean up old temporary JSONL files."""
-        import time
+    def cleanup_temp_files(self) -> None:
+        """Clean up all temporary JSONL files."""
         temp_dir = self.cache_dir.parent / "temp"
-        if not temp_dir.exists():
-            return
-
-        current_time = time.time()
-        for temp_file in temp_dir.glob("*.jsonl"):
-            file_age_hours = (current_time - temp_file.stat().st_mtime) / 3600
-            if file_age_hours > max_age_hours:
-                temp_file.unlink()
+        if temp_dir.exists():
+            import shutil
+            shutil.rmtree(temp_dir)
+            temp_dir.mkdir()
 
     def get_dataset_info(self, dataset_name: str) -> Dict[str, Any]:
         """Get information about a dataset without loading it."""
@@ -467,10 +462,10 @@ def configure_hf_auth():
     return False
 ```
 
-### 5. Error Handling & Memory Management
+### 5. Error Handling
 
 ```python
-# Enhanced error messages
+# Simple, clear error messages
 try:
     dataset = load_dataset(...)
 except Exception as e:
@@ -481,32 +476,9 @@ except Exception as e:
     elif "Connection" in str(e):
         click.echo("❌ Network error downloading dataset")
         click.echo("   Check your internet connection")
-        click.echo("   Use --offline if you have cached data")
-    elif "MemoryError" in str(e) or "memory" in str(e).lower():
-        click.echo("❌ Not enough memory to load dataset")
-        click.echo("   Try using --count to limit instances")
-        click.echo("   Or use 'lite' dataset instead of 'full'")
     else:
+        click.echo(f"❌ Failed to load dataset: {e}")
         raise
-
-# Memory estimation before loading
-def estimate_memory_usage(dataset_name: str, num_instances: int) -> float:
-    """Estimate memory usage in MB."""
-    # Rough estimates based on research
-    per_instance_mb = {
-        'lite': 0.012,  # ~3.6MB / 300 instances
-        'verified': 0.015,  # Slightly larger
-        'full': 0.020   # Assume larger instances
-    }
-    return per_instance_mb.get(dataset_name, 0.02) * num_instances
-
-# Add memory check before loading
-if dataset_name == 'full' and not count and not sample_percent:
-    estimated_mb = estimate_memory_usage('full', 2294)
-    if estimated_mb > 500:  # Warn if >500MB
-        click.echo(f"⚠️  Full dataset may use ~{estimated_mb:.0f}MB of memory")
-        if not click.confirm("Continue?"):
-            ctx.exit(0)
 ```
 
 ## Implementation Checklist
@@ -517,17 +489,14 @@ if dataset_name == 'full' and not count and not sample_percent:
   - [x] Test authentication flow
   - [x] Measure download sizes and times
   - [x] Verify patch field names
-  - [ ] Verify memory usage for full dataset
-
 - [ ] Core Implementation
   - [ ] Create `datasets.py` module
   - [ ] Implement `DatasetManager` class with all methods:
-    - [ ] `fetch_dataset()` with version pinning
+    - [ ] `fetch_dataset()` - simple loading
     - [ ] `get_instances()` with all filtering options
     - [ ] `save_as_jsonl()` with directory creation
-    - [ ] `cleanup_temp_files()` for temp file management
+    - [ ] `cleanup_temp_files()` - simple cleanup
     - [ ] `get_dataset_info()` for dataset information
-  - [ ] Add memory estimation and warnings
   - [ ] Implement all filtering options:
     - [ ] Specific instance IDs (--instances)
     - [ ] Percentage sampling (--sample)
@@ -551,16 +520,13 @@ if dataset_name == 'full' and not count and not sample_percent:
 
 - [ ] Error Handling
   - [ ] Network errors with retry suggestions
-  - [ ] Memory errors with mitigation options
   - [ ] Invalid instance IDs with helpful messages
   - [ ] Pattern matching errors with examples
-  - [ ] Offline mode detection
+  - [ ] Clear messaging about what's happening
 
 - [ ] Resource Management
-  - [ ] Temp file cleanup after 24 hours
-  - [ ] Memory usage warnings for full dataset
-  - [ ] Disk space checks before download
-  - [ ] Progress indication during download
+  - [ ] Simple temp file cleanup on start
+  - [ ] Let HuggingFace handle caching
 
 - [ ] Testing
   - [ ] Unit tests for DatasetManager
@@ -569,7 +535,6 @@ if dataset_name == 'full' and not count and not sample_percent:
   - [ ] Test regex vs glob patterns
   - [ ] Test specific instance selection
   - [ ] Test temp file cleanup
-  - [ ] Test memory warnings
   - [ ] Mock HuggingFace API calls
   - [ ] Integration tests with CLI
 
@@ -577,7 +542,6 @@ if dataset_name == 'full' and not count and not sample_percent:
   - [ ] Update README with all dataset examples
   - [ ] Document authentication setup
   - [ ] Add examples to --help text
-  - [ ] Document memory requirements
   - [ ] Add troubleshooting section
 
 ## Test Plan
@@ -637,22 +601,13 @@ def test_combined_filters():
 
 def test_temp_file_cleanup():
     """Test temporary file cleanup."""
-    # Create old temp files
+    # Create temp files
     temp_dir = manager.cache_dir.parent / "temp"
     old_file = temp_dir / "old_file.jsonl"
     old_file.touch()
-    # Make it 25 hours old
-    import time
-    old_time = time.time() - (25 * 3600)
-    os.utime(old_file, (old_time, old_time))
 
-    manager.cleanup_temp_files(max_age_hours=24)
+    manager.cleanup_temp_files()
     assert not old_file.exists()
-
-def test_memory_estimation():
-    """Test memory usage estimation."""
-    mb = estimate_memory_usage('full', 2294)
-    assert mb > 40  # Should be ~46MB
 ```
 
 ### Integration Tests
@@ -714,13 +669,12 @@ def test_cli_info_command(runner):
 7. ✅ Random sampling works with reproducible seeds
 8. ✅ Subset filtering works with both glob and regex patterns
 9. ✅ Clear progress indication during download
-10. ✅ Memory warnings for large datasets
-11. ✅ Temp files are cleaned up automatically
-12. ✅ Helpful error messages for common failures
-13. ✅ Works offline if dataset is cached
-14. ✅ Maintains compatibility with existing --patches workflow
-15. ✅ Short flag `-d` works for dataset selection
-16. ✅ Dataset info available via `swebench info -d lite`
+10. ✅ Temp files are cleaned up automatically
+11. ✅ Helpful error messages for common failures
+12. ✅ Works offline if dataset is cached
+13. ✅ Maintains compatibility with existing --patches workflow
+14. ✅ Short flag `-d` works for dataset selection
+15. ✅ Dataset info available via `swebench info -d lite`
 
 ## Dependencies
 

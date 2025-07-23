@@ -21,6 +21,16 @@ from .models import EvaluationResult, Patch
 
 def check_docker_running() -> None:
     """Check if Docker daemon is accessible."""
+    # Check if we're mocking no Docker for testing
+    if os.environ.get("SWEBENCH_MOCK_NO_DOCKER") == "true":
+        if platform.system() == "Darwin":
+            print("⛔ Docker Desktop not running. Start it from Applications "
+                  "and wait for whale icon.")
+        else:
+            print("⛔ Docker daemon unreachable at /var/run/docker.sock")
+        print("ℹ️  Start Docker and try again.")
+        sys.exit(exit_codes.DOCKER_NOT_FOUND)
+
     try:
         client = docker.from_env()
         client.ping()

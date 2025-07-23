@@ -19,6 +19,7 @@ from .bootstrap import (
 from .cache import clean_cache, get_cache_usage
 from .docker_run import run_evaluation
 from .error_utils import classify_error
+from .output import detect_patches_file, display_result
 
 
 @click.group()
@@ -66,7 +67,14 @@ def run(
     """Run SWE-bench evaluation."""
     # Auto-detect patches file if none provided
     if patches is None and patches_dir is None:
-        if not no_input:
+        # Try our detection first
+        detected = detect_patches_file()
+        if detected:
+            patches = detected
+            if not json_output:
+                click.echo(f"💡 Using {patches}")
+        elif not no_input:
+            # Fall back to interactive suggestion
             suggested_file = suggest_patches_file()
             if suggested_file:
                 patches = suggested_file
@@ -120,13 +128,13 @@ def run(
             }
             click.echo(json.dumps(output))
         else:
-            # Regular output
-            if result.passed:
-                show_success_message(result.instance_id, is_first_success=is_first_run)
-            else:
-                click.echo(f"❌ {result.instance_id}: FAILED")
-                if result.error:
-                    click.echo(f"   Error: {result.error}")
+            # Use our enhanced display function
+            output_dir = Path(f"results/{result.instance_id}")
+            display_result(result, output_dir)
+
+            # Show success celebration if it passed
+            if result.passed and is_first_run:
+                show_success_message(result.instance_id, is_first_success=True)
 
         # Map errors to appropriate exit codes using shared utility
         if result.error:

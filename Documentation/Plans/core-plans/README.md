@@ -11,16 +11,26 @@ This folder contains the work plans for Phase 1, which focuses on getting the ab
    - Foundation for everything else
 
 2. **[02-MVP-DockerRun](02-MVP-DockerRun.md)** - Execute single instance in Docker
-   - Status: Not Started
+   - Status: ✅ Completed
    - Depends on: 01-MVP-CLI
    - Connects to Docker and runs evaluation
    - Core execution engine
 
-3. **[03-MVP-BasicOutput](03-MVP-BasicOutput.md)** - Print results to terminal
-   - Status: Not Started
-   - Depends on: 01-MVP-CLI, 02-MVP-DockerRun
-   - Shows pass/fail results
-   - Provides summary statistics
+3. **Output Implementation** (Split into two phases)
+   - **[02a-MVP-BasicOutput-v1](02a-MVP-BasicOutput-v1.md)** - Minimal output (~150 lines)
+     - Status: Not Started
+     - Depends on: 01-MVP-CLI, 02-MVP-DockerRun
+     - Basic pass/fail display
+     - Simple JSON results
+     - Correct exit codes
+
+   - **[02b-MVP-BasicOutput-v2](02b-MVP-BasicOutput-v2.md)** - Delightful output (~1200 lines)
+     - Status: Not Started
+     - Depends on: 02a-MVP-BasicOutput-v1
+     - Real-time progress bars
+     - Beautiful HTML reports
+     - Success celebrations
+     - Threading for responsive UI
 
 ## Success Criteria
 
@@ -47,16 +57,24 @@ Failed: 0 (0.0%)
 
 - **Minimal but working** - No fancy features, just execution
 - **Single instance only** - No parallelism yet
-- **Basic output** - No colors or progress bars
+- **Basic output first** - v1 has no colors or progress bars
 - **Hardcoded defaults** - No configuration needed
+- **Progressive enhancement** - v1 works, v2 delights
+
+## Implementation Strategy
+
+1. **MVP-BasicOutput-v1** gets us to a working tool quickly (~150 lines)
+2. **MVP-BasicOutput-v2** makes it delightful without changing core functionality (~1200 lines)
+
+This approach ensures we always have a working tool while iterating on UX.
 
 ## Next Phase
 
 After Phase 1 is complete, Phase 2 (Make It Trustworthy) will add:
 - Patch validation
-- Exit codes
-- Error handling
-- HTML reports
-- Logging
+- Multiple instance support
+- Better error handling
+- Resource management
+- Resume capabilities
 
 But first, we need to get basic execution working!

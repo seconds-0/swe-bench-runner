@@ -21,7 +21,7 @@ NC='\033[0m' # No Color
 
 # 1. First run all pre-commit hooks
 echo "📋 Running all pre-commit hooks..."
-if ! pre-commit run --all-files; then
+if ! python3 -m pre_commit run --all-files; then
     echo -e "${RED}❌ Pre-commit hooks failed${NC}"
     echo "   Fix these first: pre-commit run --all-files"
     exit 1
@@ -31,7 +31,7 @@ echo ""
 
 # 2. Run full test suite with all coverage formats (like CI)
 echo "🧪 Running full test suite with coverage..."
-if ! pytest tests/ -v --cov=swebench_runner --cov-report=xml --cov-report=term-missing --cov-fail-under=85; then
+if ! python3 -m pytest tests/ -v --cov=swebench_runner --cov-report=xml --cov-report=term-missing --cov-fail-under=85; then
     echo -e "${RED}❌ Tests failed or coverage below 85%${NC}"
     ((FAILURES++))
 fi
@@ -40,12 +40,12 @@ echo ""
 # 3. Build package and check wheel (missing from pre-commit)
 echo "📦 Building package and checking wheel..."
 rm -rf dist/
-if ! python -m build; then
+if ! python3 -m build; then
     echo -e "${RED}❌ Package build failed${NC}"
     ((FAILURES++))
 else
     # Check wheel with twine
-    if ! twine check dist/*; then
+    if ! python3 -m twine check dist/*; then
         echo -e "${RED}❌ Wheel validation failed${NC}"
         ((FAILURES++))
     fi
@@ -79,7 +79,7 @@ TEMP_VENV="$TEMP_DIR/venv"
 # Set up cleanup trap
 trap 'deactivate 2>/dev/null || true; rm -rf "$TEMP_DIR" 2>/dev/null || true' EXIT
 
-if ! python -m venv "$TEMP_VENV"; then
+if ! python3 -m venv "$TEMP_VENV"; then
     echo -e "${RED}❌ Failed to create test virtual environment${NC}"
     ((FAILURES++))
 else
@@ -159,7 +159,7 @@ echo ""
 
 # 8. Final dependency audit
 echo "🔒 Running security audit..."
-if pip-audit --desc; then
+if python3 -m pip_audit --desc; then
     echo -e "${GREEN}✅ Security audit passed${NC}"
 else
     echo -e "${YELLOW}⚠️  Security audit has warnings${NC}"

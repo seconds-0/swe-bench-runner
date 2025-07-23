@@ -99,7 +99,7 @@ class TestCLI:
         result = runner.invoke(cli, ["run", "--patches", str(sample_file)])
 
         assert result.exit_code == 0
-        assert "✅ test__repo-123: Evaluation completed successfully" in result.output
+        assert "✅ test__repo-123: PASSED" in result.output
 
     @patch("swebench_runner.cli.run_evaluation")
     def test_run_with_multiline_file(self, mock_run_evaluation) -> None:
@@ -119,7 +119,7 @@ class TestCLI:
         result = runner.invoke(cli, ["run", "--patches", str(multi_file)])
 
         assert result.exit_code == 0
-        assert "✅ test__repo-456: Evaluation completed successfully" in result.output
+        assert "✅ test__repo-456: PASSED" in result.output
 
     @patch("swebench_runner.cli.run_evaluation")
     def test_run_with_relative_path(self, mock_run_evaluation) -> None:
@@ -145,7 +145,7 @@ class TestCLI:
             result = runner.invoke(cli, ["run", "--patches", "test.jsonl"])
 
             assert result.exit_code == 0
-            assert "✅ test: Evaluation completed successfully" in result.output
+            assert "✅ test: PASSED" in result.output
 
     @patch("swebench_runner.cli.run_evaluation")
     def test_run_with_absolute_path(self, mock_run_evaluation) -> None:
@@ -164,7 +164,7 @@ class TestCLI:
         result = runner.invoke(cli, ["run", "--patches", str(sample_file.absolute())])
 
         assert result.exit_code == 0
-        assert "✅ test__repo-123: Evaluation completed successfully" in result.output
+        assert "✅ test__repo-123: PASSED" in result.output
 
     def test_cli_module_execution(self) -> None:
         """Test that CLI can be executed as a module."""
@@ -231,4 +231,4 @@ class TestErrorHandling:
             result = runner.invoke(cli, ["run", "--patches", special_filename])
 
             assert result.exit_code == 0
-            assert "✅ test: Evaluation completed successfully" in result.output
+            assert "✅ test: PASSED" in result.output

@@ -5,6 +5,7 @@ from unittest.mock import patch
 import pytest
 
 from swebench_runner import cli
+from swebench_runner.models import EvaluationResult
 
 
 class TestCLICleanCommand:
@@ -97,19 +98,32 @@ class TestCLIValidation:
         # Skip until this feature is implemented.
         pytest.skip("Patches directory support not implemented")
 
-    def test_run_subset_validation(self, cli_runner, tmp_path):
+    @patch('swebench_runner.cli.run_evaluation')
+    def test_run_subset_validation(self, mock_run_evaluation, cli_runner, tmp_path):
         """Test run command with subset validation."""
-        patches_file = tmp_path / "patches.jsonl"
-        patches_file.write_text('{"instance_id": "test-001", "patch": "test"}')
+        # Mock successful evaluation
+        mock_run_evaluation.return_value = EvaluationResult(
+            instance_id="test-001",
+            passed=True,
+            error=None
+        )
 
-        # Test invalid subset pattern
+        patches_file = tmp_path / "patches.jsonl"
+        # Use valid unified diff format
+        patches_file.write_text(
+            '{"instance_id": "test-001", '
+            '"patch": "--- a/file.py\\n+++ b/file.py\\n@@ -1 +1 @@\\n-old\\n+new"}'
+        )
+
+        # Test with subset pattern - validation happens during execution
         result = cli_runner.invoke(cli.run, [
             "--patches", str(patches_file),
-            "--subset", "**invalid**pattern"
+            "--subset", "**test**"
         ])
 
-        # Should still accept it - validation happens later
-        assert "--subset" in result.output or result.exit_code == 0
+        # Should complete successfully
+        assert result.exit_code == 0
+        assert "✅ test-001: PASSED" in result.output
 
     @pytest.mark.skip("Dataset validation not implemented yet")
     def test_run_dataset_validation(self, cli_runner, tmp_path):
@@ -151,7 +165,10 @@ class TestCLIBootstrapIntegration:
         result = cli_runner.invoke(cli.run, ["--no-input"])
 
         assert result.exit_code == 1  # Missing required patches argument
-        assert "Error: Must provide either --patches or --patches-dir" in result.output
+        assert (
+            "Error: Must provide --patches, --patches-dir, or --dataset"
+            in result.output
+        )
 
     @pytest.mark.skip("Auto-detection feature is complex and needs redesign")
     def test_run_suggest_patches_file(

@@ -48,7 +48,10 @@ class TestCLI:
         result = runner.invoke(cli, ["run"])
 
         assert result.exit_code != 0
-        assert "Error: Must provide either --patches or --patches-dir" in result.output
+        assert (
+            "Error: Must provide --patches, --patches-dir, or --dataset"
+            in result.output
+        )
 
     def test_run_with_nonexistent_file(self) -> None:
         """Test run command fails when patches file doesn't exist."""

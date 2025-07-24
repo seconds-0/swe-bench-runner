@@ -21,6 +21,7 @@ def get_cache_dir() -> Path:
     (cache_dir / "datasets").mkdir(exist_ok=True)
     (cache_dir / "logs").mkdir(exist_ok=True)
     (cache_dir / "results").mkdir(exist_ok=True)
+    (cache_dir / "temp").mkdir(exist_ok=True)
 
     return cache_dir
 

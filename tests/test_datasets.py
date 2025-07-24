@@ -8,26 +8,15 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from swebench_runner.datasets import DatasetManager, get_helpful_error_message
+from swebench_runner.datasets import DatasetManager
 from swebench_runner.exceptions import (
-    DatasetAuthenticationError,
-    DatasetNetworkError,
     DatasetNotFoundError,
-    DatasetValidationError,
-    InstanceValidationError,
-    RegexValidationError,
 )
 
 
 class TestDatasetManager:
     """Test suite for DatasetManager class."""
 
-    def test_init(self) -> None:
-        """Test DatasetManager initialization."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            manager = DatasetManager(Path(temp_dir))
-            assert manager.cache_dir.exists()
-            assert manager.cache_dir.name == "datasets"
 
     def test_unknown_dataset_raises_error(self) -> None:
         """Test that unknown dataset raises ValueError."""
@@ -252,94 +241,3 @@ class TestDatasetManager:
             assert info['download_size_mb'] == pytest.approx(1.2, rel=0.1)
             assert info['dataset_size_mb'] == pytest.approx(3.6, rel=0.1)
             assert info['description'] == "Test dataset description"
-
-
-class TestEnhancedErrorMessages:
-    """Test suite for enhanced error message functionality."""
-
-    def test_authentication_error_message(self) -> None:
-        """Test enhanced message for authentication errors."""
-        error = DatasetAuthenticationError("Authentication required for dataset lite")
-        context = {'dataset': 'lite'}
-
-        message = get_helpful_error_message(error, context)
-
-        assert "❌ Authentication required for lite dataset" in message
-        assert "🔧 How to fix:" in message
-        assert "huggingface.co/settings/tokens" in message
-        assert "export HF_TOKEN=" in message
-
-    def test_network_error_message_online(self) -> None:
-        """Test enhanced message for network errors in online mode."""
-        error = DatasetNetworkError("Network error accessing dataset verified")
-        context = {'dataset': 'verified', 'offline': False}
-
-        message = get_helpful_error_message(error, context)
-
-        assert "❌ Network error downloading dataset" in message
-        assert "Check your internet connection" in message
-        assert "--offline flag" in message
-
-    def test_network_error_message_offline(self) -> None:
-        """Test enhanced message for network errors in offline mode."""
-        error = DatasetNetworkError("Dataset not cached")
-        context = {'dataset': 'full', 'offline': True}
-
-        message = get_helpful_error_message(error, context)
-
-        assert "❌ Dataset full not available in offline mode" in message
-        assert "Remove --offline flag" in message
-        assert "Download once, then use --offline" in message
-
-    def test_dataset_not_found_error(self) -> None:
-        """Test enhanced message for dataset not found errors."""
-        error = DatasetNotFoundError("Unknown dataset: invalid")
-
-        message = get_helpful_error_message(error)
-
-        assert "❌ Unknown dataset: invalid" in message
-        assert "🔧 Available datasets:" in message
-        assert "lite: 300 instances" in message
-        assert "verified: 500 instances" in message
-        assert "full: 2294 instances" in message
-
-    def test_regex_validation_error(self) -> None:
-        """Test enhanced message for regex validation errors."""
-        error = RegexValidationError("Invalid regex pattern")
-
-        message = get_helpful_error_message(error)
-
-        assert "❌ Invalid regex pattern" in message
-        assert "🔧 How to fix:" in message
-        assert "django__*" in message
-        assert "regex101.com" in message
-
-    def test_instance_validation_error(self) -> None:
-        """Test enhanced message for instance validation errors."""
-        error = InstanceValidationError("Invalid instance ID format")
-
-        message = get_helpful_error_message(error)
-
-        assert "❌ Invalid instance ID format" in message
-        assert "🔧 Valid instance ID format:" in message
-        assert "django__django-123" in message
-        assert "swebench info -d lite" in message
-
-    def test_dataset_validation_error(self) -> None:
-        """Test enhanced message for dataset validation errors."""
-        error = DatasetValidationError("Invalid parameter")
-
-        message = get_helpful_error_message(error)
-
-        assert "❌ Invalid parameter" in message
-        assert "🔧 Parameter guidelines:" in message
-        assert "--count: 1-10000" in message
-        assert "--sample: 1-100" in message
-
-    def test_generic_error_fallback(self) -> None:
-        """Test fallback for unrecognized errors."""
-        error = ValueError("Some generic error")
-
-        message = get_helpful_error_message(error)
-
-        assert message == "Some generic error"

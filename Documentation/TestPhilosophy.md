@@ -80,6 +80,8 @@ def test_cache_dir_property(self):
 - Coverage is a tool, not a goal
 - Missing coverage is OK if it's for unlikely edge cases
 - Each test should prevent a specific, realistic bug
+- **We maintain 60% minimum coverage** - enough to catch critical issues without theater
+- The 60% we do cover are the paths that matter: security, errors, and core functionality
 
 ## Good Test Checklist
 

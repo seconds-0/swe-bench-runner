@@ -15,7 +15,7 @@ repos:
     rev: v1.17.0
     hooks:
       - id: mypy
-        args: [src/swebench_runner]
+        args: [--config-file=pyproject.toml, src/swebench_runner]
         additional_dependencies:
           - types-requests
           - click>=8.0

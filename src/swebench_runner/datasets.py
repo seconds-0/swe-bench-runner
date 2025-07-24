@@ -319,9 +319,7 @@ class DatasetManager:
         os.environ['HF_DATASETS_CACHE'] = str(self.cache_dir)
 
         try:
-            from datasets import (
-                load_dataset,  # type: ignore[import-not-found,import-untyped]
-            )
+            from datasets import load_dataset
         except ImportError as e:
             raise ImportError(
                 "HuggingFace datasets library is required for dataset auto-fetch. "
@@ -338,7 +336,7 @@ class DatasetManager:
             else:
                 download_mode = 'reuse_dataset_if_exists'
 
-            dataset = load_dataset(  # type: ignore[import-not-found]
+            dataset = load_dataset(
                 hf_dataset_name,
                 split='test',  # SWE-bench uses 'test' split
                 download_mode=download_mode
@@ -677,7 +675,7 @@ class DatasetManager:
             raise ValueError(f"Unknown dataset: {dataset_name}")
 
         try:
-            from datasets import load_dataset_builder  # type: ignore[import-not-found]
+            from datasets import load_dataset_builder
         except ImportError as e:
             raise ImportError(
                 "HuggingFace datasets library is required for dataset info. "
@@ -723,9 +721,7 @@ def configure_hf_auth() -> bool:
     token = get_hf_token()
     if token:
         try:
-            from huggingface_hub import (
-                login,  # type: ignore[import-not-found,import-untyped]
-            )
+            from huggingface_hub import login
             login(token=token, add_to_git_credential=False)
             return True
         except ImportError:

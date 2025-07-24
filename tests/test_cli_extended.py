@@ -151,7 +151,10 @@ class TestCLIBootstrapIntegration:
         result = cli_runner.invoke(cli.run, ["--no-input"])
 
         assert result.exit_code == 1  # Missing required patches argument
-        assert "Error: Must provide either --patches or --patches-dir" in result.output
+        assert (
+            "Error: Must provide --patches, --patches-dir, or --dataset"
+            in result.output
+        )
 
     @pytest.mark.skip("Auto-detection feature is complex and needs redesign")
     def test_run_suggest_patches_file(

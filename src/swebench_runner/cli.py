@@ -55,64 +55,75 @@ def cli() -> None:
 
 
 @cli.command()
+# === Primary Options (most common) ===
+@click.option(
+    "-d", "--dataset",
+    type=click.Choice(['lite', 'verified', 'full']),
+    help="📊 SWE-bench dataset: 'lite' (300 instances), 'verified' (500), 'full' (2294)"
+)
 @click.option(
     "--patches",
     type=click.Path(exists=True, path_type=Path),
-    help="Path to JSONL file containing patches",
+    help="📄 Path to JSONL file containing patches (alternative to --dataset)",
 )
 @click.option(
     "--patches-dir",
     type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path),
-    help="Directory containing .patch files named {instance_id}.patch",
+    help="📁 Directory with .patch files named {instance_id}.patch",
 )
-@click.option(
-    "-d", "--dataset",
-    type=click.Choice(['lite', 'verified', 'full']),
-    help="Use SWE-bench dataset (auto-downloads from HuggingFace)"
-)
+# === Filtering Options ===
 @click.option(
     "--instances",
-    help="Comma-separated list of specific instance IDs to run"
+    help="🎯 Specific instance IDs (comma-separated): "
+         "'django__django-123,requests__requests-456'"
 )
 @click.option(
     "--count",
     type=int,
-    help="Number of instances to run (random sample)"
+    help="🔢 Number of random instances to run (e.g., --count 10)"
 )
 @click.option(
     "--sample",
-    help="Random percentage of instances (e.g., '10%' or 'random-seed=42')"
+    help="📈 Random percentage sample: '10%', '25%', or 'random-seed=42'"
 )
 @click.option(
     "--subset",
-    help="Filter instances by pattern (e.g., 'django__*', 'requests__*')"
+    help="🔍 Filter by pattern: 'django__*' (glob) or "
+         "use with --regex for regex patterns"
 )
 @click.option(
     "--regex",
     is_flag=True,
-    help="Treat --subset as regex instead of glob pattern"
+    help="⚙️ Treat --subset as regex pattern instead of glob (e.g., 'django__.*-[0-9]+')"
 )
+# === Advanced Options ===
 @click.option(
     "--rerun-failed",
     type=click.Path(exists=True, path_type=Path),
-    help="Rerun failed instances from a previous run directory"
+    help="🔄 Rerun only failed instances from previous run directory"
 )
 @click.option(
-    "--no-input",
+    "--offline",
     is_flag=True,
-    help="CI mode: fail on prompts instead of waiting for user input",
-)
-@click.option(
-    "--json",
-    "json_output",
-    is_flag=True,
-    help="Output results as JSON to stdout",
+    help="📶 Use cached datasets only (fail if not available locally)",
 )
 @click.option(
     "--max-patch-size",
     default=5,
     type=int,
-    help="Maximum patch size in MB (default: 5)",
+    help="📏 Maximum patch size in MB (default: 5)",
+)
+# === System Options ===
+@click.option(
+    "--no-input",
+    is_flag=True,
+    help="🤖 CI mode: fail on prompts instead of waiting for user input",
+)
+@click.option(
+    "--json",
+    "json_output",
+    is_flag=True,
+    help="📋 Output results as JSON to stdout (for scripting)",
 )
 def run(
     patches: Path | None,
@@ -127,8 +138,37 @@ def run(
     no_input: bool,
     json_output: bool,
     max_patch_size: int,
+    offline: bool,
 ) -> NoReturn:
-    """Run SWE-bench evaluation."""
+    r"""Run SWE-bench evaluation.
+
+    \b
+    🚀 Quick Examples:
+      swebench run -d lite --count 5        # Test with 5 random instances
+      swebench run -d lite --sample 10%     # Use 10% of lite dataset
+      swebench run -d verified --subset django__*  # Only Django instances
+      swebench run --patches my_patches.jsonl      # Use custom patches
+
+    \b
+    📊 Datasets:
+      lite     - 300 instances (1.2MB) - Great for testing
+      verified - 500 instances (2MB)   - Human-verified fixes
+      full     - 2294 instances (8MB)  - Complete benchmark
+
+    \b
+    🔍 Filtering:
+      --instances: Specific IDs (django__django-123,requests__requests-456)
+      --count: Random sample size (--count 10)
+      --sample: Percentage (10%, 25%) or with seed (random-seed=42)
+      --subset: Pattern matching (django__* or use --regex for advanced)
+
+    \b
+    ⚡ Performance:
+      --offline: Use cached data only (faster, no network)
+      --count 5: Quick test with just 5 instances
+
+    Run 'swebench info -d lite' to see available instances!
+    """
     # Handle --rerun-failed first
     if rerun_failed:
         failed_instances = load_failed_instances(rerun_failed)
@@ -165,7 +205,8 @@ def run(
     provided_sources = sum(bool(x) for x in [patches, patches_dir, dataset])
     if provided_sources > 1:
         click.echo(
-            "Error: Cannot provide multiple sources (--patches, --patches-dir, --dataset)", 
+            "Error: Cannot provide multiple sources "
+            "(--patches, --patches-dir, --dataset)",
             err=True
         )
         sys.exit(exit_codes.GENERAL_ERROR)
@@ -188,6 +229,15 @@ def run(
 
         try:
             manager = DatasetManager(get_cache_dir())
+
+            # Check memory requirements first
+            can_proceed, memory_msg = manager.check_memory_requirements(dataset, count)
+            if memory_msg and not json_output:
+                click.echo(memory_msg)
+                if not can_proceed and not no_input:
+                    if not click.confirm("⚠️  Continue anyway?"):
+                        click.echo("❌ Operation cancelled by user")
+                        sys.exit(exit_codes.GENERAL_ERROR)
 
             # Parse --sample flag
             sample_percent = None
@@ -213,7 +263,8 @@ def run(
                 sample_percent=sample_percent,
                 subset_pattern=subset,
                 use_regex=regex,
-                random_seed=random_seed
+                random_seed=random_seed,
+                offline=offline
             )
 
             if not dataset_instances:
@@ -232,7 +283,8 @@ def run(
 
             if not json_output:
                 click.echo(
-                    f"✅ Loaded {len(dataset_instances)} instances from {dataset} dataset"
+                    f"✅ Loaded {len(dataset_instances)} instances from "
+                    f"{dataset} dataset"
                 )
                 if instance_list:
                     instance_preview = ', '.join(instance_list[:3])
@@ -247,21 +299,19 @@ def run(
                     click.echo(f"   Filtered by {filter_type}: {subset}")
 
         except Exception as e:
-            if "401" in str(e):
-                click.echo("❌ Authentication required for this dataset", err=True)
-                click.echo(
-                    "   Set HF_TOKEN environment variable with your HuggingFace token",
-                    err=True
-                )
-                click.echo(
-                    "   Get a token at: https://huggingface.co/settings/tokens", err=True
-                )
-            elif "Connection" in str(e) or "Network" in str(e):
-                click.echo("❌ Network error downloading dataset", err=True)
-                click.echo("   Check your internet connection", err=True)
+            from .datasets import get_helpful_error_message
+
+            context = {'dataset': dataset}
+            helpful_msg = get_helpful_error_message(e, context)
+            click.echo(helpful_msg, err=True)
+
+            # Classify exit code based on error type
+            if "Authentication" in str(e) or "401" in str(e):
+                sys.exit(exit_codes.NETWORK_ERROR)
+            elif "Network" in str(e) or "Connection" in str(e):
+                sys.exit(exit_codes.NETWORK_ERROR)
             else:
-                click.echo(f"❌ Failed to load dataset: {e}", err=True)
-            sys.exit(exit_codes.NETWORK_ERROR)
+                sys.exit(exit_codes.GENERAL_ERROR)
 
     # Validate patches file if provided
     if patches is not None:
@@ -410,7 +460,23 @@ def clean(
 
 @cli.command()
 def setup() -> None:
-    """Interactive setup wizard for first-time users."""
+    r"""Interactive setup wizard for first-time users.
+
+    \b
+    🎆 What this does:
+      • Checks if Docker is running
+      • Sets up cache directories
+      • Tests basic functionality
+      • Provides setup guidance
+
+    \b
+    📝 Prerequisites:
+      • Docker installed and running
+      • Internet connection (for first run)
+      • ~1GB free disk space
+
+    Run this before your first evaluation!
+    """
     click.echo("🔧 SWE-bench Runner Setup")
     click.echo()
 
@@ -441,10 +507,25 @@ def setup() -> None:
     '-d', '--dataset',
     type=click.Choice(['lite', 'verified', 'full']),
     required=True,
-    help='Dataset to get information about'
+    help='📊 Dataset to inspect: lite, verified, or full'
 )
 def info(dataset: str) -> None:
-    """Get information about a SWE-bench dataset."""
+    r"""Get detailed information about SWE-bench datasets.
+
+    \b
+    📊 Shows:
+      • Total number of instances
+      • Download and disk space requirements
+      • Dataset description
+      • Cache status (if already downloaded)
+
+    \b
+    🚀 Examples:
+      swebench info -d lite      # Info about lite dataset
+      swebench info -d full      # Check full dataset size
+
+    Use this before running large datasets to check space requirements!
+    """
     try:
         from .datasets import DatasetManager
     except ImportError:
@@ -463,21 +544,19 @@ def info(dataset: str) -> None:
         if dataset_info['description']:
             click.echo(f"   Description: {dataset_info['description'][:100]}...")
     except Exception as e:
-        if "401" in str(e):
-            click.echo("❌ Authentication required for this dataset", err=True)
-            click.echo(
-                "   Set HF_TOKEN environment variable with your HuggingFace token",
-                err=True
-            )
-            click.echo(
-                "   Get a token at: https://huggingface.co/settings/tokens", err=True
-            )
-        elif "Connection" in str(e) or "Network" in str(e):
-            click.echo("❌ Network error accessing dataset", err=True)
-            click.echo("   Check your internet connection", err=True)
+        from .datasets import get_helpful_error_message
+
+        context = {'dataset': dataset}
+        helpful_msg = get_helpful_error_message(e, context)
+        click.echo(helpful_msg, err=True)
+
+        # Classify exit code based on error type
+        if "Authentication" in str(e) or "401" in str(e):
+            sys.exit(exit_codes.NETWORK_ERROR)
+        elif "Network" in str(e) or "Connection" in str(e):
+            sys.exit(exit_codes.NETWORK_ERROR)
         else:
-            click.echo(f"❌ Failed to get dataset info: {e}", err=True)
-        sys.exit(exit_codes.NETWORK_ERROR)
+            sys.exit(exit_codes.GENERAL_ERROR)
 
 
 if __name__ == "__main__":

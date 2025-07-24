@@ -5,6 +5,7 @@ from __future__ import annotations
 import fcntl
 import fnmatch
 import json
+import logging
 import os
 import random
 import re
@@ -12,6 +13,7 @@ import shutil
 import string
 import time
 from collections.abc import Iterator
+from functools import lru_cache
 from pathlib import Path
 from re import Pattern
 from typing import Any
@@ -25,6 +27,9 @@ from .exceptions import (
     InstanceValidationError,
     RegexValidationError,
 )
+
+# Configure logger
+logger = logging.getLogger(__name__)
 
 
 def get_helpful_error_message(
@@ -122,6 +127,7 @@ def get_helpful_error_message(
 # Input validation constants
 MAX_REGEX_LENGTH = 1000
 MAX_INSTANCE_COUNT = 10000
+REGEX_TEST_TIMEOUT_MS = 10  # Default timeout for ReDoS testing
 VALID_INSTANCE_ID_CHARS = set(string.ascii_letters + string.digits + '_-.')
 
 
@@ -167,13 +173,21 @@ def _validate_regex_pattern(pattern: str) -> Pattern[str]:
             start_time = time.time()
             try:
                 compiled.search(test_string)
-                if time.time() - start_time > 0.01:  # 10ms timeout per test
+                timeout_ms = os.environ.get(
+                    'SWEBENCH_REGEX_TIMEOUT_MS', REGEX_TEST_TIMEOUT_MS
+                )
+                timeout = float(timeout_ms) / 1000
+                if time.time() - start_time > timeout:
                     raise RegexValidationError(
                         "Pattern appears to have exponential complexity (ReDoS risk)"
                     )
             except Exception as ex:
                 # If any error occurs during search, consider it suspicious
-                if time.time() - start_time > 0.01:
+                timeout_ms = os.environ.get(
+                    'SWEBENCH_REGEX_TIMEOUT_MS', REGEX_TEST_TIMEOUT_MS
+                )
+                timeout = float(timeout_ms) / 1000
+                if time.time() - start_time > timeout:
                     raise RegexValidationError(
                         "Pattern appears to have exponential complexity (ReDoS risk)"
                     ) from ex
@@ -182,6 +196,16 @@ def _validate_regex_pattern(pattern: str) -> Pattern[str]:
         return compiled
     except re.error as e:
         raise RegexValidationError(f"Invalid regex pattern: {e}") from e
+
+
+@lru_cache(maxsize=128)
+def _validate_regex_pattern_cached(pattern: str) -> Pattern[str]:
+    """Cached version of regex pattern validation.
+
+    Note: This caches the compiled pattern, improving performance
+    for repeated use of the same regex patterns.
+    """
+    return _validate_regex_pattern(pattern)
 
 
 def _validate_instance_ids(instances: list[str]) -> list[str]:
@@ -366,7 +390,7 @@ class DatasetManager:
         compiled_pattern = None
         if subset_pattern:
             if use_regex:
-                compiled_pattern = _validate_regex_pattern(subset_pattern)
+                compiled_pattern = _validate_regex_pattern_cached(subset_pattern)
             elif len(subset_pattern) > MAX_REGEX_LENGTH:
                 raise DatasetValidationError(
                     f"Pattern too long ({len(subset_pattern)} chars). "
@@ -377,8 +401,10 @@ class DatasetManager:
 
         # Filter by specific instance IDs first
         if instances:
+            # Convert to set for O(1) lookups
+            instance_set = set(instances)
             dataset = dataset.filter(
-                lambda x: x['instance_id'] in instances
+                lambda x: x['instance_id'] in instance_set
             )
 
         # Apply pattern filtering
@@ -406,9 +432,9 @@ class DatasetManager:
             indices = random.sample(range(len(dataset)), count)
             dataset = dataset.select(indices)
         elif count and count >= len(dataset):
-            print(
-                f"Warning: Requested {count} instances but "
-                f"dataset only has {len(dataset)}"
+            logger.warning(
+                "Requested %d instances but dataset only has %d",
+                count, len(dataset)
             )
 
         # Convert to list of dicts
@@ -505,7 +531,7 @@ class DatasetManager:
         compiled_pattern = None
         if subset_pattern:
             if use_regex:
-                compiled_pattern = _validate_regex_pattern(subset_pattern)
+                compiled_pattern = _validate_regex_pattern_cached(subset_pattern)
             elif len(subset_pattern) > MAX_REGEX_LENGTH:
                 raise DatasetValidationError(
                     f"Pattern too long ({len(subset_pattern)} chars). "
@@ -516,8 +542,10 @@ class DatasetManager:
 
         # Apply filters that don't require full dataset loading
         if instances:
+            # Convert to set for O(1) lookups
+            instance_set = set(instances)
             dataset = dataset.filter(
-                lambda x: x['instance_id'] in instances
+                lambda x: x['instance_id'] in instance_set
             )
 
         # Apply pattern filtering
@@ -621,9 +649,13 @@ class DatasetManager:
                     )
                     try:
                         temp_dir.rename(cleanup_target)
-                        shutil.rmtree(cleanup_target)
+                        try:
+                            shutil.rmtree(cleanup_target)
+                        except (OSError, FileNotFoundError):
+                            # Directory was already cleaned
+                            pass
                     except (OSError, FileNotFoundError):
-                        # Directory might have been cleaned by another process
+                        # Another process already cleaned up
                         if cleanup_target.exists():
                             shutil.rmtree(cleanup_target, ignore_errors=True)
 

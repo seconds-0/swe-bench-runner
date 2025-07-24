@@ -416,3 +416,13 @@ The highest compliment we can receive: "It just works."
 **Above all: Research first, plan second, validate early, and embrace better solutions when you find them.**
 
 **New priority: Follow the Critical Implementation Rules above to prevent the debugging sessions we experienced with CI implementation.**
+
+### 17. Configuration File Precedence (MANDATORY)
+**Rule**: Always check for multiple configuration files when debugging CI failures
+- **Mypy configuration**: CI uses `mypy.ini` by default, not `pyproject.toml` mypy settings
+- **Pre-commit vs CI**: Pre-commit hooks may use different configs than CI
+- **Config precedence**: `mypy.ini` > `setup.cfg` > `pyproject.toml` for mypy
+- **Always verify**: Check which config file is actually being used in CI
+- **Document configs**: Keep all config files in sync or clearly document differences
+
+**Lesson learned**: When fixing mypy CI failures for Dataset Auto-Fetch, we updated `pyproject.toml` but CI was using `mypy.ini`. Always check for multiple config files.

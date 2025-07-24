@@ -319,7 +319,9 @@ class DatasetManager:
         os.environ['HF_DATASETS_CACHE'] = str(self.cache_dir)
 
         try:
-            from datasets import load_dataset  # type: ignore[import-not-found]
+            from datasets import (
+                load_dataset,  # type: ignore[import-not-found,import-untyped]
+            )
         except ImportError as e:
             raise ImportError(
                 "HuggingFace datasets library is required for dataset auto-fetch. "
@@ -721,7 +723,9 @@ def configure_hf_auth() -> bool:
     token = get_hf_token()
     if token:
         try:
-            from huggingface_hub import login  # type: ignore[import-not-found]
+            from huggingface_hub import (
+                login,  # type: ignore[import-not-found,import-untyped]
+            )
             login(token=token, add_to_git_credential=False)
             return True
         except ImportError:

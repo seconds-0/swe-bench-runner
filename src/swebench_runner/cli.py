@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import os
 import sys
 import uuid
 from pathlib import Path
@@ -18,6 +20,7 @@ from .bootstrap import (
     suggest_patches_file,
 )
 from .cache import clean_cache, get_cache_dir, get_cache_usage
+from .cli_provider import provider_cli
 from .docker_run import run_evaluation
 from .error_utils import classify_error
 from .output import detect_patches_file, display_result
@@ -54,6 +57,10 @@ def cli() -> None:
     pass
 
 
+# Add provider commands to main CLI
+cli.add_command(provider_cli)
+
+
 @cli.command()
 # === Primary Options (most common) ===
 @click.option(
@@ -70,6 +77,31 @@ def cli() -> None:
     "--patches-dir",
     type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path),
     help="📁 Directory with .patch files named {instance_id}.patch",
+)
+# === Generation Options ===
+@click.option(
+    "--provider", "-p",
+    help="🤖 Model provider for patch generation (e.g., openai, openrouter)"
+)
+@click.option(
+    "--model", "-m",
+    help="🧠 Specific model to use (overrides provider default)"
+)
+@click.option(
+    "--generate-only",
+    is_flag=True,
+    help="⚡ Only generate patches, skip evaluation"
+)
+@click.option(
+    "--generation-output",
+    type=click.Path(path_type=Path),
+    help="💾 Save generated patches to this file"
+)
+@click.option(
+    "--max-workers",
+    type=int,
+    default=5,
+    help="🔄 Concurrent patch generations (default: 5)"
 )
 # === Filtering Options ===
 @click.option(
@@ -129,6 +161,11 @@ def run(
     patches: Path | None,
     patches_dir: Path | None,
     dataset: str | None,
+    provider: str | None,
+    model: str | None,
+    generate_only: bool,
+    generation_output: Path | None,
+    max_workers: int,
     instances: str | None,
     count: int | None,
     sample: str | None,
@@ -169,6 +206,14 @@ def run(
 
     Run 'swebench info -d lite' to see available instances!
     """
+    # Use environment variables as defaults
+    if not provider and 'SWEBENCH_PROVIDER' in os.environ:
+        provider = os.environ['SWEBENCH_PROVIDER']
+    if not model and 'SWEBENCH_MODEL' in os.environ:
+        model = os.environ['SWEBENCH_MODEL']
+    if max_workers == 5 and 'SWEBENCH_MAX_WORKERS' in os.environ:
+        max_workers = int(os.environ['SWEBENCH_MAX_WORKERS'])
+
     # Handle --rerun-failed first
     if rerun_failed:
         failed_instances = load_failed_instances(rerun_failed)
@@ -312,6 +357,59 @@ def run(
                 sys.exit(exit_codes.NETWORK_ERROR)
             else:
                 sys.exit(exit_codes.GENERAL_ERROR)
+
+    # Handle patch generation if provider is specified
+    if provider and not patches and not patches_dir:
+        # Need dataset instances to generate patches
+        if dataset and 'dataset_instances' in locals():
+            from .generation_integration import GenerationIntegration
+            from .provider_utils import ensure_provider_configured
+
+            # Ensure provider is configured
+            ensure_provider_configured(provider)
+
+            # Create integration
+            integration = GenerationIntegration(get_cache_dir())
+
+            try:
+                # Generate patches
+                patches = asyncio.run(
+                    integration.generate_patches_for_evaluation(
+                        instances=dataset_instances,
+                        provider_name=provider,
+                        model=model,
+                        output_path=generation_output,
+                        max_workers=max_workers,
+                        show_progress=not json_output
+                    )
+                )
+
+                if generate_only:
+                    if not json_output:
+                        click.echo(f"\n✅ Patches generated successfully: {patches}")
+                        click.echo("💡 Run evaluation with: swebench run --patches "
+                                   + str(patches))
+                    else:
+                        output = {"patches_file": str(patches), "success": True}
+                        click.echo(json.dumps(output))
+                    sys.exit(exit_codes.SUCCESS)
+
+            except click.Abort:
+                sys.exit(exit_codes.GENERAL_ERROR)
+            except Exception as e:
+                if json_output:
+                    error_output = {"error": str(e), "success": False}
+                    click.echo(json.dumps(error_output))
+                else:
+                    from .provider_utils import format_provider_error
+                    error_msg = format_provider_error(e, provider)
+                    click.echo(error_msg, err=True)
+                sys.exit(exit_codes.GENERAL_ERROR)
+        else:
+            click.echo(
+                "Error: --provider requires --dataset to specify instances", err=True
+            )
+            sys.exit(exit_codes.GENERAL_ERROR)
 
     # Validate patches file if provided
     if patches is not None:
@@ -557,6 +655,171 @@ def info(dataset: str) -> None:
             sys.exit(exit_codes.NETWORK_ERROR)
         else:
             sys.exit(exit_codes.GENERAL_ERROR)
+
+
+@cli.command()
+@click.option(
+    '--provider', '-p',
+    help='Model provider to use (default: openai or SWEBENCH_PROVIDER env var)'
+)
+@click.option(
+    '--model', '-m',
+    help='Specific model to use (overrides provider default)'
+)
+@click.option(
+    '--instance', '-i',
+    required=True,
+    help='SWE-bench instance ID to generate patch for'
+)
+@click.option(
+    '--dataset', '-d',
+    type=click.Choice(['lite', 'verified', 'full']),
+    default='lite',
+    help='Dataset to load instance from'
+)
+@click.option(
+    '--output', '-o',
+    type=click.Path(path_type=Path),
+    help='Output file for generated patch (default: patches/<instance_id>.patch)'
+)
+def generate(
+    provider: str | None,
+    model: str | None,
+    instance: str,
+    dataset: str,
+    output: Path | None
+) -> None:
+    r"""Generate a patch for a SWE-bench instance using AI.
+
+    \b
+    🤖 Examples:
+      swebench generate -i django__django-12345              # Use default provider
+      swebench generate -i django__django-12345 -p openai    # Use OpenAI
+      swebench generate -i django__django-12345 -m gpt-4     # Use specific model
+      swebench generate -i django__django-12345 -o fix.patch # Save to file
+
+    \b
+    📊 Datasets:
+      lite     - 300 instances (1.2MB) - Great for testing
+      verified - 500 instances (2MB)   - Human-verified fixes
+      full     - 2294 instances (8MB)  - Complete benchmark
+    """
+    from .generation_integration import GenerationIntegration
+    from .provider_utils import ensure_provider_configured, get_provider_for_cli
+
+    # Ensure we have a configured provider
+    if provider:
+        ensure_provider_configured(provider)
+
+    # Get the provider
+    try:
+        sync_provider = get_provider_for_cli(provider, model)
+    except SystemExit:
+        # If no provider is configured, show helpful message
+        click.echo("\n💡 No model provider configured!")
+        click.echo("Available providers:")
+        click.echo("  • openai    - OpenAI GPT models")
+        click.echo("  • openrouter - Access 100+ models")
+        click.echo("  • mock      - Testing provider")
+        click.echo("\nRun: swebench provider init <provider>")
+        sys.exit(exit_codes.GENERAL_ERROR)
+
+    # Load the instance from dataset
+    try:
+        from .datasets import DatasetManager
+    except ImportError:
+        click.echo(
+            "Error: Dataset features require additional dependencies", err=True
+        )
+        click.echo(
+            "Install with: pip install 'swebench-runner[datasets]'", err=True
+        )
+        sys.exit(exit_codes.GENERAL_ERROR)
+
+    click.echo(f"📥 Loading instance {instance} from {dataset} dataset...")
+
+    try:
+        manager = DatasetManager(get_cache_dir())
+        dataset_instances = manager.get_instances(
+            dataset_name=dataset,
+            instances=[instance],
+            offline=False
+        )
+
+        if not dataset_instances:
+            click.echo(
+                f"❌ Instance {instance} not found in {dataset} dataset", err=True
+            )
+            sys.exit(exit_codes.GENERAL_ERROR)
+
+        instance_data = dataset_instances[0]
+
+    except Exception as e:
+        from .datasets import get_helpful_error_message
+        context = {'dataset': dataset}
+        helpful_msg = get_helpful_error_message(e, context)
+        click.echo(helpful_msg, err=True)
+        sys.exit(
+            exit_codes.NETWORK_ERROR if "Network" in str(e)
+            else exit_codes.GENERAL_ERROR
+        )
+
+    # Determine output path
+    if not output:
+        output = Path("patches") / f"{instance}.jsonl"
+        output.parent.mkdir(exist_ok=True)
+
+    # Create integration and generate
+    integration = GenerationIntegration(get_cache_dir())
+
+    click.echo(f"\n🤖 Generating patch for {instance}")
+    click.echo(f"   Provider: {sync_provider._async_provider.name}")
+    model_name = getattr(
+        sync_provider._async_provider.config, 'model',
+        sync_provider._async_provider.default_model
+    )
+    click.echo(f"   Model: {model_name}")
+
+    try:
+        # Generate patches for single instance
+        result_path = asyncio.run(
+            integration.generate_patches_for_evaluation(
+                instances=[instance_data],
+                provider_name=provider or 'openai',
+                model=model,
+                output_path=output,
+                max_workers=1,
+                show_progress=True
+            )
+        )
+
+        # Check if patch was generated
+        with open(result_path) as f:
+            results = [json.loads(line) for line in f]
+
+        if results and results[0].get('patch'):
+            click.echo("\n✅ Patch generated successfully!")
+            click.echo(f"   Output: {output}")
+            if 'cost' in results[0]:
+                click.echo(f"   Cost: ${results[0]['cost']:.4f}")
+
+            # Also save just the patch content to a .patch file
+            patch_file = output.with_suffix('.patch')
+            patch_file.write_text(results[0]['patch'])
+            click.echo(f"   Patch file: {patch_file}")
+
+            click.echo(f"\n💡 Next step: swebench run --patches {output}")
+        else:
+            click.echo("❌ Failed to generate patch", err=True)
+            sys.exit(exit_codes.GENERAL_ERROR)
+
+    except click.Abort:
+        sys.exit(exit_codes.GENERAL_ERROR)
+    except Exception as e:
+        from .provider_utils import format_provider_error
+        error_msg = format_provider_error(e, provider or 'default')
+        click.echo(error_msg, err=True)
+        sys.exit(exit_codes.GENERAL_ERROR)
 
 
 if __name__ == "__main__":

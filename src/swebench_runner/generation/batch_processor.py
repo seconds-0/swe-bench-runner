@@ -1,5 +1,7 @@
 """Batch processing for SWE-bench instances with checkpointing and progress tracking."""
 
+from __future__ import annotations
+
 import asyncio
 import json
 import logging
@@ -42,7 +44,7 @@ class CheckpointData:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> 'CheckpointData':
+    def from_dict(cls, data: dict[str, Any]) -> CheckpointData:
         """Create from dictionary loaded from JSON."""
         return cls(
             timestamp=datetime.fromisoformat(data["timestamp"]),

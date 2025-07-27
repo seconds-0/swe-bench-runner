@@ -1,16 +1,19 @@
 """Configuration management for providers."""
 
+from __future__ import annotations
+
 import json
 import logging
 import os
 from pathlib import Path
+from typing import Any
 
 try:
     import keyring
     KEYRING_AVAILABLE = True
 except ImportError:
+    keyring = None  # type: ignore[assignment]
     KEYRING_AVAILABLE = False
-    keyring = None
 
 from .base import ProviderConfig
 from .exceptions import ProviderConfigurationError
@@ -121,10 +124,14 @@ class ProviderConfigManager:
             config = self._load_from_file(provider_name)
 
         if not config:
-            env_var = self.ENV_MAPPING.get(provider_name, {}).get("api_key", f"{provider_name.upper()}_API_KEY")
+            env_var = (
+                self.ENV_MAPPING.get(provider_name, {})
+                .get("api_key", f"{provider_name.upper()}_API_KEY")
+            )
             raise ProviderConfigurationError(
                 f"No configuration found for provider '{provider_name}'. "
-                f"Set {env_var} environment variable or run 'swebench init {provider_name}'"
+                f"Set {env_var} environment variable or run "
+                f"'swebench init {provider_name}'"
             )
 
         # Cache the config
@@ -157,7 +164,10 @@ class ProviderConfigManager:
 
         # Check for optional settings
         if "model" in env_mapping:
-            config.model = os.getenv(env_mapping["model"]) or self.DEFAULT_MODELS.get(provider_name)
+            config.model = (
+                os.getenv(env_mapping["model"]) or
+                self.DEFAULT_MODELS.get(provider_name)
+            )
 
         if "base_url" in env_mapping:
             config.endpoint = os.getenv(env_mapping["base_url"])
@@ -170,7 +180,9 @@ class ProviderConfigManager:
         # Vertex-specific handling
         if provider_name == "vertex":
             project = os.getenv(env_mapping.get("project", "GCP_PROJECT"))
-            location = os.getenv(env_mapping.get("location", "GCP_LOCATION"), "us-central1")
+            location = os.getenv(
+                env_mapping.get("location", "GCP_LOCATION"), "us-central1"
+            )
             if project:
                 config.extra_params = {
                     "project": project,
@@ -194,7 +206,9 @@ class ProviderConfigManager:
 
         try:
             # Try to get API key from keyring
-            api_key = keyring.get_password(self.SERVICE_NAME, f"{provider_name}_api_key")
+            api_key = keyring.get_password(
+                self.SERVICE_NAME, f"{provider_name}_api_key"
+            )
             if not api_key:
                 return None
 
@@ -209,7 +223,9 @@ class ProviderConfigManager:
             if model:
                 config.model = model
 
-            endpoint = keyring.get_password(self.SERVICE_NAME, f"{provider_name}_endpoint")
+            endpoint = keyring.get_password(
+                self.SERVICE_NAME, f"{provider_name}_endpoint"
+            )
             if endpoint:
                 config.endpoint = endpoint
 
@@ -244,7 +260,10 @@ class ProviderConfigManager:
                 name=provider_name,
                 api_key=provider_data.get("api_key"),
                 endpoint=provider_data.get("endpoint"),
-                model=provider_data.get("model") or self.DEFAULT_MODELS.get(provider_name),
+                model=(
+                    provider_data.get("model") or
+                    self.DEFAULT_MODELS.get(provider_name)
+                ),
                 temperature=provider_data.get("temperature", 0.0),
                 max_tokens=provider_data.get("max_tokens", 4000),
                 timeout=provider_data.get("timeout", 120),
@@ -258,7 +277,7 @@ class ProviderConfigManager:
             logger.warning(f"Failed to load config file: {e}")
             return None
 
-    def save_config(self, config: ProviderConfig, save_to_keyring: bool = True):
+    def save_config(self, config: ProviderConfig, save_to_keyring: bool = True) -> None:
         """Save provider configuration.
 
         Args:
@@ -286,12 +305,17 @@ class ProviderConfigManager:
                 logger.warning(f"Failed to save to keyring: {e}")
 
         # Save to file (without API key if using keyring)
-        self._save_to_file(config, include_api_key=not (save_to_keyring and KEYRING_AVAILABLE))
+        self._save_to_file(
+            config,
+            include_api_key=not (save_to_keyring and KEYRING_AVAILABLE)
+        )
 
         # Update cache
         self._cache[provider_name] = config
 
-    def _save_to_file(self, config: ProviderConfig, include_api_key: bool = False):
+    def _save_to_file(
+        self, config: ProviderConfig, include_api_key: bool = False
+    ) -> None:
         """Save configuration to file.
 
         Args:
@@ -307,11 +331,11 @@ class ProviderConfigManager:
             try:
                 with open(self.config_file) as f:
                     data = json.load(f)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to load existing config file: {e}")
 
         # Update with new config
-        provider_data = {
+        provider_data: dict[str, Any] = {
             "model": config.model,
             "temperature": config.temperature,
             "max_tokens": config.max_tokens,
@@ -355,8 +379,8 @@ class ProviderConfigManager:
                 for provider in self.ENV_MAPPING:
                     if keyring.get_password(self.SERVICE_NAME, f"{provider}_api_key"):
                         providers.add(provider)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to check keyring for provider {provider}: {e}")
 
         # Check file
         if self.config_file.exists():
@@ -364,12 +388,12 @@ class ProviderConfigManager:
                 with open(self.config_file) as f:
                     data = json.load(f)
                 providers.update(data.keys())
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to load config file for listing providers: {e}")
 
         return sorted(providers)
 
-    def clear_config(self, provider_name: str):
+    def clear_config(self, provider_name: str) -> None:
         """Clear configuration for a provider.
 
         Args:
@@ -383,8 +407,10 @@ class ProviderConfigManager:
             try:
                 keyring.delete_password(self.SERVICE_NAME, f"{provider_name}_api_key")
                 keyring.delete_password(self.SERVICE_NAME, f"{provider_name}_model")
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(
+                    f"Failed to clear keyring credentials for {provider_name}: {e}"
+                )
 
         # Clear from file
         if self.config_file.exists():

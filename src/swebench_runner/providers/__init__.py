@@ -1,5 +1,7 @@
 """Model provider infrastructure for SWE-bench runner."""
 
+from __future__ import annotations
+
 # Base classes and types
 # Async/sync bridge
 from .async_bridge import (

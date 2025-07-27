@@ -134,7 +134,9 @@ index abc123..def456 100644
 """
         result = validator.check_syntax(patch)
         assert not result.is_valid
-        assert any("Invalid hunk header format" in issue.message for issue in result.issues)
+        assert any(
+            "Invalid hunk header format" in issue.message for issue in result.issues
+        )
 
     def test_syntax_missing_plus_header(self, validator):
         """Test syntax check with missing +++ header."""
@@ -146,7 +148,9 @@ index abc123..def456 100644
 """
         result = validator.check_syntax(patch)
         assert not result.is_valid
-        assert any("Expected +++ line after ---" in issue.message for issue in result.issues)
+        assert any(
+            "Expected +++ line after ---" in issue.message for issue in result.issues
+        )
 
     def test_syntax_hunk_count_mismatch_strict(self, strict_validator):
         """Test hunk count mismatch in strict mode."""
@@ -216,7 +220,9 @@ index abc123..def456 100644
 """
         result = validator.check_semantics(patch)
         assert not result.is_valid
-        assert any("Binary content detected" in issue.message for issue in result.issues)
+        assert any(
+            "Binary content detected" in issue.message for issue in result.issues
+        )
 
     def test_semantics_only_deletions(self, validator):
         """Test semantic check with only deletions."""
@@ -347,7 +353,9 @@ index abc..def 100644
         issues = [
             Issue(IssueLevel.ERROR, "line count mismatch", suggestion="Run auto_fix()"),
             Issue(IssueLevel.WARNING, "Mixed line endings", suggestion="Convert to LF"),
-            Issue(IssueLevel.ERROR, "Binary content detected", suggestion="Remove binary data"),
+            Issue(
+                IssueLevel.ERROR, "Binary content detected", suggestion="Remove binary data"
+            ),
         ]
 
         suggestions = validator.suggest_fixes("", issues)

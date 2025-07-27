@@ -1,5 +1,7 @@
 """Patch validator for validating generated patches."""
 
+from __future__ import annotations
+
 import logging
 import re
 from dataclasses import dataclass, field
@@ -92,7 +94,9 @@ class PatchValidator:
         self.max_patch_size = max_patch_size
         self.max_files_changed = max_files_changed
 
-    def validate(self, patch: str, instance: dict | None = None) -> ValidationResult:
+    def validate(
+        self, patch: str, instance: dict[str, Any] | None = None
+    ) -> ValidationResult:
         """Validate a patch comprehensively.
 
         Performs:
@@ -800,7 +804,7 @@ class PatchValidator:
         Returns:
             List of issues found
         """
-        issues = []
+        issues: list[Issue] = []
         lines = patch.split('\n')
 
         if not lines:
@@ -904,9 +908,11 @@ class PatchValidator:
         Returns:
             Dictionary with patch structure information
         """
-        structure = {
-            "files": [],
-            "hunks": [],
+        files: list[dict[str, Any]] = []
+        hunks: list[dict[str, Any]] = []
+        structure: dict[str, Any] = {
+            "files": files,
+            "hunks": hunks,
             "format": "unknown",
         }
 

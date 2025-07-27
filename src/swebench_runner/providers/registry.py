@@ -1,5 +1,7 @@
 """Provider registration and discovery system."""
 
+from __future__ import annotations
+
 import importlib
 import logging
 from pathlib import Path
@@ -15,14 +17,16 @@ logger = logging.getLogger(__name__)
 class ProviderRegistry:
     """Thread-safe registry for model providers with validation."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._providers: dict[str, type[ModelProvider]] = {}
         self._instances: dict[str, ModelProvider] = {}  # Cached instances
         self._configs: dict[str, ProviderConfig] = {}
         self._initialized = False
         self._lock = Lock()  # Thread safety
 
-    def register(self, provider_class: type[ModelProvider], validate: bool = True):
+    def register(
+        self, provider_class: type[ModelProvider], validate: bool = True
+    ) -> None:
         """Register a provider class with validation.
 
         Args:
@@ -42,7 +46,7 @@ class ProviderRegistry:
             self._providers[provider_class.name] = provider_class
             logger.info(f"Registered provider: {provider_class.name}")
 
-    def _validate_provider_class(self, provider_class: type[ModelProvider]):
+    def _validate_provider_class(self, provider_class: type[ModelProvider]) -> None:
         """Validate a provider class has required attributes and methods.
 
         Args:
@@ -55,13 +59,17 @@ class ProviderRegistry:
         required_attrs = ["name", "description"]
         for attr in required_attrs:
             if not hasattr(provider_class, attr) or not getattr(provider_class, attr):
-                raise ValueError(f"Provider {provider_class.__name__} must have {attr} attribute")
+                raise ValueError(
+                    f"Provider {provider_class.__name__} must have {attr} attribute"
+                )
 
         # Check required methods are implemented
         required_methods = ["generate", "_init_capabilities", "_config_from_env"]
         for method in required_methods:
             if not hasattr(provider_class, method):
-                raise ValueError(f"Provider {provider_class.__name__} must implement {method} method")
+                raise ValueError(
+                    f"Provider {provider_class.__name__} must implement {method} method"
+                )
 
     def get_provider_class(self, name: str) -> type[ModelProvider]:
         """Get a provider class by name.
@@ -122,9 +130,17 @@ class ProviderRegistry:
                         try:
                             config = config_manager.load_config(name)
                         except ProviderConfigurationError:
-                            raise e
+                            raise e from None
 
-        provider = provider_class(config or self._configs.get(name))
+        # Ensure we have a valid config
+        final_config = config or self._configs.get(name)
+        if final_config is None:
+            raise ProviderConfigurationError(
+                f"No configuration available for provider '{name}'. "
+                "Set environment variables or use config file."
+            )
+
+        provider = provider_class(final_config)
 
         # Cache the instance
         if cache:
@@ -168,7 +184,7 @@ class ProviderRegistry:
                 self._auto_discover()
             return list(self._providers.keys())
 
-    def _auto_discover(self):
+    def _auto_discover(self) -> None:
         """Auto-discover providers in the providers directory."""
         self._initialized = True
 
@@ -201,12 +217,13 @@ class ProviderRegistry:
                         and hasattr(attr, "name")
                         and attr.name
                     ):
-                        self.register(attr, validate=False)  # Skip validation during auto-discovery
+                        # Skip validation during auto-discovery
+                        self.register(attr, validate=False)
             except Exception as e:
                 # Log error but continue discovery
                 logger.warning(f"Failed to load provider from {module_name}: {e}")
 
-    def save_config(self, name: str, config: ProviderConfig):
+    def save_config(self, name: str, config: ProviderConfig) -> None:
         """Save a provider configuration.
 
         Args:
@@ -218,7 +235,7 @@ class ProviderRegistry:
             # Clear cached instance to force reload with new config
             self._instances.pop(name, None)
 
-    def clear(self):
+    def clear(self) -> None:
         """Clear all registered providers and cached instances."""
         with self._lock:
             self._providers.clear()
@@ -226,7 +243,7 @@ class ProviderRegistry:
             self._instances.clear()
             self._initialized = False
 
-    def clear_cache(self, name: str | None = None):
+    def clear_cache(self, name: str | None = None) -> None:
         """Clear cached provider instances.
 
         Args:
@@ -243,7 +260,7 @@ class ProviderRegistry:
 _registry = ProviderRegistry()
 
 
-def register_provider(provider_class: type[ModelProvider]):
+def register_provider(provider_class: type[ModelProvider]) -> type[ModelProvider]:
     """Decorator to register a provider class.
 
     Usage:

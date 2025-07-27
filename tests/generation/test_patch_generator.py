@@ -49,7 +49,9 @@ class MockProvider(ModelProvider):
         return 0.001
 
     @classmethod
-    def _config_from_env(cls, env_vars: dict[str, str], model: str = None) -> ProviderConfig:
+    def _config_from_env(
+        cls, env_vars: dict[str, str], model: str = None
+    ) -> ProviderConfig:
         """Mock config from env."""
         return ProviderConfig(name="mock", model=model or "mock-model")
 
@@ -115,7 +117,9 @@ This should fix the issue.""",
 
 
 @pytest.mark.anyio
-async def test_generate_patch_retry_on_parse_failure(patch_generator, mock_provider, sample_instance):
+async def test_generate_patch_retry_on_parse_failure(
+    patch_generator, mock_provider, sample_instance
+):
     """Test retry with temperature adjustment on parse failure."""
     # First response has no valid patch, second one does
     mock_provider.generate_responses = [
@@ -147,7 +151,9 @@ async def test_generate_patch_retry_on_parse_failure(patch_generator, mock_provi
 
 
 @pytest.mark.anyio
-async def test_generate_patch_token_limit_retry(patch_generator, mock_provider, sample_instance):
+async def test_generate_patch_token_limit_retry(
+    patch_generator, mock_provider, sample_instance
+):
     """Test retry with context reduction on token limit error."""
     # First attempt hits token limit, second succeeds
     mock_provider.generate_responses = [
@@ -174,7 +180,9 @@ async def test_generate_patch_token_limit_retry(patch_generator, mock_provider, 
 
 
 @pytest.mark.anyio
-async def test_generate_patch_rate_limit_retry(patch_generator, mock_provider, sample_instance):
+async def test_generate_patch_rate_limit_retry(
+    patch_generator, mock_provider, sample_instance
+):
     """Test retry with wait on rate limit error."""
     # Configure short wait for testing
     patch_generator.rate_limit_wait_seconds = 0.1
@@ -200,7 +208,9 @@ async def test_generate_patch_rate_limit_retry(patch_generator, mock_provider, s
 
 
 @pytest.mark.anyio
-async def test_generate_patch_all_attempts_fail(patch_generator, mock_provider, sample_instance):
+async def test_generate_patch_all_attempts_fail(
+    patch_generator, mock_provider, sample_instance
+):
     """Test when all retry attempts fail."""
     # All attempts return invalid responses
     mock_provider.generate_responses = [
@@ -352,7 +362,10 @@ def test_validate_patch_valid(patch_generator):
     """Test patch validation with valid patches."""
     valid_patches = [
         "--- a/file.py\n+++ b/file.py\n@@ -1 +1 @@\n-old\n+new",
-        "diff --git a/src/main.py b/src/main.py\n--- a/src/main.py\n+++ b/src/main.py\n@@ -1,3 +1,3 @@\n-def foo():\n+def bar():",
+        (
+            "diff --git a/src/main.py b/src/main.py\n--- a/src/main.py\n"
+            "+++ b/src/main.py\n@@ -1,3 +1,3 @@\n-def foo():\n+def bar():"
+        ),
     ]
 
     for patch in valid_patches:

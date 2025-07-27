@@ -1,5 +1,7 @@
 """OpenAI provider implementation with full compatibility."""
 
+from __future__ import annotations
+
 import asyncio
 import json
 import logging
@@ -92,7 +94,9 @@ class OpenAIProvider(ModelProvider):
             self.base_url = self.base_url[:-1]
 
         # Set organization ID if provided
-        self.organization = config.extra_params.get("organization") if config.extra_params else None
+        self.organization = (
+            config.extra_params.get("organization") if config.extra_params else None
+        )
 
         # Request settings
         self.max_retries = 3
@@ -100,7 +104,7 @@ class OpenAIProvider(ModelProvider):
         self.timeout = aiohttp.ClientTimeout(total=config.timeout)
 
         # Rate limiting tracking
-        self._rate_limit_info = {
+        self._rate_limit_info: dict[str, int | str | None] = {
             "requests_limit": None,
             "requests_remaining": None,
             "requests_reset": None,
@@ -134,7 +138,7 @@ class OpenAIProvider(ModelProvider):
             cost_per_1k_completion_tokens=pricing[1],
         )
 
-    async def generate(self, prompt: str, **kwargs) -> ModelResponse:
+    async def generate(self, prompt: str, **kwargs: Any) -> ModelResponse:
         """Generate a response from OpenAI.
 
         Args:
@@ -275,29 +279,42 @@ class OpenAIProvider(ModelProvider):
 
                         elif response.status == 401:
                             error_data = await self._safe_json(response)
+                            error_msg = error_data.get('error', {}).get(
+                                'message', 'Invalid API key'
+                            )
                             raise ProviderAuthenticationError(
-                                f"Authentication failed: {error_data.get('error', {}).get('message', 'Invalid API key')}"
+                                f"Authentication failed: {error_msg}"
                             )
 
                         elif response.status == 429:
                             # Rate limit exceeded
                             error_data = await self._safe_json(response)
                             retry_after = int(response.headers.get("Retry-After", 60))
+                            error_msg = error_data.get('error', {}).get(
+                                'message', 'Too many requests'
+                            )
                             raise ProviderRateLimitError(
-                                f"Rate limit exceeded: {error_data.get('error', {}).get('message', 'Too many requests')}",
+                                f"Rate limit exceeded: {error_msg}",
                                 retry_after=retry_after
                             )
 
                         elif response.status == 400:
                             # Bad request - check for context length error
                             error_data = await self._safe_json(response)
-                            error_message = error_data.get("error", {}).get("message", "")
+                            error_message = (
+                                error_data.get("error", {}).get("message", "")
+                            )
 
-                            if "context_length_exceeded" in error_message or "maximum context length" in error_message:
+                            if (
+                                "context_length_exceeded" in error_message
+                                or "maximum context length" in error_message
+                            ):
                                 # Extract token count from error message if possible
                                 import re
                                 token_match = re.search(r"(\d+) tokens", error_message)
-                                token_count = int(token_match.group(1)) if token_match else None
+                                token_count = (
+                                    int(token_match.group(1)) if token_match else None
+                                )
 
                                 raise ProviderTokenLimitError(
                                     f"Token limit exceeded: {error_message}",
@@ -305,44 +322,67 @@ class OpenAIProvider(ModelProvider):
                                     limit=self.capabilities.max_context_length
                                 )
                             else:
-                                raise ProviderResponseError(f"Bad request: {error_message}")
+                                raise ProviderResponseError(
+                                    f"Bad request: {error_message}"
+                                )
 
                         elif response.status >= 500:
                             # Server error - retry
                             error_data = await self._safe_json(response)
-                            error_message = error_data.get("error", {}).get("message", f"Server error {response.status}")
-                            last_error = ProviderConnectionError(f"Server error: {error_message}")
+                            error_message = error_data.get("error", {}).get(
+                                "message", f"Server error {response.status}"
+                            )
+                            last_error = ProviderConnectionError(
+                                f"Server error: {error_message}"
+                            )
 
                             # Exponential backoff
                             if attempt < self.max_retries - 1:
                                 delay = self.retry_delay * (2 ** attempt)
-                                logger.warning(f"Server error on attempt {attempt + 1}, retrying in {delay}s: {error_message}")
+                                logger.warning(
+                                    f"Server error on attempt {attempt + 1}, "
+                                    f"retrying in {delay}s: {error_message}"
+                                )
                                 await asyncio.sleep(delay)
                                 continue
 
                         else:
                             # Other error
                             error_data = await self._safe_json(response)
+                            error_msg = error_data.get('error', {}).get(
+                                'message', 'Unknown error'
+                            )
                             raise ProviderResponseError(
-                                f"Unexpected status {response.status}: {error_data.get('error', {}).get('message', 'Unknown error')}"
+                                f"Unexpected status {response.status}: {error_msg}"
                             )
 
             except asyncio.TimeoutError:
-                raise ProviderTimeoutError(f"Request to {url} timed out after {self.config.timeout}s")
+                raise ProviderTimeoutError(
+                    f"Request to {url} timed out after {self.config.timeout}s"
+                ) from None
             except aiohttp.ClientError as e:
                 last_error = ProviderConnectionError(f"Connection error: {str(e)}")
                 if attempt < self.max_retries - 1:
                     delay = self.retry_delay * (2 ** attempt)
-                    logger.warning(f"Connection error on attempt {attempt + 1}, retrying in {delay}s: {e}")
+                    logger.warning(
+                        f"Connection error on attempt {attempt + 1}, "
+                        f"retrying in {delay}s: {e}"
+                    )
                     await asyncio.sleep(delay)
                     continue
-            except (ProviderAuthenticationError, ProviderTokenLimitError, ProviderResponseError):
+            except (
+                ProviderAuthenticationError,
+                ProviderTokenLimitError,
+                ProviderResponseError
+            ):
                 # Don't retry these errors
                 raise
             except ProviderRateLimitError as e:
                 # For rate limits, wait if we have retries left
                 if attempt < self.max_retries - 1 and e.retry_after:
-                    logger.warning(f"Rate limited, waiting {e.retry_after}s before retry")
+                    logger.warning(
+                        f"Rate limited, waiting {e.retry_after}s before retry"
+                    )
                     await asyncio.sleep(e.retry_after)
                     continue
                 raise
@@ -364,8 +404,8 @@ class OpenAIProvider(ModelProvider):
         """
         content_parts = []
 
-        async for line in response.content:
-            line = line.decode('utf-8').strip()
+        async for line_bytes in response.content:
+            line = line_bytes.decode('utf-8').strip()
             if line.startswith("data: "):
                 data_str = line[6:]  # Remove "data: " prefix
 
@@ -393,12 +433,12 @@ class OpenAIProvider(ModelProvider):
             Parsed JSON or error dict
         """
         try:
-            return await response.json()
+            return await response.json()  # type: ignore[no-any-return]
         except Exception:
             text = await response.text()
             return {"error": {"message": text or "Unknown error"}}
 
-    def _extract_rate_limit_info(self, headers: dict[str, str]):
+    def _extract_rate_limit_info(self, headers: Any) -> None:
         """Extract rate limit information from response headers.
 
         Args:
@@ -406,20 +446,34 @@ class OpenAIProvider(ModelProvider):
         """
         # OpenAI rate limit headers
         if "x-ratelimit-limit-requests" in headers:
-            self._rate_limit_info["requests_limit"] = int(headers["x-ratelimit-limit-requests"])
+            self._rate_limit_info["requests_limit"] = (
+                int(headers["x-ratelimit-limit-requests"])
+            )
         if "x-ratelimit-remaining-requests" in headers:
-            self._rate_limit_info["requests_remaining"] = int(headers["x-ratelimit-remaining-requests"])
+            self._rate_limit_info["requests_remaining"] = (
+                int(headers["x-ratelimit-remaining-requests"])
+            )
         if "x-ratelimit-reset-requests" in headers:
-            self._rate_limit_info["requests_reset"] = headers["x-ratelimit-reset-requests"]
+            self._rate_limit_info["requests_reset"] = (
+                headers["x-ratelimit-reset-requests"]
+            )
 
         if "x-ratelimit-limit-tokens" in headers:
-            self._rate_limit_info["tokens_limit"] = int(headers["x-ratelimit-limit-tokens"])
+            self._rate_limit_info["tokens_limit"] = (
+                int(headers["x-ratelimit-limit-tokens"])
+            )
         if "x-ratelimit-remaining-tokens" in headers:
-            self._rate_limit_info["tokens_remaining"] = int(headers["x-ratelimit-remaining-tokens"])
+            self._rate_limit_info["tokens_remaining"] = (
+                int(headers["x-ratelimit-remaining-tokens"])
+            )
         if "x-ratelimit-reset-tokens" in headers:
-            self._rate_limit_info["tokens_reset"] = headers["x-ratelimit-reset-tokens"]
+            self._rate_limit_info["tokens_reset"] = (
+                headers["x-ratelimit-reset-tokens"]
+            )
 
-    def _calculate_cost(self, model: str, prompt_tokens: int, completion_tokens: int) -> float:
+    def _calculate_cost(
+        self, model: str, prompt_tokens: int, completion_tokens: int
+    ) -> float:
         """Calculate cost for a generation.
 
         Args:

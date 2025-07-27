@@ -1,6 +1,9 @@
 """Provider wrappers for additional functionality."""
 
+from __future__ import annotations
+
 import logging
+from collections.abc import Callable
 from typing import Any
 
 from .async_bridge import AsyncBridge
@@ -23,7 +26,7 @@ class CircuitBreakerProvider(ModelProvider):
         self,
         provider: ModelProvider,
         circuit_config: CircuitBreakerConfig | None = None,
-        on_state_change: callable | None = None
+        on_state_change: Callable[..., Any] | None = None
     ):
         """Initialize circuit breaker wrapper.
 
@@ -85,7 +88,7 @@ class CircuitBreakerProvider(ModelProvider):
                 prompt,
                 **kwargs
             )
-            return response
+            return response  # type: ignore[no-any-return]
         except CircuitBreakerError:
             # Re-raise circuit breaker errors as-is
             raise
@@ -107,7 +110,7 @@ class CircuitBreakerProvider(ModelProvider):
                 self._wrapped_provider.validate_connection
             )
             self._health_status = "healthy" if result else "unhealthy"
-            return result
+            return result  # type: ignore[no-any-return]
         except Exception:
             self._health_status = "unhealthy"
             return False
@@ -129,7 +132,8 @@ class CircuitBreakerProvider(ModelProvider):
         """Circuit breaker wrapper doesn't have its own env config."""
         # This method shouldn't be called on the wrapper
         raise NotImplementedError(
-            "CircuitBreakerProvider must be initialized with an existing provider instance"
+            "CircuitBreakerProvider must be initialized with an existing provider "
+            "instance"
         )
 
     def get_token_limit(self) -> int:
@@ -175,14 +179,18 @@ class CircuitBreakerProvider(ModelProvider):
             "total_successes": stats.total_successes,
             "consecutive_failures": stats.consecutive_failures,
             "consecutive_successes": stats.consecutive_successes,
-            "last_failure_time": stats.last_failure_time.isoformat() if stats.last_failure_time else None,
-            "last_success_time": stats.last_success_time.isoformat() if stats.last_success_time else None,
+            "last_failure_time": (
+                stats.last_failure_time.isoformat() if stats.last_failure_time else None
+            ),
+            "last_success_time": (
+                stats.last_success_time.isoformat() if stats.last_success_time else None
+            ),
             "state_changes": {
                 state: time.isoformat() for state, time in stats.state_changes.items()
             }
         }
 
-    def reset_circuit(self):
+    def reset_circuit(self) -> None:
         """Reset the circuit breaker to closed state."""
         self._circuit.reset()
 
@@ -229,7 +237,7 @@ class SyncProviderWrapper(ModelProvider):
         """Initialize capabilities from wrapped provider."""
         return self._async_provider.capabilities
 
-    def generate_sync(self, prompt: str, **kwargs) -> ModelResponse:
+    def generate_sync(self, prompt: str, **kwargs: Any) -> ModelResponse:
         """Synchronous generate method.
 
         Args:
@@ -322,7 +330,7 @@ class SyncProviderWrapper(ModelProvider):
         """Get the wrapped async provider instance."""
         return self._async_provider
 
-    def __enter__(self) -> 'SyncProviderWrapper':
+    def __enter__(self) -> SyncProviderWrapper:
         """Context manager entry."""
         return self
 

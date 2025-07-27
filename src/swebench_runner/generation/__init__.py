@@ -1,5 +1,7 @@
 """Generation components for SWE-bench runner."""
 
+from __future__ import annotations
+
 from .batch_processor import (
     BatchProcessor,
     BatchResult,

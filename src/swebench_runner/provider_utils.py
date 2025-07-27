@@ -166,8 +166,11 @@ def get_default_provider_name() -> str | None:
         registry = get_registry()
         if env_provider in registry.list_provider_names():
             config_manager = ProviderConfigManager()
-            if config_manager.get_config(env_provider):
-                return env_provider
+            try:
+                if config_manager.load_config(env_provider):
+                    return env_provider
+            except ProviderConfigurationError:
+                pass
 
     # Otherwise, return first configured provider
     registry = get_registry()

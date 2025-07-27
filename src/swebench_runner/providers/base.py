@@ -1,5 +1,7 @@
 """Base classes for model providers."""
 
+from __future__ import annotations
+
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -51,7 +53,12 @@ class ProviderConfig:
     timeout: int = 120
     extra_params: dict[str, Any] | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """Initialize extra_params to empty dict if None.
+
+        This ensures extra_params is always a dict to prevent
+        AttributeError when accessing or modifying parameters.
+        """
         if self.extra_params is None:
             self.extra_params = {}
 
@@ -75,7 +82,7 @@ class ModelProvider(ABC):
         self._health_status = "unknown"
         self._validate_config()
 
-    def _validate_config(self):
+    def _validate_config(self) -> None:
         """Validate provider configuration."""
         if self.requires_api_key and not self.config.api_key:
             from .exceptions import ProviderConfigurationError
@@ -104,7 +111,7 @@ class ModelProvider(ABC):
         pass
 
     @abstractmethod
-    async def generate(self, prompt: str, **kwargs) -> ModelResponse:
+    async def generate(self, prompt: str, **kwargs: Any) -> ModelResponse:
         """Generate a response from the model.
 
         Args:
@@ -162,7 +169,7 @@ class ModelProvider(ABC):
         return []
 
     @classmethod
-    def from_env(cls, model: str | None = None) -> "ModelProvider":
+    def from_env(cls, model: str | None = None) -> ModelProvider:
         """Create provider instance from environment variables.
 
         Args:

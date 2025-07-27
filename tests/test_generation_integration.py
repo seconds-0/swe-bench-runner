@@ -447,7 +447,7 @@ class TestCLIIntegration:
 
         with patch('swebench_runner.datasets.DatasetManager') as mock_dm, \
              patch('swebench_runner.provider_utils.ensure_provider_configured'), \
-             patch('swebench_runner.generation_integration.GenerationIntegration') as mock_integration, \
+             patch('swebench_runner.generation_integration.GenerationIntegration'), \
              patch('swebench_runner.cache.get_cache_dir', return_value=cache_dir), \
              patch('swebench_runner.bootstrap.check_and_prompt_first_run', return_value=False), \
              patch('asyncio.run') as mock_async_run:
@@ -500,7 +500,7 @@ class TestCLIIntegration:
 
         with patch('swebench_runner.provider_utils.get_provider_for_cli', return_value=mock_provider), \
              patch('swebench_runner.datasets.DatasetManager') as mock_dm, \
-             patch('swebench_runner.generation_integration.GenerationIntegration') as mock_integration, \
+             patch('swebench_runner.generation_integration.GenerationIntegration'), \
              patch('swebench_runner.cache.get_cache_dir', return_value=cache_dir), \
              patch('asyncio.run') as mock_async_run:
 

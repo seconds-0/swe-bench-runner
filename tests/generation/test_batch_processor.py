@@ -252,9 +252,15 @@ class TestBatchProcessor:
         """Test error classification."""
         processor = BatchProcessor(mock_generator)
 
-        assert processor._classify_error(ProviderRateLimitError("rate limit")) == "rate_limit"
-        assert processor._classify_error(ProviderTokenLimitError("token limit")) == "token_limit"
-        assert processor._classify_error(ValueError("other error")) == "unexpected_error"
+        assert processor._classify_error(
+            ProviderRateLimitError("rate limit")
+        ) == "rate_limit"
+        assert processor._classify_error(
+            ProviderTokenLimitError("token limit")
+        ) == "token_limit"
+        assert processor._classify_error(
+            ValueError("other error")
+        ) == "unexpected_error"
 
     def test_should_retry(self, mock_generator):
         """Test retry logic."""
@@ -265,7 +271,9 @@ class TestBatchProcessor:
         assert processor._should_retry(ProviderRateLimitError("rate limit"), 2) is False
 
         # Should retry token limit errors
-        assert processor._should_retry(ProviderTokenLimitError("token limit"), 1) is True
+        assert processor._should_retry(
+            ProviderTokenLimitError("token limit"), 1
+        ) is True
 
         # Should retry unexpected errors once
         assert processor._should_retry(ValueError("error"), 1) is True
@@ -307,7 +315,8 @@ class TestBatchProcessor:
         assert len(result.skipped) == 0
         assert result.stats.completed == 3
         assert result.stats.success_rate == 1.0
-        assert abs(result.stats.total_cost - 0.3) < 0.001  # 3 * 0.1, allow for floating point precision
+        # 3 * 0.1, allow for floating point precision
+        assert abs(result.stats.total_cost - 0.3) < 0.001
 
     @pytest.mark.asyncio
     async def test_process_batch_with_failures(self, mock_generator, sample_instances):
@@ -425,7 +434,9 @@ class TestBatchProcessor:
         assert not checkpoint_path.exists()
 
     @pytest.mark.asyncio
-    async def test_process_batch_with_resume(self, mock_generator, sample_instances, temp_checkpoint_dir):
+    async def test_process_batch_with_resume(
+        self, mock_generator, sample_instances, temp_checkpoint_dir
+    ):
         """Test batch processing with checkpoint resume."""
         processor = BatchProcessor(
             mock_generator,
@@ -457,13 +468,16 @@ class TestBatchProcessor:
             success=True
         )
 
-        result = await processor.process_batch(sample_instances, resume_from_checkpoint=True)
+        result = await processor.process_batch(
+            sample_instances, resume_from_checkpoint=True
+        )
 
         # Should only process test-2 and test-3, skip test-1
         assert len(result.skipped) == 1
         assert "test-1" in result.skipped
         assert len(result.successful) == 2  # test-2 and test-3
-        assert abs(result.stats.total_cost - 0.3) < 0.001  # 0.1 from checkpoint + 0.2 from processing
+        # 0.1 from checkpoint + 0.2 from processing
+        assert abs(result.stats.total_cost - 0.3) < 0.001
 
     def test_generate_report(self, mock_generator):
         """Test report generation."""
@@ -562,7 +576,9 @@ class TestBatchProcessorIntegration:
     """Integration tests for BatchProcessor."""
 
     @pytest.mark.asyncio
-    async def test_full_workflow_with_checkpoints(self, mock_generator, temp_checkpoint_dir):
+    async def test_full_workflow_with_checkpoints(
+        self, mock_generator, temp_checkpoint_dir
+    ):
         """Test complete workflow with checkpointing."""
         instances = [
             {"instance_id": f"test-{i}", "problem_statement": f"Problem {i}"}
@@ -613,7 +629,8 @@ class TestBatchProcessorIntegration:
         assert len(result.failed) == 1      # test-3
         assert result.stats.completed == 4
         assert result.stats.failed == 1
-        assert abs(result.stats.total_cost - 0.4) < 0.001  # Only successful instances count toward cost: 4 * 0.1
+        # Only successful instances count toward cost: 4 * 0.1
+        assert abs(result.stats.total_cost - 0.4) < 0.001
         assert result.checkpoint_saved is True
 
         # Verify checkpoint was saved

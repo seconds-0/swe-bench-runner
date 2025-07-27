@@ -1,5 +1,7 @@
 """Integration module for patch generation with evaluation pipeline."""
 
+from __future__ import annotations
+
 import asyncio
 import json
 from pathlib import Path
@@ -15,10 +17,8 @@ from .generation import (
     BatchResult,
     PatchGenerator,
     PatchValidator,
-    PromptBuilder,
     ResponseParser,
     TemplateStyle,
-    TokenManager,
 )
 from .generation.patch_formatter import PatchFormatter
 from .providers import ProviderConfigManager, get_registry
@@ -67,7 +67,8 @@ class GenerationIntegration:
         # Load provider config
         config = config_manager.load_config(provider_name)
         if model:
-            # Override model in config - config is always a ProviderConfig from load_config
+            # Override model in config - config is always a ProviderConfig
+            # from load_config
             config_dict = vars(config).copy()
             config_dict['model'] = model
             from .providers import ProviderConfig
@@ -83,18 +84,8 @@ class GenerationIntegration:
             min_confidence=0.3
         )
 
-        token_manager = TokenManager(
-            cache_enabled=True,
-            cache_size=10000,
-            fallback_estimation=True
-        )
 
         patch_validator = PatchValidator()
-
-        prompt_builder = PromptBuilder(
-            template_style=template_style,
-            include_test_info=True
-        )
 
         patch_generator = PatchGenerator(
             provider=provider,
@@ -117,16 +108,22 @@ class GenerationIntegration:
         )
 
         if show_progress:
-            self.console.print(f"\n💰 Estimated cost: ${min_cost:.2f} - ${max_cost:.2f}")
+            self.console.print(
+                f"\n💰 Estimated cost: ${min_cost:.2f} - ${max_cost:.2f}"
+            )
 
             if max_cost > 10.0:
-                self.console.print("[yellow]⚠️  Warning: Estimated cost exceeds $10[/yellow]")
+                self.console.print(
+                    "[yellow]⚠️  Warning: Estimated cost exceeds $10[/yellow]"
+                )
                 if not click.confirm("Continue with generation?"):
                     raise click.Abort()
 
         # Process batch
         if show_progress:
-            self.console.print(f"\n🤖 Generating patches for {len(instances)} instances...")
+            self.console.print(
+                f"\n🤖 Generating patches for {len(instances)} instances..."
+            )
 
         try:
             # Default 30 minute timeout for entire batch
@@ -139,8 +136,10 @@ class GenerationIntegration:
                 timeout=1800  # 30 minutes
             )
         except asyncio.TimeoutError:
-            self.console.print("[red]❌ Batch processing timed out after 30 minutes[/red]")
-            raise click.Abort()
+            self.console.print(
+                "[red]❌ Batch processing timed out after 30 minutes[/red]"
+            )
+            raise click.Abort() from None
 
         # Handle results
         failure_handler = GenerationFailureHandler(self.console)
@@ -151,7 +150,9 @@ class GenerationIntegration:
 
         # Save results to JSONL
         if not output_path:
-            output_path = self.cache_dir / "temp" / f"generated_patches_{provider_name}.jsonl"
+            output_path = (
+                self.cache_dir / "temp" / f"generated_patches_{provider_name}.jsonl"
+            )
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Convert results to patch format
@@ -169,8 +170,13 @@ class GenerationIntegration:
                         "metadata": result.metadata
                     })
                 else:
-                    issue_messages = [issue.message for issue in validation_result.issues]
-                    self.console.print(f"[yellow]⚠️  Invalid patch for {result.instance_id}: {', '.join(issue_messages)}[/yellow]")
+                    issue_messages = [
+                        issue.message for issue in validation_result.issues
+                    ]
+                    self.console.print(
+                        f"[yellow]⚠️  Invalid patch for {result.instance_id}: "
+                        f"{', '.join(issue_messages)}[/yellow]"
+                    )
 
         # Format patches for evaluation
         formatter = PatchFormatter()
@@ -187,7 +193,9 @@ class GenerationIntegration:
 
         return output_path
 
-    def _show_generation_summary(self, batch_result: BatchResult, output_path: Path) -> None:
+    def _show_generation_summary(
+        self, batch_result: BatchResult, output_path: Path
+    ) -> None:
         """Show generation summary table."""
         table = Table(title="Generation Summary")
         table.add_column("Metric", style="cyan")
@@ -256,8 +264,12 @@ class CostEstimator:
         total_instances = len(instances)
 
         # Calculate costs (convert from per-million to actual cost)
-        input_cost = (input_tokens_per_instance * total_instances * costs["input"]) / 1_000_000
-        output_cost = (output_tokens_per_instance * total_instances * costs["output"]) / 1_000_000
+        input_cost = (
+            input_tokens_per_instance * total_instances * costs["input"]
+        ) / 1_000_000
+        output_cost = (
+            output_tokens_per_instance * total_instances * costs["output"]
+        ) / 1_000_000
 
         min_cost = input_cost + output_cost
         # Max assumes 2x tokens due to retries/longer responses
@@ -283,7 +295,8 @@ class GenerationFailureHandler:
         # If more than 50% failed, it's probably a systemic issue
         if stats.failed > stats.completed:
             self.console.print(
-                f"[red]❌ Generation failed for {stats.failed}/{stats.total_instances} instances[/red]"
+                f"[red]❌ Generation failed for {stats.failed}/{stats.total_instances} "
+                f"instances[/red]"
             )
 
             # Show common failure reasons
@@ -294,13 +307,16 @@ class GenerationFailureHandler:
 
             if failure_reasons:
                 self.console.print("\n[yellow]Common failure reasons:[/yellow]")
-                for reason, count in sorted(failure_reasons.items(), key=lambda x: x[1], reverse=True)[:5]:
+                for reason, count in sorted(
+                    failure_reasons.items(), key=lambda x: x[1], reverse=True
+                )[:5]:
                     self.console.print(f"  • {reason}: {count} instances")
 
             # Ask user what to do
             if stats.completed > 0:
                 return click.confirm(
-                    f"\n{stats.completed} patches were generated successfully. Continue with these?"
+                    f"\n{stats.completed} patches were generated successfully. "
+                    f"Continue with these?"
                 )
             else:
                 self.console.print("[red]No patches were generated successfully.[/red]")

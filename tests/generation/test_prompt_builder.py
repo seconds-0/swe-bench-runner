@@ -36,7 +36,8 @@ class TestPromptContext:
             test_context={"test1.py": "test1"},
             hints=["hint1", "hint2"]
         )
-        # System(6) + User(4) + Problem(7) + code1(5) + code2(5) + test1(5) + hint1(5) + hint2(5) = 42
+        # System(6) + User(4) + Problem(7) + code1(5) + code2(5) + test1(5) +
+        # hint1(5) + hint2(5) = 42
         assert context.total_length() == 42
 
 
@@ -51,7 +52,9 @@ class TestPromptBuilder:
             "repo": "user/repo",
             "base_commit": "abc123",
             "problem_statement": "There is a bug in the function that needs fixing.",
-            "test_patch": "diff --git a/test.py b/test.py\n+def test_bug():\n+    assert False",
+            "test_patch": (
+                "diff --git a/test.py b/test.py\n+def test_bug():\n+    assert False"
+            ),
             "hints_text": "Check the validation logic"
         }
 
@@ -62,8 +65,12 @@ class TestPromptBuilder:
             "instance_id": "complex-456",
             "repo": "org/project",
             "base_commit": "def456",
-            "problem_statement": "A complex bug involving multiple files and edge cases.",
-            "test_patch": "diff --git a/test.py b/test.py\n+def test_complex():\n+    assert something",
+            "problem_statement": (
+                "A complex bug involving multiple files and edge cases."
+            ),
+            "test_patch": (
+                "diff --git a/test.py b/test.py\n+def test_complex():\n+    assert something"
+            ),
             "hints_text": "Look at the error handling",
             "hints": ["Additional hint 1", "Additional hint 2"],
             "code_files": {

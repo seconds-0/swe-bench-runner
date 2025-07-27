@@ -381,7 +381,7 @@ new code
         assert result_strict.is_valid is False
 
         # Lenient mode should warn but pass
-        result_lenient = parser_lenient.validate_patch(patch)
+        parser_lenient.validate_patch(patch)
         # Will still fail due to mismatch but would only warn if other issues weren't present
 
     def test_edge_cases(self):

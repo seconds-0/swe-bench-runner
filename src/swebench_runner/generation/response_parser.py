@@ -1,5 +1,7 @@
 """Response parser for extracting patches from model outputs."""
 
+from __future__ import annotations
+
 import difflib
 import logging
 import re
@@ -105,7 +107,9 @@ class ResponseParser:
             PatchFormat.UNIFIED_DIFF,
         ]
 
-    def extract_patch(self, response: str, instance: dict | None = None) -> ParseResult:
+    def extract_patch(
+        self, response: str, instance: dict[str, Any] | None = None
+    ) -> ParseResult:
         """Extract patch using multiple strategies.
 
         Args:
@@ -681,24 +685,24 @@ class ResponseParser:
                         # Allow some flexibility
                         if abs(expected_old - old_count) > 1:
                             warnings.append(
-                                f"Hunk at line {i + 1}: expected {old_count} old lines, "
-                                f"found {expected_old}"
+                                f"Hunk at line {i + 1}: expected {old_count} old "
+                                f"lines, found {expected_old}"
                             )
                         if abs(expected_new - new_count) > 1:
                             warnings.append(
-                                f"Hunk at line {i + 1}: expected {new_count} new lines, "
-                                f"found {expected_new}"
+                                f"Hunk at line {i + 1}: expected {new_count} new "
+                                f"lines, found {expected_new}"
                             )
                     else:
                         if expected_old != old_count:
                             issues.append(
-                                f"Hunk at line {i + 1}: expected {old_count} old lines, "
-                                f"found {expected_old}"
+                                f"Hunk at line {i + 1}: expected {old_count} old "
+                                f"lines, found {expected_old}"
                             )
                         if expected_new != new_count:
                             issues.append(
-                                f"Hunk at line {i + 1}: expected {new_count} new lines, "
-                                f"found {expected_new}"
+                                f"Hunk at line {i + 1}: expected {new_count} new "
+                                f"lines, found {expected_new}"
                             )
 
             i += 1
@@ -791,10 +795,12 @@ class ResponseParser:
                     new_lines = 0
                     context_lines = 0
 
-                    while j < len(lines) and not lines[j].startswith(('@@', '---', 'diff')):
+                    while (j < len(lines) and
+                           not lines[j].startswith(('@@', '---', 'diff'))):
                         if lines[j].startswith('-') and not lines[j].startswith('---'):
                             old_lines += 1
-                        elif lines[j].startswith('+') and not lines[j].startswith('+++'):
+                        elif (lines[j].startswith('+') and
+                              not lines[j].startswith('+++')):
                             new_lines += 1
                         elif lines[j].startswith(' '):
                             context_lines += 1
@@ -814,7 +820,9 @@ class ResponseParser:
                     old_count_str = '' if old_count == 1 else f',{old_count}'
                     new_count_str = '' if new_count == 1 else f',{new_count}'
 
-                    fixed_line = f'@@ -{old_start}{old_count_str} +{new_start}{new_count_str} @@'
+                    fixed_line = (
+                        f'@@ -{old_start}{old_count_str} +{new_start}{new_count_str} @@'
+                    )
 
                     # Preserve any context after @@
                     hunk_parts = line.split('@@', 2)
@@ -879,8 +887,10 @@ class ResponseParser:
             confidence *= 0.8
 
         # Penalty for no actual changes
-        change_lines = sum(1 for line in lines
-                          if line.startswith(('+', '-')) and not line.startswith(('+++', '---')))
+        change_lines = sum(
+            1 for line in lines
+            if line.startswith(('+', '-')) and not line.startswith(('+++', '---'))
+        )
         if change_lines == 0:
             confidence *= 0.5
 

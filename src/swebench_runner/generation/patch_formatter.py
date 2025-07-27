@@ -1,4 +1,7 @@
 """Format patches for evaluation compatibility."""
+
+from __future__ import annotations
+
 from typing import Any
 
 

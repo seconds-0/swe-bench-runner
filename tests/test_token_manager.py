@@ -63,8 +63,8 @@ class TestTokenManager:
 
         with patch.dict('sys.modules', {'tiktoken': mock_tiktoken}):
             # Now import and instantiate with tiktoken "available"
-            from swebench_runner.generation.token_manager import TokenManager as TM
-            manager = TM()
+            from swebench_runner.generation.token_manager import TokenManager
+            manager = TokenManager()
 
             assert manager._tiktoken_available
             # The encoding might be loaded during init
@@ -236,7 +236,9 @@ class TestTokenManager:
         manager._tiktoken_available = False
 
         # Make context very large to force truncation
-        sample_context.problem_statement = "This is a very long problem statement. " * 100
+        sample_context.problem_statement = (
+            "This is a very long problem statement. " * 100
+        )
         sample_context.code_context["large.py"] = "# Large file\n" * 500
 
         # Use a model with very small limit to force truncation
@@ -252,7 +254,8 @@ class TestTokenManager:
             assert stats.truncated is True
             assert stats.final_tokens < stats.original_tokens
             assert stats.strategy_used == TruncationStrategy.BALANCED
-            # The sections_truncated might be empty if the truncation happened at prompt building level
+            # The sections_truncated might be empty if the truncation happened at
+            # prompt building level
             # So we just check that truncation occurred
 
     def test_truncate_text_simple(self, manager):
@@ -339,8 +342,12 @@ class MyClass:
 
         # Test context should be preserved more than code
         if sample_context.test_context and truncated.test_context:
-            test_reduction = len(str(truncated.test_context)) / len(str(sample_context.test_context))
-            code_reduction = len(str(truncated.code_context)) / len(str(sample_context.code_context))
+            test_reduction = (
+                len(str(truncated.test_context)) / len(str(sample_context.test_context))
+            )
+            code_reduction = (
+                len(str(truncated.code_context)) / len(str(sample_context.code_context))
+            )
             assert test_reduction > code_reduction
 
     def test_format_truncation_summary(self, manager):
@@ -509,11 +516,13 @@ class MyClass:
         model = "gpt-4"
 
         # Count tokens twice
-        count1 = manager.count_tokens(text, model)
+        manager.count_tokens(text, model)
 
         # Mock the uncached method to ensure it IS called each time
-        with patch.object(manager, '_estimate_tokens', return_value=10) as mock_estimate:
-            count2 = manager.count_tokens(text, model)
+        with patch.object(
+            manager, '_estimate_tokens', return_value=10
+        ) as mock_estimate:
+            manager.count_tokens(text, model)
 
             # Should call estimate since no cache
             mock_estimate.assert_called()
@@ -525,10 +534,11 @@ class MyClass:
         mock_tiktoken.get_encoding.side_effect = Exception("Encoding error")
 
         with patch.dict('sys.modules', {'tiktoken': mock_tiktoken}):
-            from swebench_runner.generation.token_manager import TokenManager as TM
-            manager = TM()
+            from swebench_runner.generation.token_manager import TokenManager
+            manager = TokenManager()
 
-            # Should handle error gracefully - tiktoken might be available but encoding failed
+            # Should handle error gracefully - tiktoken might be available but
+            # encoding failed
             # Or tiktoken might not be available at all
             if manager._tiktoken_available:
                 assert "cl100k_base" not in manager._tiktoken_encodings
@@ -538,7 +548,9 @@ class MyClass:
         manager = TokenManager()
         manager._tiktoken_available = True
 
-        with patch.object(manager, '_count_openai_tokens', side_effect=Exception("Count error")):
+        with patch.object(
+            manager, '_count_openai_tokens', side_effect=Exception("Count error")
+        ):
             # Should fall back to estimation
             count = manager.count_tokens("Hello world", "gpt-4")
             assert count > 0  # Should get estimate instead of failing

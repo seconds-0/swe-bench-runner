@@ -10,7 +10,7 @@ def test_generate_command_basic(tmp_path):
     runner = CliRunner()
 
     with patch('swebench_runner.generation_integration.GenerationIntegration') as mock_integration, \
-         patch('swebench_runner.provider_utils.get_provider_for_cli') as mock_get_provider, \
+         patch('swebench_runner.provider_utils.get_provider_for_cli'), \
          patch('swebench_runner.datasets.DatasetManager') as mock_dm:
 
         # Setup minimal mocks

@@ -1,5 +1,7 @@
 """Mock provider for testing."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
 from typing import Any
@@ -69,7 +71,7 @@ class MockProvider(ModelProvider):
             cost_per_1k_completion_tokens=0.002,
         )
 
-    async def generate(self, prompt: str, **kwargs) -> ModelResponse:
+    async def generate(self, prompt: str, **kwargs: Any) -> ModelResponse:
         """Generate a mock response.
 
         Args:
@@ -125,9 +127,11 @@ class MockProvider(ModelProvider):
         self._total_tokens += total_tokens
 
         # Calculate cost
+        prompt_cost_per_1k = self.capabilities.cost_per_1k_prompt_tokens or 0.0
+        completion_cost_per_1k = self.capabilities.cost_per_1k_completion_tokens or 0.0
         cost = (
-            (prompt_tokens / 1000) * self.capabilities.cost_per_1k_prompt_tokens +
-            (completion_tokens / 1000) * self.capabilities.cost_per_1k_completion_tokens
+            (prompt_tokens / 1000) * prompt_cost_per_1k +
+            (completion_tokens / 1000) * completion_cost_per_1k
         )
 
         # Build response
@@ -170,8 +174,10 @@ class MockProvider(ModelProvider):
         Returns:
             Estimated cost in USD
         """
-        prompt_cost = (prompt_tokens / 1000) * self.capabilities.cost_per_1k_prompt_tokens
-        completion_cost = (max_tokens / 1000) * self.capabilities.cost_per_1k_completion_tokens
+        prompt_cost_per_1k = self.capabilities.cost_per_1k_prompt_tokens or 0.0
+        completion_cost_per_1k = self.capabilities.cost_per_1k_completion_tokens or 0.0
+        prompt_cost = (prompt_tokens / 1000) * prompt_cost_per_1k
+        completion_cost = (max_tokens / 1000) * completion_cost_per_1k
         return prompt_cost + completion_cost
 
     @classmethod
@@ -205,7 +211,7 @@ class MockProvider(ModelProvider):
             "response_delay": self.response_delay,
         }
 
-    def set_response(self, prompt: str, response: str):
+    def set_response(self, prompt: str, response: str) -> None:
         """Set a mock response for a specific prompt.
 
         Args:
@@ -214,7 +220,7 @@ class MockProvider(ModelProvider):
         """
         self.mock_responses[prompt] = response
 
-    def set_error(self, prompt: str, error: Exception):
+    def set_error(self, prompt: str, error: Exception) -> None:
         """Set a mock error for a specific prompt.
 
         Args:
@@ -223,7 +229,7 @@ class MockProvider(ModelProvider):
         """
         self.mock_errors[prompt] = error
 
-    def clear_mocks(self):
+    def clear_mocks(self) -> None:
         """Clear all mock responses and errors."""
         self.mock_responses.clear()
         self.mock_errors.clear()

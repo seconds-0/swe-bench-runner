@@ -1,5 +1,7 @@
 """OpenRouter provider implementation for accessing 100+ models."""
 
+from __future__ import annotations
+
 import asyncio
 import json
 import logging
@@ -124,7 +126,7 @@ class OpenRouterProvider(ModelProvider):
             cost_per_1k_completion_tokens=0.002,  # Will be updated per model
         )
 
-    async def generate(self, prompt: str, **kwargs) -> ModelResponse:
+    async def generate(self, prompt: str, **kwargs: Any) -> ModelResponse:
         """Generate a response through OpenRouter.
 
         Args:
@@ -193,7 +195,9 @@ class OpenRouterProvider(ModelProvider):
         if usage:
             prompt_tokens = usage.get("prompt_tokens", 0)
             completion_tokens = usage.get("completion_tokens", 0)
-            cost = await self._calculate_cost(model_used, prompt_tokens, completion_tokens)
+            cost = await self._calculate_cost(
+                model_used, prompt_tokens, completion_tokens
+            )
 
         return ModelResponse(
             content=content,
@@ -260,74 +264,112 @@ class OpenRouterProvider(ModelProvider):
 
                         elif response.status == 401:
                             error_data = await self._safe_json(response)
+                            message = error_data.get('error', {}).get(
+                                'message', 'Invalid API key'
+                            )
                             raise ProviderAuthenticationError(
-                                f"Authentication failed: {error_data.get('error', {}).get('message', 'Invalid API key')}"
+                                f"Authentication failed: {message}"
                             )
 
                         elif response.status == 429:
                             # Rate limit exceeded
                             error_data = await self._safe_json(response)
                             retry_after = int(response.headers.get("Retry-After", 60))
+                            message = error_data.get('error', {}).get(
+                                'message', 'Too many requests'
+                            )
                             raise ProviderRateLimitError(
-                                f"Rate limit exceeded: {error_data.get('error', {}).get('message', 'Too many requests')}",
+                                f"Rate limit exceeded: {message}",
                                 retry_after=retry_after
                             )
 
                         elif response.status == 400:
                             # Bad request
                             error_data = await self._safe_json(response)
-                            error_message = error_data.get("error", {}).get("message", "")
+                            error_message = error_data.get("error", {}).get(
+                                "message", ""
+                            )
 
                             # Check for token limit errors
-                            if "token" in error_message.lower() and "limit" in error_message.lower():
+                            if (
+                                "token" in error_message.lower()
+                                and "limit" in error_message.lower()
+                            ):
                                 raise ProviderTokenLimitError(
                                     f"Token limit exceeded: {error_message}"
                                 )
                             else:
-                                raise ProviderResponseError(f"Bad request: {error_message}")
+                                raise ProviderResponseError(
+                                    f"Bad request: {error_message}"
+                                )
 
                         elif response.status == 402:
                             # Payment required
                             error_data = await self._safe_json(response)
+                            message = error_data.get('error', {}).get(
+                                'message', 'Insufficient credits'
+                            )
                             raise ProviderError(
-                                f"Payment required: {error_data.get('error', {}).get('message', 'Insufficient credits')}"
+                                f"Payment required: {message}"
                             )
 
                         elif response.status >= 500:
                             # Server error - retry
                             error_data = await self._safe_json(response)
-                            error_message = error_data.get("error", {}).get("message", f"Server error {response.status}")
-                            last_error = ProviderConnectionError(f"Server error: {error_message}")
+                            error_message = error_data.get(
+                                "error", {}
+                            ).get("message", f"Server error {response.status}")
+                            last_error = ProviderConnectionError(
+                                f"Server error: {error_message}"
+                            )
 
                             if attempt < self.max_retries - 1:
                                 delay = self.retry_delay * (2 ** attempt)
-                                logger.warning(f"Server error on attempt {attempt + 1}, retrying in {delay}s: {error_message}")
+                                logger.warning(
+                                    f"Server error on attempt {attempt + 1}, "
+                                    f"retrying in {delay}s: {error_message}"
+                                )
                                 await asyncio.sleep(delay)
                                 continue
 
                         else:
                             # Other error
                             error_data = await self._safe_json(response)
+                            error_msg = error_data.get('error', {}).get(
+                                'message', 'Unknown error'
+                            )
                             raise ProviderResponseError(
-                                f"Unexpected status {response.status}: {error_data.get('error', {}).get('message', 'Unknown error')}"
+                                f"Unexpected status {response.status}: {error_msg}"
                             )
 
             except asyncio.TimeoutError:
-                raise ProviderTimeoutError(f"Request to {url} timed out after {self.config.timeout}s")
+                raise ProviderTimeoutError(
+                    f"Request to {url} timed out after {self.config.timeout}s"
+                ) from None
             except aiohttp.ClientError as e:
                 last_error = ProviderConnectionError(f"Connection error: {str(e)}")
                 if attempt < self.max_retries - 1:
                     delay = self.retry_delay * (2 ** attempt)
-                    logger.warning(f"Connection error on attempt {attempt + 1}, retrying in {delay}s: {e}")
+                    logger.warning(
+                        f"Connection error on attempt {attempt + 1}, "
+                        f"retrying in {delay}s: {e}"
+                    )
                     await asyncio.sleep(delay)
                     continue
-            except (ProviderAuthenticationError, ProviderTokenLimitError, ProviderResponseError, ProviderError):
+            except (
+                ProviderAuthenticationError,
+                ProviderTokenLimitError,
+                ProviderResponseError,
+                ProviderError,
+            ):
                 # Don't retry these errors
                 raise
             except ProviderRateLimitError as e:
                 # For rate limits, wait if we have retries left
                 if attempt < self.max_retries - 1 and e.retry_after:
-                    logger.warning(f"Rate limited, waiting {e.retry_after}s before retry")
+                    logger.warning(
+                        f"Rate limited, waiting {e.retry_after}s before retry"
+                    )
                     await asyncio.sleep(e.retry_after)
                     continue
                 raise
@@ -349,8 +391,8 @@ class OpenRouterProvider(ModelProvider):
         """
         content_parts = []
 
-        async for line in response.content:
-            line = line.decode('utf-8').strip()
+        async for line_bytes in response.content:
+            line = line_bytes.decode('utf-8').strip()
             if line.startswith("data: "):
                 data_str = line[6:]
 
@@ -378,7 +420,7 @@ class OpenRouterProvider(ModelProvider):
             Parsed JSON or error dict
         """
         try:
-            return await response.json()
+            return await response.json()  # type: ignore[no-any-return]
         except Exception:
             text = await response.text()
             return {"error": {"message": text or "Unknown error"}}
@@ -410,14 +452,15 @@ class OpenRouterProvider(ModelProvider):
                 model_id = model.get("id")
                 pricing = model.get("pricing", {})
                 if model_id and pricing:
-                    prompt_price = float(pricing.get("prompt", 0)) * 1000  # Convert to per 1K tokens
+                    # Convert to per 1K tokens
+                    prompt_price = float(pricing.get("prompt", 0)) * 1000
                     completion_price = float(pricing.get("completion", 0)) * 1000
                     self._model_pricing[model_id] = (prompt_price, completion_price)
 
             # Update supported models list
             self.supported_models = [model["id"] for model in models]
 
-            return models
+            return models  # type: ignore[no-any-return]
         except Exception as e:
             logger.warning(f"Failed to fetch available models: {e}")
             return []
@@ -485,9 +528,11 @@ class OpenRouterProvider(ModelProvider):
         code_models.sort(key=get_total_cost)
 
         # Return the cheapest model
-        return code_models[0]["id"]
+        return code_models[0]["id"]  # type: ignore[no-any-return]
 
-    async def _calculate_cost(self, model: str, prompt_tokens: int, completion_tokens: int) -> float:
+    async def _calculate_cost(
+        self, model: str, prompt_tokens: int, completion_tokens: int
+    ) -> float:
         """Calculate cost for a generation.
 
         Args:
@@ -530,7 +575,9 @@ class OpenRouterProvider(ModelProvider):
             self._health_status = "unhealthy"
             return False
 
-    async def get_model_pricing(self, model: str | None = None) -> dict[str, tuple[float, float]]:
+    async def get_model_pricing(
+        self, model: str | None = None
+    ) -> dict[str, tuple[float, float]]:
         """Get pricing information for models.
 
         Args:

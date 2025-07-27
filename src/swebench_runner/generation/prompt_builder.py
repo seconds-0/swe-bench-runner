@@ -1,5 +1,7 @@
 """Prompt building for SWE-bench instance data."""
 
+from __future__ import annotations
+
 import logging
 import re
 from dataclasses import dataclass, field
@@ -191,11 +193,8 @@ class PromptBuilder:
             return self._build_concise_prompt(context)
         elif template_style == TemplateStyle.COT:
             return self._build_cot_prompt(context)
-        elif template_style == TemplateStyle.MINIMAL:
+        else:  # TemplateStyle.MINIMAL
             return self._build_minimal_prompt(context)
-        else:
-            logger.warning(f"Unknown template style {template_style}, using DETAILED")
-            return self._build_detailed_prompt(context)
 
     def reduce_context(
         self, context: PromptContext, reduction_factor: float = 0.7

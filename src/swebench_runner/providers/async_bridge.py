@@ -1,5 +1,7 @@
 """Async/sync bridge for provider operations."""
 
+from __future__ import annotations
+
 import asyncio
 import functools
 import logging
@@ -8,7 +10,7 @@ from collections.abc import Callable, Coroutine
 from concurrent.futures import Future, ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeoutError
 from threading import Lock, Thread
-from typing import Any, Optional, TypeVar
+from typing import Any, TypeVar
 
 from .exceptions import ProviderTimeoutError
 
@@ -24,17 +26,17 @@ class AsyncBridge:
     with proper timeout handling and resource management.
     """
 
-    _instance: Optional['AsyncBridge'] = None
+    _instance: AsyncBridge | None = None
     _lock = Lock()
 
-    def __new__(cls) -> 'AsyncBridge':
+    def __new__(cls) -> AsyncBridge:
         """Singleton pattern for shared event loop."""
         with cls._lock:
             if cls._instance is None:
                 cls._instance = super().__new__(cls)
             return cls._instance
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the async bridge."""
         if hasattr(self, '_initialized'):
             return
@@ -51,7 +53,7 @@ class AsyncBridge:
         self._total_time = 0.0
         self._ensure_event_loop()
 
-    def _ensure_event_loop(self):
+    def _ensure_event_loop(self) -> None:
         """Ensure we have a dedicated event loop for async operations."""
         with self._setup_lock:
             if self._loop is None or not self._loop.is_running():
@@ -75,7 +77,7 @@ class AsyncBridge:
         asyncio.set_event_loop(loop)
         return loop
 
-    def _run_event_loop(self):
+    def _run_event_loop(self) -> None:
         """Run the event loop in a thread."""
         if self._loop:
             asyncio.set_event_loop(self._loop)
@@ -127,16 +129,16 @@ class AsyncBridge:
                 future.cancel()
                 raise ProviderTimeoutError(
                     f"Operation timed out after {timeout} seconds"
-                )
+                ) from None
 
         finally:
             self._total_time += time.time() - start_time
 
     def call_async(self,
                    func: Callable[..., Coroutine[Any, Any, T]],
-                   *args,
+                   *args: Any,
                    timeout: float | None = None,
-                   **kwargs) -> T:
+                   **kwargs: Any) -> T:
         """Call async function from sync code.
 
         Args:
@@ -164,12 +166,12 @@ class AsyncBridge:
             Sync function that calls the async function
         """
         @functools.wraps(func)
-        def wrapper(*args, **kwargs) -> T:
+        def wrapper(*args: Any, **kwargs: Any) -> T:
             return self.call_async(func, *args, timeout=timeout, **kwargs)
 
         return wrapper
 
-    def get_stats(self) -> dict:
+    def get_stats(self) -> dict[str, int | float | bool]:
         """Get bridge statistics.
 
         Returns:
@@ -185,7 +187,7 @@ class AsyncBridge:
             "thread_alive": self._loop_thread.is_alive() if self._loop_thread else False
         }
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         """Shutdown the async bridge."""
         if self._loop and self._loop.is_running():
             # Schedule loop stop
@@ -203,11 +205,11 @@ class AsyncBridge:
             if self._instance is self:
                 self._instance = None
 
-    def __enter__(self):
+    def __enter__(self) -> AsyncBridge:
         """Context manager entry."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Context manager exit."""
         self.shutdown()
 
@@ -230,7 +232,9 @@ def run_async(coro: Coroutine[Any, Any, T],
     return _bridge.run(coro, timeout)
 
 
-def async_to_sync(timeout: float | None = None):
+def async_to_sync(
+    timeout: float | None = None
+) -> Callable[[Callable[..., Coroutine[Any, Any, T]]], Callable[..., T]]:
     """Decorator to convert async function to sync.
 
     Args:

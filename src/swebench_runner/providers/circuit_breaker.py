@@ -1,5 +1,7 @@
 """Circuit breaker implementation for fault tolerance."""
 
+from __future__ import annotations
+
 import logging
 import time
 from collections.abc import Callable
@@ -28,7 +30,7 @@ class CircuitBreakerConfig:
 
     failure_threshold: int = 5  # Number of failures before opening
     recovery_timeout: float = 60.0  # Seconds before trying half-open
-    expected_exception: type = Exception  # Which exceptions count as failures
+    expected_exception: type[BaseException] = Exception  # Exceptions as failures
     success_threshold: int = 1  # Successes needed to close from half-open
 
 
@@ -57,7 +59,9 @@ class CircuitBreaker:
     def __init__(self,
                  name: str,
                  config: CircuitBreakerConfig | None = None,
-                 on_state_change: Callable[[CircuitState, CircuitState], None] | None = None):
+                 on_state_change: (
+                     Callable[[CircuitState, CircuitState], None] | None
+                 ) = None):
         """Initialize circuit breaker.
 
         Args:
@@ -83,26 +87,29 @@ class CircuitBreaker:
             self._check_state()
             return self._state
 
-    def _check_state(self):
+    def _check_state(self) -> None:
         """Check if state should transition."""
         if self._state == CircuitState.OPEN:
             if self._last_failure_time and \
                time.time() - self._last_failure_time >= self.config.recovery_timeout:
                 self._transition_to(CircuitState.HALF_OPEN)
 
-    def _transition_to(self, new_state: CircuitState):
+    def _transition_to(self, new_state: CircuitState) -> None:
         """Transition to a new state."""
         if new_state != self._state:
             old_state = self._state
             self._state = new_state
             self._stats.state_changes[new_state.value] = datetime.utcnow()
 
-            logger.info(f"Circuit breaker '{self.name}' transitioned from {old_state.value} to {new_state.value}")
+            logger.info(
+                f"Circuit breaker '{self.name}' transitioned from "
+                f"{old_state.value} to {new_state.value}"
+            )
 
             if self.on_state_change:
                 self.on_state_change(old_state, new_state)
 
-    async def call(self, func: Callable, *args, **kwargs) -> Any:
+    async def call(self, func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
         """Execute function through circuit breaker.
 
         Args:
@@ -121,9 +128,18 @@ class CircuitBreaker:
             self._check_state()
 
             if self._state == CircuitState.OPEN:
-                wait_time = self.config.recovery_timeout - (time.time() - self._last_failure_time)
+                if self._last_failure_time is None:
+                    wait_time = 0.0
+                else:
+                    wait_time = (
+                        self.config.recovery_timeout -
+                        (time.time() - self._last_failure_time)
+                    )
                 raise CircuitBreakerError(
-                    f"Circuit breaker '{self.name}' is OPEN. Wait {wait_time:.1f}s before retry.",
+                    (
+                        f"Circuit breaker '{self.name}' is OPEN. "
+                        f"Wait {wait_time:.1f}s before retry."
+                    ),
                     provider=self.name,
                     wait_time=wait_time
                 )
@@ -144,7 +160,7 @@ class CircuitBreaker:
                 self._on_failure()
             raise
 
-    def _on_success(self):
+    def _on_success(self) -> None:
         """Handle successful call."""
         self._stats.success_count += 1
         self._stats.total_successes += 1
@@ -157,7 +173,7 @@ class CircuitBreaker:
                 self._failure_count = 0
                 self._transition_to(CircuitState.CLOSED)
 
-    def _on_failure(self):
+    def _on_failure(self) -> None:
         """Handle failed call."""
         self._failure_count += 1
         self._stats.failure_count += 1
@@ -193,7 +209,7 @@ class CircuitBreaker:
                 state_changes=self._stats.state_changes.copy()
             )
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset circuit breaker to closed state."""
         with self._lock:
             self._state = CircuitState.CLOSED

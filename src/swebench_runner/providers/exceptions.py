@@ -1,5 +1,6 @@
 """Provider-specific exceptions."""
 
+from __future__ import annotations
 
 
 class ProviderError(Exception):
@@ -29,7 +30,7 @@ class ProviderAuthenticationError(ProviderError):
 class ProviderRateLimitError(ProviderError):
     """Raised when provider rate limit is exceeded."""
 
-    def __init__(self, message: str, retry_after: int = None):
+    def __init__(self, message: str, retry_after: int | None = None):
         super().__init__(message)
         self.retry_after = retry_after
 
@@ -55,7 +56,9 @@ class ProviderTimeoutError(ProviderError):
 class ProviderTokenLimitError(ProviderError):
     """Raised when input exceeds token limit."""
 
-    def __init__(self, message: str, token_count: int = None, limit: int = None):
+    def __init__(
+        self, message: str, token_count: int | None = None, limit: int | None = None
+    ):
         super().__init__(message)
         self.token_count = token_count
         self.limit = limit
@@ -64,7 +67,9 @@ class ProviderTokenLimitError(ProviderError):
 class CircuitBreakerError(ProviderError):
     """Raised when circuit breaker is open."""
 
-    def __init__(self, message: str, provider: str = None, wait_time: float = None):
+    def __init__(
+        self, message: str, provider: str | None = None, wait_time: float | None = None
+    ):
         super().__init__(message)
         self.provider = provider
         self.wait_time = wait_time

@@ -1,7 +1,6 @@
 [build-system]
 requires = [
-    "setuptools>=78.1.1; python_version>='3.9'",
-    "setuptools>=65.5.1,<72.0.0; python_version<'3.9'",
+    "setuptools>=78.1.1",
     "wheel"
 ]
 build-backend = "setuptools.build_meta"
@@ -15,13 +14,12 @@ license = {text = "MIT"}
 authors = [
     {name = "SWE-bench Runner Contributors"},
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -33,6 +31,8 @@ dependencies = [
     "docker>=6.1.0,<8.0",
     "datasets>=2.0.0,<3.0",
     "huggingface-hub>=0.16.0,<1.0",
+    "aiohttp>=3.8.0,<4.0",
+    "rich>=10.0.0,<14.0",
 ]
 
 [project.optional-dependencies]
@@ -41,6 +41,9 @@ dev = [
     "pytest-cov>=4.0",
     "mypy>=1.0",
     "ruff>=0.1",
+]
+tokenizer = [
+    "tiktoken>=0.5.0",
 ]
 
 [project.scripts]
@@ -79,7 +82,7 @@ warn_return_any = true
 warn_unreachable = true
 
 [[tool.mypy.overrides]]
-module = ["datasets", "huggingface_hub", "psutil", "docker", "docker.errors"]
+module = ["datasets", "huggingface_hub", "psutil", "docker", "docker.errors", "aiohttp", "tiktoken", "rich.*"]
 ignore_missing_imports = true
 
 [tool.ruff]
@@ -110,4 +113,4 @@ ignore = [
 convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["D", "S"]  # Ignore docstring and security warnings in tests
+"tests/*" = ["D", "S", "E501"]  # Ignore docstring, security, and line length in tests

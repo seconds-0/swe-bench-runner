@@ -86,6 +86,48 @@ When creating work plans, ensure:
 6. **Clarify success/error handling** - Even MVP needs basic exit codes (0/1)
 7. **Show test examples** - Especially for framework-specific testing patterns
 
+### Task Decomposition for Engineering Managers
+**Lesson from CLI Integration Remediation**: Successful task decomposition requires surgical precision.
+
+**Principles for Task Decomposition**:
+1. **One Change, One Task**: Each task should modify ONE thing (file, function, or feature)
+2. **Show Exact Code**: Include the EXACT code to add/change with line numbers
+3. **No Abstractions**: Skip adapter classes, wrapper functions, or "future-proofing"
+4. **Fix Don't Enhance**: Focus on fixing what's broken, not improving what works
+5. **Test Simply**: Integration tests should use real components with minimal mocking
+
+**Task Size Guidelines**:
+- **Perfect size**: 5-50 lines of code change
+- **Too big**: "Implement error handling system"
+- **Just right**: "Add timeout wrapper around process_batch call (lines 139-144)"
+
+**Example Task Format**:
+```markdown
+#### Task N: [Specific Action]
+**File**: `path/to/file.py`
+**Lines**: 114-120 (if modifying) or "Create new file" (if new)
+**Fix**:
+```python
+# Show EXACT code to add/replace
+# Include line numbers or context
+```
+**Why**: One sentence explanation
+```
+
+**Red Flags in Task Decomposition**:
+- Tasks without line numbers or file paths
+- Tasks that say "refactor" or "improve"
+- Tasks that require creating multiple files
+- Tasks with vague descriptions like "enhance error handling"
+- Tasks that require architectural decisions
+
+**Success Pattern from Remediation**:
+- 9 focused tasks
+- Each task had exact file, lines, and code
+- No architectural changes required
+- Each task was independently testable
+- Total implementation time: ~30 minutes
+
 ### Research-First Methodology (CRITICAL)
 **Lesson from MVP-DockerRun**: Always validate core assumptions before detailed planning.
 

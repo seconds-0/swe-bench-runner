@@ -39,7 +39,7 @@ jobs:
     timeout-minutes: 15
     strategy:
       matrix:
-        python-version: ['3.9', '3.10', '3.11', '3.12']
+        python-version: ['3.10', '3.11', '3.12']
     env:
       # CI resource configuration for GitHub Actions
       CI: true
@@ -137,8 +137,8 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e .
         pip install pip-audit
-        # Ensure setuptools is updated to secure version for Python 3.9+
-        python -c "import sys; exit(0 if sys.version_info >= (3, 9) else 1)" && pip install --upgrade 'setuptools>=78.1.1' || true
+        # Ensure setuptools is updated to secure version for Python 3.10+
+        python -c "import sys; exit(0 if sys.version_info >= (3, 10) else 1)" && pip install --upgrade 'setuptools>=78.1.1' || true
 
     - name: Run security audit
       run: |

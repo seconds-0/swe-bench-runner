@@ -185,3 +185,27 @@ jobs:
         # Test basic argument parsing without execution
         echo "Testing CLI argument parsing..."
         swebench run --patches tests/fixtures/sample.jsonl --no-input --help || echo "CLI parsed arguments successfully"
+
+  test-dataset-integration:
+    name: Test dataset autofetch integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+        cache-dependency-path: pyproject.toml
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+
+    - name: Run dataset autofetch smoke test
+      run: |
+        python scripts/smoke_test_dataset.py
+        echo "✅ Dataset autofetch integration test passed"

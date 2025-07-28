@@ -19,6 +19,7 @@ from typing import Any
 
 import click
 from rich.console import Console
+
 # Progress components removed - using direct console output instead
 from rich.table import Table
 
@@ -52,8 +53,8 @@ class ProviderCoordinator:
         self.config_manager = ProviderConfigManager()
 
     def select_provider(
-        self, 
-        provider_name: str, 
+        self,
+        provider_name: str,
         model: str | None = None,
         validate_connectivity: bool = True
     ) -> ModelProvider:
@@ -74,7 +75,7 @@ class ProviderCoordinator:
         try:
             # Get provider class and check if it exists
             provider_class = self.registry.get_provider_class(provider_name)
-            
+
             # Load configuration
             config = self.config_manager.load_config(provider_name)
             if model:
@@ -83,17 +84,17 @@ class ProviderCoordinator:
                 config_dict['model'] = model
                 from .providers import ProviderConfig
                 config = ProviderConfig(**config_dict)
-            
+
             # Create provider instance
             provider = provider_class(config)
-            
+
             # Validate connectivity if requested
             if validate_connectivity:
                 # Run connectivity check in background, don't block
                 asyncio.create_task(self._validate_provider_async(provider))
-            
+
             return provider
-            
+
         except Exception as e:
             logger.error(f"Failed to select provider '{provider_name}': {e}")
             raise
@@ -118,7 +119,7 @@ class ProviderCoordinator:
         """
         try:
             provider_class = self.registry.get_provider_class(provider_name)
-            
+
             # Try to get an instance to check configuration
             try:
                 provider = self.registry.get_provider(provider_name, cache=False)
@@ -128,7 +129,7 @@ class ProviderCoordinator:
                 configured = False
                 config_status = str(e)
                 provider = None
-            
+
             return {
                 "name": provider_class.name,
                 "description": provider_class.description,
@@ -146,7 +147,7 @@ class ProviderCoordinator:
     def list_available_providers(self) -> list[dict[str, Any]]:
         """List all available providers with their status."""
         return [
-            self.get_provider_info(name) 
+            self.get_provider_info(name)
             for name in self.registry.list_provider_names()
         ]
 
@@ -176,17 +177,17 @@ class ProviderCoordinator:
         providers_to_try = [primary_provider]
         if fallback_providers:
             providers_to_try.extend(fallback_providers)
-        
+
         last_error = None
-        
+
         for provider_name in providers_to_try:
             try:
                 logger.info(f"Attempting generation with provider: {provider_name}")
                 provider = self.select_provider(provider_name, model, validate_connectivity=False)
-                
+
                 # Create unified request from instance
                 request = self._build_request_from_instance(instance, **kwargs)
-                
+
                 # For providers that support unified interface
                 if hasattr(provider, 'generate_unified'):
                     response = await provider.generate_unified(request)
@@ -194,15 +195,15 @@ class ProviderCoordinator:
                     # Fallback to legacy generate method
                     model_response = await provider.generate(request.prompt, **kwargs)
                     response = self._convert_to_unified_response(model_response, provider_name)
-                
+
                 logger.info(f"Successfully generated with provider: {provider_name}")
                 return response
-                
+
             except Exception as e:
                 logger.warning(f"Provider '{provider_name}' failed: {e}")
                 last_error = e
                 continue
-        
+
         # All providers failed
         raise Exception(f"All providers failed. Last error: {last_error}")
 
@@ -214,7 +215,7 @@ class ProviderCoordinator:
         # TODO: Integrate with proper prompt building from generation module
         problem_statement = instance.get("problem_statement", "")
         prompt = f"Generate a patch for the following issue:\n\n{problem_statement}"
-        
+
         return UnifiedRequest(
             prompt=prompt,
             system_message=kwargs.get("system_message"),
@@ -229,18 +230,18 @@ class ProviderCoordinator:
     ) -> UnifiedResponse:
         """Convert legacy ModelResponse to UnifiedResponse."""
         from .providers.unified_models import TokenUsage
-        
+
         usage = TokenUsage(
             prompt_tokens=0,  # Legacy response may not have this
             completion_tokens=0,
             total_tokens=0
         )
-        
+
         if model_response.usage:
             usage.prompt_tokens = model_response.usage.get("prompt_tokens", 0)
             usage.completion_tokens = model_response.usage.get("completion_tokens", 0)
             usage.total_tokens = model_response.usage.get("total_tokens", 0)
-        
+
         return UnifiedResponse(
             content=model_response.content,
             model=model_response.model,
@@ -269,12 +270,12 @@ class GenerationIntegration:
         self.cache_dir = cache_dir
         self.dataset_manager = DatasetManager(cache_dir)
         self.console = Console()
-        
+
         # Enhanced provider management
         self.registry = get_registry()
         self.provider_coordinator = ProviderCoordinator(self.registry)
         self.config_manager = ProviderConfigManager()
-        
+
         # Initialize cost estimator with unified providers
         self.cost_estimator = UnifiedCostEstimator()
 
@@ -295,9 +296,9 @@ class GenerationIntegration:
         return self.provider_coordinator.select_provider(provider_name, model)
 
     def estimate_batch_cost(
-        self, 
-        instances: list[dict[str, Any]], 
-        provider_name: str, 
+        self,
+        instances: list[dict[str, Any]],
+        provider_name: str,
         model: str | None = None
     ) -> float:
         """Estimate cost for batch processing across providers.
@@ -343,25 +344,25 @@ class GenerationIntegration:
     def show_provider_status(self) -> None:
         """Display provider status table in the console."""
         providers = self.list_available_providers()
-        
+
         table = Table(title="Available Providers")
         table.add_column("Provider", style="cyan")
         table.add_column("Description", style="white")
         table.add_column("Models", style="green")
         table.add_column("Configured", style="yellow")
         table.add_column("API Key", style="red")
-        
+
         for provider in providers:
             if "error" in provider:
                 continue
-                
+
             models_str = ", ".join(provider.get("supported_models", [])[:3])
             if len(provider.get("supported_models", [])) > 3:
                 models_str += "..."
-                
+
             configured = "✅" if provider.get("configured") else "❌"
             api_key = "✅" if provider.get("requires_api_key", False) and provider.get("configured") else ("❌" if provider.get("requires_api_key", False) else "N/A")
-            
+
             table.add_row(
                 provider["name"],
                 provider.get("description", "")[:50],
@@ -369,7 +370,7 @@ class GenerationIntegration:
                 configured,
                 api_key
             )
-        
+
         self.console.print(table)
 
     async def generate_patches_for_evaluation(
@@ -441,13 +442,13 @@ class GenerationIntegration:
         # Show enhanced cost estimate using unified providers
         try:
             estimated_cost = self.estimate_batch_cost(instances, provider_name, model)
-            
+
             if show_progress:
                 # Show provider-specific cost information
                 provider_info = self.provider_coordinator.get_provider_info(provider_name)
-                
+
                 self.console.print(f"\n💰 Estimated cost: ${estimated_cost:.4f}")
-                
+
                 # Show provider-specific details
                 if provider_info.get("capabilities"):
                     caps = provider_info["capabilities"]
@@ -456,7 +457,7 @@ class GenerationIntegration:
                             f"   Cost per 1K tokens: ${caps['cost_per_1k_prompt_tokens']:.4f} "
                             f"(prompt) / ${caps.get('cost_per_1k_completion_tokens', 0):.4f} (completion)"
                         )
-                
+
                 # Warning for expensive operations
                 if estimated_cost > 10.0:
                     self.console.print(
@@ -636,7 +637,7 @@ class UnifiedCostEstimator:
 
     def __init__(self):
         self.registry = get_registry()
-        
+
         # Fallback token estimates per instance component
         self.TOKENS_PER_INSTANCE = {
             "problem_statement": 500,
@@ -664,21 +665,21 @@ class UnifiedCostEstimator:
         try:
             # Get provider instance
             provider = self.registry.get_provider(provider_name, cache=True)
-            
+
             # Override model if specified
             if model and provider.config.model != model:
                 config_dict = vars(provider.config).copy()
                 config_dict['model'] = model
                 from .providers import ProviderConfig
                 provider.config = ProviderConfig(**config_dict)
-            
+
             # Use provider-specific cost estimation if available
             if hasattr(provider, 'estimate_cost'):
                 return self._estimate_with_provider(provider, instances)
             else:
                 # Fallback to generic estimation
                 return self._estimate_generic(provider, instances)
-                
+
         except Exception as e:
             logger.warning(f"Could not estimate cost with provider: {e}")
             # Fallback to legacy cost estimation
@@ -693,12 +694,12 @@ class UnifiedCostEstimator:
     ) -> float:
         """Estimate cost using provider's built-in cost estimation."""
         total_cost = 0.0
-        
+
         for instance in instances:
             # Estimate tokens for this instance
             prompt_tokens = self._estimate_instance_tokens(instance)
             max_tokens = provider.config.max_tokens or 1000
-            
+
             # Get cost estimate from provider
             try:
                 cost = provider.estimate_cost(prompt_tokens, max_tokens)
@@ -709,7 +710,7 @@ class UnifiedCostEstimator:
                 total_cost += self._generic_cost_calculation(
                     provider, prompt_tokens, max_tokens
                 )
-        
+
         return total_cost
 
     def _estimate_generic(
@@ -719,17 +720,17 @@ class UnifiedCostEstimator:
         if not hasattr(provider, 'capabilities'):
             # Very basic fallback
             return len(instances) * 0.01  # $0.01 per instance
-        
+
         caps = provider.capabilities
         total_cost = 0.0
-        
+
         for instance in instances:
             prompt_tokens = self._estimate_instance_tokens(instance)
             max_tokens = provider.config.max_tokens or 1000
-            
+
             cost = self._generic_cost_calculation(provider, prompt_tokens, max_tokens)
             total_cost += cost
-        
+
         return total_cost
 
     def _generic_cost_calculation(
@@ -737,32 +738,32 @@ class UnifiedCostEstimator:
     ) -> float:
         """Calculate cost using provider capabilities."""
         caps = provider.capabilities
-        
+
         # Get cost per 1K tokens
         prompt_cost_per_1k = caps.cost_per_1k_prompt_tokens or 0.001  # Default fallback
         completion_cost_per_1k = caps.cost_per_1k_completion_tokens or 0.002
-        
+
         # Calculate costs
         prompt_cost = (prompt_tokens / 1000) * prompt_cost_per_1k
         completion_cost = (max_tokens / 1000) * completion_cost_per_1k
-        
+
         return prompt_cost + completion_cost
 
     def _estimate_instance_tokens(self, instance: dict[str, Any]) -> int:
         """Estimate total tokens for an instance."""
         total = 0
-        
+
         # Problem statement tokens
         problem_statement = instance.get("problem_statement", "")
         total += len(problem_statement.split()) * 1.3  # Rough token multiplier
-        
+
         # Test patch tokens
         test_patch = instance.get("test_patch", "")
         total += len(test_patch.split()) * 1.3
-        
+
         # Base prompt overhead
         total += self.TOKENS_PER_INSTANCE["base_prompt"]
-        
+
         return int(total)
 
 

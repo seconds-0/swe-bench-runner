@@ -6,8 +6,8 @@ that make real API calls to external services. Tests are marked with
 """
 
 import os
+
 import pytest
-from typing import Optional
 
 
 def pytest_configure(config):
@@ -34,9 +34,10 @@ def skip_without_anthropic_key():
 @pytest.fixture
 def skip_without_ollama():
     """Skip test if Ollama is not running."""
-    import aiohttp
     import asyncio
-    
+
+    import aiohttp
+
     async def check_ollama():
         try:
             async with aiohttp.ClientSession() as session:
@@ -44,7 +45,7 @@ def skip_without_ollama():
                     return resp.status == 200
         except:
             return False
-    
+
     if not asyncio.run(check_ollama()):
         pytest.skip("Ollama not running on localhost:11434 - skipping Ollama integration test")
 

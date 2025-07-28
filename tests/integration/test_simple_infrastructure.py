@@ -3,11 +3,12 @@
 This test file has minimal dependencies and validates basic functionality.
 """
 
-import pytest
 import os
 
+import pytest
 
-@pytest.mark.integration  
+
+@pytest.mark.integration
 def test_integration_marker():
     """Test that integration marker works."""
     # This test should only run with -m integration
@@ -22,7 +23,7 @@ def test_skip_mechanism():
     assert False  # Should not reach here
 
 
-@pytest.mark.integration 
+@pytest.mark.integration
 def test_basic_math():
     """Test basic functionality in integration context."""
     assert 2 + 2 == 4

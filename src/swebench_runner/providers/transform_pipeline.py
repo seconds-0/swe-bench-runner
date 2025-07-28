@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from .unified_models import FinishReason, TokenUsage, UnifiedRequest, UnifiedResponse
 
@@ -54,7 +54,7 @@ class TransformPipelineConfig:
     provider_name: str
     default_model: str
     supported_models: list[str]
-    max_tokens_limit: Optional[int] = None
+    max_tokens_limit: int | None = None
     temperature_range: tuple[float, float] = (0.0, 2.0)
 
 

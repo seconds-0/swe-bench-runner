@@ -18,9 +18,6 @@ from swebench_runner.generation_integration import (
 from swebench_runner.providers import (
     MockProvider,
     ProviderConfig,
-    UnifiedRequest,
-    UnifiedResponse,
-    get_registry,
 )
 
 
@@ -269,10 +266,13 @@ class TestProviderCoordinator:
         provider.capabilities.max_context_length = 8000
         provider.capabilities.cost_per_1k_prompt_tokens = 0.001
         provider.capabilities.cost_per_1k_completion_tokens = 0.002
-        
+
         # Mock unified interface methods
         async def mock_generate_unified(request):
-            from swebench_runner.providers.unified_models import TokenUsage, UnifiedResponse
+            from swebench_runner.providers.unified_models import (
+                TokenUsage,
+                UnifiedResponse,
+            )
             return UnifiedResponse(
                 content="mock patch content",
                 model="test-model",
@@ -283,7 +283,7 @@ class TestProviderCoordinator:
                 cost=0.0003,
                 raw_response={}
             )
-        
+
         provider.generate_unified = mock_generate_unified
         provider.validate_connection = MagicMock(return_value=True)
         return provider
@@ -292,12 +292,12 @@ class TestProviderCoordinator:
         """Test successful provider selection."""
         with patch.object(coordinator.registry, 'get_provider_class') as mock_get_class, \
              patch.object(coordinator.config_manager, 'load_config') as mock_load_config:
-            
+
             mock_get_class.return_value = lambda config: mock_unified_provider
             mock_load_config.return_value = ProviderConfig(name="mock_unified", api_key="test-key")
-            
+
             provider = coordinator.select_provider("mock_unified", model="custom-model")
-            
+
             assert provider == mock_unified_provider
             mock_get_class.assert_called_once_with("mock_unified")
             mock_load_config.assert_called_once_with("mock_unified")
@@ -306,12 +306,12 @@ class TestProviderCoordinator:
         """Test provider selection with model override."""
         with patch.object(coordinator.registry, 'get_provider_class') as mock_get_class, \
              patch.object(coordinator.config_manager, 'load_config') as mock_load_config:
-            
+
             mock_get_class.return_value = lambda config: mock_unified_provider
             mock_load_config.return_value = ProviderConfig(name="mock_unified", api_key="test-key", model="default-model")
-            
+
             provider = coordinator.select_provider("mock_unified", model="custom-model")
-            
+
             assert provider == mock_unified_provider
             # Verify model was overridden in config creation
 
@@ -319,7 +319,7 @@ class TestProviderCoordinator:
         """Test getting provider information."""
         with patch.object(coordinator.registry, 'get_provider_class') as mock_get_class, \
              patch.object(coordinator.registry, 'get_provider') as mock_get_provider:
-            
+
             # Mock provider class
             mock_provider_class = MagicMock()
             mock_provider_class.name = "mock_unified"
@@ -328,12 +328,12 @@ class TestProviderCoordinator:
             mock_provider_class.requires_api_key = True
             mock_provider_class.supports_streaming = True
             mock_provider_class.default_model = "model-1"
-            
+
             mock_get_class.return_value = mock_provider_class
             mock_get_provider.return_value = mock_unified_provider
-            
+
             info = coordinator.get_provider_info("mock_unified")
-            
+
             assert info["name"] == "mock_unified"
             assert info["description"] == "Mock unified provider"
             assert info["supported_models"] == ["model-1", "model-2"]
@@ -345,16 +345,16 @@ class TestProviderCoordinator:
         """Test listing all available providers."""
         with patch.object(coordinator.registry, 'list_provider_names') as mock_list_names, \
              patch.object(coordinator, 'get_provider_info') as mock_get_info:
-            
+
             mock_list_names.return_value = ["openai", "anthropic", "ollama"]
             mock_get_info.side_effect = [
                 {"name": "openai", "configured": True},
                 {"name": "anthropic", "configured": False},
                 {"name": "ollama", "configured": True},
             ]
-            
+
             providers = coordinator.list_available_providers()
-            
+
             assert len(providers) == 3
             assert providers[0]["name"] == "openai"
             assert providers[1]["name"] == "anthropic"
@@ -364,14 +364,14 @@ class TestProviderCoordinator:
     async def test_generate_with_fallback_success_primary(self, coordinator, mock_unified_provider):
         """Test fallback generation with primary provider success."""
         instance = {"instance_id": "test-1", "problem_statement": "Test problem"}
-        
+
         with patch.object(coordinator, 'select_provider') as mock_select:
             mock_select.return_value = mock_unified_provider
-            
+
             response = await coordinator.generate_with_fallback(
                 instance, "mock_unified", ["fallback1", "fallback2"]
             )
-            
+
             assert response.content == "mock patch content"
             assert response.provider == "mock_unified"
             mock_select.assert_called_once_with("mock_unified", None, validate_connectivity=False)
@@ -380,15 +380,18 @@ class TestProviderCoordinator:
     async def test_generate_with_fallback_uses_fallback(self, coordinator):
         """Test fallback generation when primary provider fails."""
         instance = {"instance_id": "test-1", "problem_statement": "Test problem"}
-        
+
         # Create failing primary provider
         failing_provider = MagicMock()
         failing_provider.generate_unified.side_effect = Exception("Primary failed")
-        
+
         # Create working fallback provider
         working_provider = MagicMock()
         async def mock_generate_unified(request):
-            from swebench_runner.providers.unified_models import TokenUsage, UnifiedResponse
+            from swebench_runner.providers.unified_models import (
+                TokenUsage,
+                UnifiedResponse,
+            )
             return UnifiedResponse(
                 content="fallback patch content",
                 model="fallback-model",
@@ -400,14 +403,14 @@ class TestProviderCoordinator:
                 raw_response={}
             )
         working_provider.generate_unified = mock_generate_unified
-        
+
         with patch.object(coordinator, 'select_provider') as mock_select:
             mock_select.side_effect = [failing_provider, working_provider]
-            
+
             response = await coordinator.generate_with_fallback(
                 instance, "primary", ["fallback"]
             )
-            
+
             assert response.content == "fallback patch content"
             assert response.provider == "fallback_provider"
             assert mock_select.call_count == 2
@@ -416,13 +419,13 @@ class TestProviderCoordinator:
     async def test_generate_with_fallback_all_fail(self, coordinator):
         """Test fallback generation when all providers fail."""
         instance = {"instance_id": "test-1", "problem_statement": "Test problem"}
-        
+
         failing_provider = MagicMock()
         failing_provider.generate_unified.side_effect = Exception("Provider failed")
-        
+
         with patch.object(coordinator, 'select_provider') as mock_select:
             mock_select.return_value = failing_provider
-            
+
             with pytest.raises(Exception, match="All providers failed"):
                 await coordinator.generate_with_fallback(
                     instance, "primary", ["fallback1", "fallback2"]
@@ -446,10 +449,10 @@ class TestUnifiedCostEstimator:
         provider.capabilities = MagicMock()
         provider.capabilities.cost_per_1k_prompt_tokens = 0.001
         provider.capabilities.cost_per_1k_completion_tokens = 0.002
-        
+
         def mock_estimate_cost(prompt_tokens, max_tokens):
             return (prompt_tokens / 1000) * 0.001 + (max_tokens / 1000) * 0.002
-        
+
         provider.estimate_cost = mock_estimate_cost
         return provider
 
@@ -459,12 +462,12 @@ class TestUnifiedCostEstimator:
             {"instance_id": "test-1", "problem_statement": "Short problem"},
             {"instance_id": "test-2", "problem_statement": "Longer problem statement with more details"},
         ]
-        
+
         with patch.object(cost_estimator.registry, 'get_provider') as mock_get_provider:
             mock_get_provider.return_value = mock_provider_with_cost
-            
+
             cost = cost_estimator.estimate_batch_cost(instances, "mock_cost")
-            
+
             assert cost > 0
             assert isinstance(cost, float)
             mock_get_provider.assert_called_once_with("mock_cost", cache=True)
@@ -472,7 +475,7 @@ class TestUnifiedCostEstimator:
     def test_estimate_batch_cost_generic(self, cost_estimator):
         """Test generic cost estimation using capabilities."""
         instances = [{"instance_id": "test-1", "problem_statement": "Test problem"}]
-        
+
         # Create provider without estimate_cost method
         provider = MagicMock()
         provider.name = "mock_generic"
@@ -482,32 +485,32 @@ class TestUnifiedCostEstimator:
         provider.capabilities.cost_per_1k_completion_tokens = 0.002
         # Remove estimate_cost method
         del provider.estimate_cost
-        
+
         with patch.object(cost_estimator.registry, 'get_provider') as mock_get_provider:
             mock_get_provider.return_value = provider
-            
+
             cost = cost_estimator.estimate_batch_cost(instances, "mock_generic")
-            
+
             assert cost > 0
             assert isinstance(cost, float)
 
     def test_estimate_batch_cost_fallback_to_legacy(self, cost_estimator):
         """Test fallback to legacy cost estimation when provider fails."""
         instances = [{"instance_id": "test-1", "problem_statement": "Test"}]
-        
+
         with patch.object(cost_estimator.registry, 'get_provider') as mock_get_provider, \
              patch('swebench_runner.generation_integration.CostEstimator') as mock_legacy:
-            
+
             # Make provider retrieval fail
             mock_get_provider.side_effect = Exception("Provider not found")
-            
+
             # Mock legacy estimator
             legacy_instance = MagicMock()
             legacy_instance.estimate_batch_cost.return_value = (0.05, 0.10)
             mock_legacy.return_value = legacy_instance
-            
+
             cost = cost_estimator.estimate_batch_cost(instances, "unknown")
-            
+
             assert cost == 0.075  # Average of min and max
             legacy_instance.estimate_batch_cost.assert_called_once()
 
@@ -518,9 +521,9 @@ class TestUnifiedCostEstimator:
             "problem_statement": "This is a test problem statement with several words",
             "test_patch": "diff --git a/file.py b/file.py\n+added line"
         }
-        
+
         tokens = cost_estimator._estimate_instance_tokens(instance)
-        
+
         assert tokens > 0
         assert isinstance(tokens, int)
         # Should include problem statement, test patch, and base prompt tokens
@@ -546,21 +549,21 @@ class TestEnhancedGenerationIntegration:
         """Test that select_provider delegates to coordinator."""
         with patch.object(enhanced_integration.provider_coordinator, 'select_provider') as mock_select:
             mock_select.return_value = MagicMock()
-            
+
             provider = enhanced_integration.select_provider("test_provider", "test_model")
-            
+
             mock_select.assert_called_once_with("test_provider", "test_model")
             assert provider is not None
 
     def test_estimate_batch_cost_delegates(self, enhanced_integration):
         """Test that estimate_batch_cost delegates to unified estimator."""
         instances = [{"instance_id": "test-1"}]
-        
+
         with patch.object(enhanced_integration.cost_estimator, 'estimate_batch_cost') as mock_estimate:
             mock_estimate.return_value = 0.05
-            
+
             cost = enhanced_integration.estimate_batch_cost(instances, "test_provider", "test_model")
-            
+
             mock_estimate.assert_called_once_with(instances, "test_provider", "test_model")
             assert cost == 0.05
 
@@ -568,15 +571,15 @@ class TestEnhancedGenerationIntegration:
     async def test_generate_with_fallback_delegates(self, enhanced_integration):
         """Test that generate_with_fallback delegates to coordinator."""
         instance = {"instance_id": "test-1"}
-        
+
         with patch.object(enhanced_integration.provider_coordinator, 'generate_with_fallback') as mock_fallback:
             mock_response = MagicMock()
             mock_fallback.return_value = mock_response
-            
+
             response = await enhanced_integration.generate_with_fallback(
                 instance, "primary", ["fallback"]
             )
-            
+
             mock_fallback.assert_called_once_with(
                 instance, "primary", ["fallback"], None
             )
@@ -590,9 +593,9 @@ class TestEnhancedGenerationIntegration:
                 {"name": "anthropic", "configured": False}
             ]
             mock_list.return_value = mock_providers
-            
+
             providers = enhanced_integration.list_available_providers()
-            
+
             assert providers == mock_providers
             mock_list.assert_called_once()
 
@@ -614,12 +617,12 @@ class TestEnhancedGenerationIntegration:
                 "requires_api_key": False
             }
         ]
-        
+
         with patch.object(enhanced_integration, 'list_available_providers') as mock_list:
             mock_list.return_value = mock_providers
-            
+
             enhanced_integration.show_provider_status()
-            
+
             # Check that table was printed (would be captured by Rich console)
             mock_list.assert_called_once()
 

@@ -147,11 +147,11 @@ class AnthropicErrorHandler:
     def get_retry_delay(self, error: ProviderError, attempt: int) -> float:
         """Calculate retry delay with exponential backoff."""
         base_delay = self.base_delay
-        
+
         # Use retry-after for rate limit errors
         if isinstance(error, ProviderRateLimitError) and error.retry_after:
             return min(error.retry_after, 60.0)  # Cap at 60 seconds
-        
+
         # Exponential backoff for other retryable errors
         return min(base_delay * (2 ** attempt), 60.0)
 
@@ -433,16 +433,16 @@ class AnthropicProvider(ModelProvider):
                         text_length = len(json.get("messages", [{}])[0].get("content", ""))
                         if "system" in json:
                             text_length += len(json["system"])
-                        
+
                         # Rough estimation: ~4 chars per token for Anthropic
                         estimated_tokens = max(1, text_length // 4)
-                        
+
                         class MockResponse:
                             def json(self):
                                 return {"input_tokens": estimated_tokens}
-                        
+
                         return MockResponse()
-                
+
                 self.token_counter.api_client = MockAPIClient()
 
             token_request = TokenCountRequest(
@@ -531,7 +531,7 @@ class AnthropicProvider(ModelProvider):
         """
         # Convert legacy parameters to unified format
         model = kwargs.get("model", self.config.model or self.default_model)
-        
+
         # Handle messages format if provided
         messages = kwargs.get("messages", [{"role": "user", "content": prompt}])
         system_message = kwargs.get("system")

@@ -10,7 +10,7 @@ from collections.abc import Callable, Coroutine
 from concurrent.futures import Future, ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeoutError
 from threading import Lock, Thread
-from typing import Any, TypeVar, Union, Optional
+from typing import Any, TypeVar
 
 from .exceptions import ProviderTimeoutError
 
@@ -26,7 +26,7 @@ class AsyncBridge:
     with proper timeout handling and resource management.
     """
 
-    _instance: Optional[AsyncBridge] = None
+    _instance: AsyncBridge | None = None
     _lock = Lock()
 
     def __new__(cls) -> AsyncBridge:
@@ -46,8 +46,8 @@ class AsyncBridge:
             max_workers=1,
             thread_name_prefix="async-bridge"
         )
-        self._loop: Optional[asyncio.AbstractEventLoop] = None
-        self._loop_thread: Optional[Thread] = None
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._loop_thread: Thread | None = None
         self._setup_lock = Lock()
         self._call_count = 0
         self._total_time = 0.0
@@ -85,7 +85,7 @@ class AsyncBridge:
 
     def run(self,
             coro: Coroutine[Any, Any, T],
-            timeout: Optional[float] = None) -> T:
+            timeout: float | None = None) -> T:
         """Run async coroutine from sync code.
 
         Args:
@@ -106,7 +106,7 @@ class AsyncBridge:
 
     def _run_coroutine(self,
                        coro: Coroutine[Any, Any, T],
-                       timeout: Optional[float]) -> T:
+                       timeout: float | None) -> T:
         """Internal method to run coroutine."""
         self._ensure_event_loop()
 
@@ -137,7 +137,7 @@ class AsyncBridge:
     def call_async(self,
                    func: Callable[..., Coroutine[Any, Any, T]],
                    *args: Any,
-                   timeout: Optional[float] = None,
+                   timeout: float | None = None,
                    **kwargs: Any) -> T:
         """Call async function from sync code.
 
@@ -155,7 +155,7 @@ class AsyncBridge:
 
     def wrap_async(self,
                    func: Callable[..., Coroutine[Any, Any, T]],
-                   timeout: Optional[float] = None) -> Callable[..., T]:
+                   timeout: float | None = None) -> Callable[..., T]:
         """Create sync wrapper for async function.
 
         Args:
@@ -171,7 +171,7 @@ class AsyncBridge:
 
         return wrapper
 
-    def get_stats(self) -> dict[str, Union[int, float, bool]]:
+    def get_stats(self) -> dict[str, int | float | bool]:
         """Get bridge statistics.
 
         Returns:
@@ -219,7 +219,7 @@ _bridge = AsyncBridge()
 
 
 def run_async(coro: Coroutine[Any, Any, T],
-              timeout: Optional[float] = None) -> T:
+              timeout: float | None = None) -> T:
     """Convenience function to run async code from sync context.
 
     Args:
@@ -233,7 +233,7 @@ def run_async(coro: Coroutine[Any, Any, T],
 
 
 def async_to_sync(
-    timeout: Optional[float] = None
+    timeout: float | None = None
 ) -> Callable[[Callable[..., Coroutine[Any, Any, T]]], Callable[..., T]]:
     """Decorator to convert async function to sync.
 

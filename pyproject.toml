@@ -63,8 +63,11 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "--cov=swebench_runner --cov-report=term-missing --cov-report=html"
+addopts = "--cov=swebench_runner --cov-report=term-missing --cov-report=html -m 'not integration'"
 # Coverage requirement removed - we prioritize meaningful tests over coverage metrics
+markers = [
+    "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+]
 
 [tool.mypy]
 python_version = "3.10"

@@ -667,6 +667,15 @@ def info(dataset: str) -> None:
     help='Specific model to use (overrides provider default)'
 )
 @click.option(
+    '--fallback',
+    help='Comma-separated fallback providers (e.g., "anthropic,ollama")'
+)
+@click.option(
+    '--budget',
+    type=float,
+    help='Maximum cost budget for generation (in USD)'
+)
+@click.option(
     '--instance', '-i',
     required=True,
     help='SWE-bench instance ID to generate patch for'
@@ -685,6 +694,8 @@ def info(dataset: str) -> None:
 def generate(
     provider: str | None,
     model: str | None,
+    fallback: str | None,
+    budget: float | None,
     instance: str,
     dataset: str,
     output: Path | None
@@ -693,36 +704,102 @@ def generate(
 
     \b
     🤖 Examples:
-      swebench generate -i django__django-12345              # Use default provider
-      swebench generate -i django__django-12345 -p openai    # Use OpenAI
-      swebench generate -i django__django-12345 -m gpt-4     # Use specific model
-      swebench generate -i django__django-12345 -o fix.patch # Save to file
+      swebench generate -i django__django-12345  # Use default provider
+      swebench generate -i django__django-12345 -p openai          # Use OpenAI
+      swebench generate -i django__django-12345 -m gpt-4           # Use specific model
+      swebench generate -i django__django-12345 -o fix.patch       # Save to file
+      swebench generate -i django__django-12345 \
+        --fallback anthropic,ollama  # With fallback
+      swebench generate -i django__django-12345 --budget 5.0       # Set cost budget
 
     \b
     📊 Datasets:
       lite     - 300 instances (1.2MB) - Great for testing
       verified - 500 instances (2MB)   - Human-verified fixes
       full     - 2294 instances (8MB)  - Complete benchmark
+
+    \b
+    💰 Budget & Fallback:
+      --budget: Maximum cost in USD (stops if exceeded)
+      --fallback: Try other providers if primary fails or hits budget
     """
     from .generation_integration import GenerationIntegration
     from .provider_utils import ensure_provider_configured, get_provider_for_cli
 
-    # Ensure we have a configured provider
-    if provider:
-        ensure_provider_configured(provider)
+    # Process fallback providers
+    fallback_providers = []
+    if fallback:
+        fallback_providers = [p.strip() for p in fallback.split(',')]
+        # Validate fallback providers
+        from .providers import get_registry
+        registry = get_registry()
+        available_providers = registry.list_provider_names()
+        for fallback_provider in fallback_providers:
+            if fallback_provider not in available_providers:
+                click.echo(
+                    f"❌ Invalid fallback provider: {fallback_provider}", err=True
+                )
+                click.echo(f"Available providers: {', '.join(available_providers)}")
+                sys.exit(exit_codes.GENERAL_ERROR)
 
-    # Get the provider
-    try:
-        sync_provider = get_provider_for_cli(provider, model)
-    except SystemExit:
-        # If no provider is configured, show helpful message
-        click.echo("\n💡 No model provider configured!")
-        click.echo("Available providers:")
-        click.echo("  • openai    - OpenAI GPT models")
-        click.echo("  • openrouter - Access 100+ models")
-        click.echo("  • mock      - Testing provider")
-        click.echo("\nRun: swebench provider init <provider>")
+    # Show budget information
+    if budget:
+        click.echo(f"💰 Budget set: ${budget:.2f}")
+        if fallback_providers:
+            click.echo(f"🔄 Fallback providers: {', '.join(fallback_providers)}")
+
+    # Build provider list (primary + fallbacks)
+    providers_to_try = []
+    if provider:
+        providers_to_try.append(provider)
+    providers_to_try.extend(fallback_providers)
+    if not providers_to_try:
+        # Use default provider
+        providers_to_try = ['openai']
+
+    # Remove duplicates while preserving order
+    seen = set()
+    providers_to_try = [p for p in providers_to_try if not (p in seen or seen.add(p))]
+
+    # Ensure all providers are configured
+    for provider_name in providers_to_try:
+        try:
+            ensure_provider_configured(provider_name)
+        except SystemExit:
+            if provider_name == provider:
+                # Primary provider failed
+                click.echo(f"\n💡 Primary provider '{provider_name}' not configured!")
+                click.echo("Available providers:")
+                click.echo("  • openai    - OpenAI GPT models")
+                click.echo("  • anthropic - Claude models")
+                click.echo("  • openrouter - Access 100+ models")
+                click.echo("  • mock      - Testing provider")
+                click.echo(f"\nRun: swebench provider init {provider_name}")
+                sys.exit(exit_codes.GENERAL_ERROR)
+            else:
+                # Fallback provider failed, remove it
+                click.echo(
+                    f"⚠️  Fallback provider '{provider_name}' not configured, "
+                    "skipping..."
+                )
+                providers_to_try.remove(provider_name)
+
+    if not providers_to_try:
+        click.echo("❌ No configured providers available", err=True)
         sys.exit(exit_codes.GENERAL_ERROR)
+
+    # Get the primary provider for display
+    primary_provider = providers_to_try[0]
+    try:
+        sync_provider = get_provider_for_cli(primary_provider, model)
+    except SystemExit:
+        # Fallback to next provider if available
+        if len(providers_to_try) > 1:
+            click.echo(f"⚠️  Primary provider failed, trying {providers_to_try[1]}...")
+            sync_provider = get_provider_for_cli(providers_to_try[1], model)
+        else:
+            click.echo("❌ All providers failed", err=True)
+            sys.exit(exit_codes.GENERAL_ERROR)
 
     # Load the instance from dataset
     try:
@@ -820,6 +897,159 @@ def generate(
         error_msg = format_provider_error(e, provider or 'default')
         click.echo(error_msg, err=True)
         sys.exit(exit_codes.GENERAL_ERROR)
+
+
+@cli.command()
+@click.option(
+    '--providers', '-p',
+    required=True,
+    help='Comma-separated list of providers to compare (e.g., "openai,anthropic")'
+)
+@click.option(
+    '--instances', '-i',
+    help='Specific instance IDs to compare (comma-separated)'
+)
+@click.option(
+    '--count', '-c',
+    type=int,
+    default=5,
+    help='Number of random instances to compare (default: 5)'
+)
+@click.option(
+    '--dataset', '-d',
+    type=click.Choice(['lite', 'verified', 'full']),
+    default='lite',
+    help='Dataset to load instances from'
+)
+@click.option(
+    '--output-dir', '-o',
+    type=click.Path(path_type=Path),
+    help='Output directory for comparison results'
+)
+def compare(
+    providers: str,
+    instances: str | None,
+    count: int,
+    dataset: str,
+    output_dir: Path | None
+) -> None:
+    r"""Compare multiple providers on the same instances.
+
+    \b
+    🔍 Examples:
+      swebench compare -p openai,anthropic  # Compare 5 random instances
+      swebench compare -p openai,anthropic,ollama -c 10       # Compare 10 instances
+      swebench compare -p openai,anthropic -i django__django-123,requests__requests-456
+      swebench compare -p openai,anthropic -d verified -c 20 \\
+        # Compare on verified dataset
+
+    \b
+    📊 Output:
+      • Side-by-side patch comparison
+      • Cost analysis per provider
+      • Success rate comparison
+      • Performance metrics
+    """
+    click.echo("🔍 Multi-provider comparison mode")
+    click.echo("This feature would compare multiple providers on the same instances")
+    click.echo("and generate a detailed comparison report.")
+    click.echo()
+
+    # Parse providers
+    provider_list = [p.strip() for p in providers.split(',')]
+    click.echo(f"Providers to compare: {', '.join(provider_list)}")
+    # Parse instances if provided
+    if instances:
+        instance_list = [i.strip() for i in instances.split(',')]
+        click.echo(f"Instances: {', '.join(instance_list)}")
+    else:
+        click.echo(f"Random instances: {count} from {dataset} dataset")
+
+    if output_dir:
+        click.echo(f"Output directory: {output_dir}")
+    click.echo("\n💡 This command is planned for a future release.")
+    click.echo(
+        "For now, use multiple 'swebench generate' commands with different providers."
+    )
+
+
+@cli.command()
+@click.option(
+    '--provider', '-p',
+    help='Primary provider to use'
+)
+@click.option(
+    '--fallback',
+    help='Comma-separated fallback providers'
+)
+@click.option(
+    '--budget',
+    type=float,
+    help='Maximum budget for evaluation'
+)
+@click.option(
+    '--instances', '-i',
+    help='Specific instance IDs to evaluate (comma-separated)'
+)
+@click.option(
+    '--count', '-c',
+    type=int,
+    help='Number of random instances to evaluate'
+)
+@click.option(
+    '--dataset', '-d',
+    type=click.Choice(['lite', 'verified', 'full']),
+    default='lite',
+    help='Dataset to load instances from'
+)
+def evaluate(
+    provider: str | None,
+    fallback: str | None,
+    budget: float | None,
+    instances: str | None,
+    count: int | None,
+    dataset: str
+) -> None:
+    r"""Run end-to-end evaluation with provider selection and fallback.
+
+    \b
+    🚀 Examples:
+      swebench evaluate -p openai -c 10  # Evaluate 10 instances with OpenAI
+      swebench evaluate -p openai --fallback anthropic -c 20 \\
+        # With fallback to Anthropic
+      swebench evaluate --budget 50.0 -c 100                 # Set budget limit
+      swebench evaluate -i django__django-123,requests__requests-456 \\
+        # Specific instances
+
+    \b
+    🔄 Process:
+      1. Generate patches using specified provider(s)
+      2. Run SWE-bench evaluation on generated patches
+      3. Generate comprehensive results report
+      4. Show cost and performance metrics
+    """
+    click.echo("🚀 End-to-end evaluation mode")
+    click.echo("This feature would:")
+    click.echo("  1. Generate patches using the specified provider")
+    click.echo("  2. Run SWE-bench evaluation automatically")
+    click.echo("  3. Generate a comprehensive results report")
+    click.echo()
+    if provider:
+        click.echo(f"Primary provider: {provider}")
+    if fallback:
+        click.echo(f"Fallback providers: {fallback}")
+    if budget:
+        click.echo(f"Budget limit: ${budget:.2f}")
+    # Parse instances if provided
+    if instances:
+        instance_list = [i.strip() for i in instances.split(',')]
+        click.echo(f"Instances: {', '.join(instance_list)}")
+    elif count:
+        click.echo(f"Random instances: {count} from {dataset} dataset")
+    else:
+        click.echo(f"Dataset: {dataset} (specify --count for random sample)")
+    click.echo("\n💡 This command is planned for a future release.")
+    click.echo("For now, use 'swebench generate' followed by 'swebench run'.")
 
 
 if __name__ == "__main__":

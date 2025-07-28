@@ -1,4 +1,4 @@
-"""OpenAI provider implementation with unified interface and full compatibility."""
+"""Anthropic Claude provider implementation with unified interface and full compatibility."""
 
 from __future__ import annotations
 
@@ -18,19 +18,21 @@ from .exceptions import (
     ProviderAuthenticationError,
     ProviderError,
     ProviderRateLimitError,
+    ProviderResponseError,
+    ProviderTimeoutError,
+    ProviderTokenLimitError,
 )
-from .openai_errors import OpenAIErrorHandler
 from .rate_limiters import (
     AcquisitionRequest,
     RateLimitCoordinator,
-    create_openai_limiter,
+    create_anthropic_limiter,
 )
 from .registry import register_provider
 from .streaming_adapters import SSEAdapter, StreamChunk
-from .token_counters import TiktokenCounter, TokenCountRequest
+from .token_counters import AnthropicAPICounter, TokenCountRequest
 from .transform_pipeline import (
-    OpenAIRequestTransformer,
-    OpenAIResponseParser,
+    AnthropicRequestTransformer,
+    AnthropicResponseParser,
     TransformPipeline,
     TransformPipelineConfig,
 )
@@ -38,86 +40,163 @@ from .unified_models import UnifiedRequest, UnifiedResponse
 
 logger = logging.getLogger(__name__)
 
-# Enhanced model support with latest OpenAI models (2025)
+# Enhanced model support with latest Anthropic models (2025)
 MODEL_TOKEN_LIMITS = {
-    # Latest GPT-4 models
-    "gpt-4o": 128000,
-    "gpt-4o-mini": 128000,
-    "gpt-4.1": 128000,
-    "gpt-4.1-mini": 128000,
-    # GPT-4 variants
-    "gpt-4-turbo-preview": 128000,
-    "gpt-4-turbo": 128000,
-    "gpt-4-1106-preview": 128000,
-    "gpt-4": 8192,
-    "gpt-4-32k": 32768,
-    "gpt-4-0613": 8192,
-    "gpt-4-32k-0613": 32768,
-    # GPT-3.5 variants
-    "gpt-3.5-turbo": 16385,
-    "gpt-3.5-turbo-16k": 16385,
-    "gpt-3.5-turbo-1106": 16385,
-    "gpt-3.5-turbo-0125": 16385,
-    "gpt-3.5-turbo-0613": 4097,
-    "gpt-3.5-turbo-16k-0613": 16385,
+    # Claude 4 models
+    "claude-opus-4-20250514": 200000,
+    "claude-sonnet-4-20250514": 200000,
+    # Claude 3.5 models
+    "claude-haiku-3-5-20241022": 200000,
+    "claude-sonnet-3-5-20241022": 200000,
+    # Legacy models for backward compatibility
+    "claude-3-opus-20240229": 200000,
+    "claude-3-sonnet-20240229": 200000,
+    "claude-3-haiku-20240307": 200000,
 }
 
 # Updated pricing per 1M tokens (2025 pricing)
 MODEL_PRICING = {
-    # Latest models (per 1M tokens)
-    "gpt-4o": (5.0, 20.0),
-    "gpt-4o-mini": (0.15, 0.6),
-    "gpt-4.1": (5.0, 20.0),
-    "gpt-4.1-mini": (0.15, 0.6),
-    # GPT-4 variants (per 1M tokens)
-    "gpt-4-turbo-preview": (10.0, 30.0),
-    "gpt-4-turbo": (10.0, 30.0),
-    "gpt-4-1106-preview": (10.0, 30.0),
-    "gpt-4": (30.0, 60.0),
-    "gpt-4-32k": (60.0, 120.0),
-    # GPT-3.5 variants (per 1M tokens)
-    "gpt-3.5-turbo": (1.5, 2.0),
-    "gpt-3.5-turbo-16k": (3.0, 4.0),
-    "gpt-3.5-turbo-1106": (1.0, 2.0),
-    "gpt-3.5-turbo-0125": (1.5, 2.0),
+    # Claude 4 models (per 1M tokens)
+    "claude-opus-4-20250514": (15.0, 75.0),
+    "claude-sonnet-4-20250514": (3.0, 15.0),
+    # Claude 3.5 models (per 1M tokens)
+    "claude-haiku-3-5-20241022": (0.8, 4.0),
+    "claude-sonnet-3-5-20241022": (3.0, 15.0),
+    # Legacy models for backward compatibility
+    "claude-3-opus-20240229": (15.0, 75.0),
+    "claude-3-sonnet-20240229": (3.0, 15.0),
+    "claude-3-haiku-20240307": (0.25, 1.25),
 }
 
 
+class AnthropicErrorHandler:
+    """Anthropic-specific error handling with retry logic."""
+
+    def __init__(self, max_retries: int = 3, base_delay: float = 1.0):
+        self.max_retries = max_retries
+        self.base_delay = base_delay
+
+    async def classify_response_error(self, response: aiohttp.ClientResponse) -> ProviderError:
+        """Classify HTTP response errors into appropriate provider exceptions."""
+        try:
+            error_data = await response.json()
+        except Exception:
+            error_data = {"error": {"message": await response.text() or "Unknown error"}}
+
+        error_info = error_data.get("error", {})
+        error_type = error_info.get("type", "unknown")
+        message = error_info.get("message", "Unknown error")
+
+        if response.status == 401:
+            return ProviderAuthenticationError(
+                f"Anthropic authentication failed: {message}. "
+                "Check your ANTHROPIC_API_KEY environment variable."
+            )
+        elif response.status == 429:
+            # Extract retry-after from headers if available
+            retry_after = response.headers.get("retry-after")
+            retry_seconds = int(retry_after) if retry_after and retry_after.isdigit() else None
+            return ProviderRateLimitError(
+                f"Anthropic rate limit exceeded: {message}",
+                retry_after=retry_seconds
+            )
+        elif response.status == 400:
+            # Check for specific input validation errors
+            if "max_tokens" in message.lower():
+                return ProviderTokenLimitError(
+                    f"Anthropic token limit error: {message}. "
+                    "Note: max_tokens is required for Anthropic API."
+                )
+            else:
+                return ProviderError(f"Anthropic validation error: {message}")
+        elif response.status == 422:
+            return ProviderError(f"Anthropic request validation failed: {message}")
+        elif response.status >= 500:
+            return ProviderResponseError(
+                f"Anthropic server error ({response.status}): {message}. "
+                "This is likely a temporary issue with Anthropic's servers."
+            )
+        else:
+            return ProviderError(f"Anthropic API error ({response.status}): {message}")
+
+    def classify_error(self, error: Exception, response: Any = None) -> ProviderError:
+        """Classify general exceptions into appropriate provider exceptions."""
+        if isinstance(error, ProviderError):
+            return error
+        elif isinstance(error, asyncio.TimeoutError):
+            return ProviderTimeoutError(
+                "Request to Anthropic API timed out. "
+                "Try increasing the timeout or check your network connection."
+            )
+        elif isinstance(error, aiohttp.ClientConnectorError):
+            return ProviderResponseError(
+                "Failed to connect to Anthropic API. "
+                "Check your internet connection."
+            )
+        else:
+            return ProviderError(f"Unexpected error with Anthropic API: {error}")
+
+    def should_retry(self, error: ProviderError) -> bool:
+        """Determine if an error should be retried."""
+        # Don't retry authentication or validation errors
+        if isinstance(error, (ProviderAuthenticationError, ProviderTokenLimitError)):
+            return False
+        # Retry rate limit, timeout, and server errors
+        return isinstance(error, (ProviderRateLimitError, ProviderTimeoutError, ProviderResponseError))
+
+    def get_retry_delay(self, error: ProviderError, attempt: int) -> float:
+        """Calculate retry delay with exponential backoff."""
+        base_delay = self.base_delay
+        
+        # Use retry-after for rate limit errors
+        if isinstance(error, ProviderRateLimitError) and error.retry_after:
+            return min(error.retry_after, 60.0)  # Cap at 60 seconds
+        
+        # Exponential backoff for other retryable errors
+        return min(base_delay * (2 ** attempt), 60.0)
+
+    def get_user_message(self, error: ProviderError) -> str:
+        """Get user-friendly error message."""
+        return str(error)
+
+
 @register_provider
-class OpenAIProvider(ModelProvider):
-    """Enhanced OpenAI API provider with unified interface.
+class AnthropicProvider(ModelProvider):
+    """Enhanced Anthropic Claude API provider with unified interface.
 
     Features:
     - Unified interface abstraction layer
     - Backward compatibility with existing ModelProvider interface
-    - Advanced authentication with BearerTokenAuth
-    - Integrated rate limiting with smart backoff
-    - Unified token counting with tiktoken
-    - Streaming support via SSEAdapter
+    - Advanced authentication with API key headers
+    - Integrated rate limiting with token bucket pattern
+    - API-based token counting with /v1/messages/count_tokens
+    - Streaming support via SSE with Anthropic event types
     - Transform pipeline for request/response handling
-    - Latest model support (GPT-4o, GPT-4.1)
+    - Latest model support (Claude Opus 4, Claude Sonnet 4)
     - 2025 pricing with cost optimization
-    - Enhanced error handling and recovery
+    - Enhanced error handling with Anthropic-specific messages
+    - Required max_tokens handling
+    - System message separation per Anthropic API format
     """
 
-    name = "openai"
-    description = "OpenAI and compatible APIs with unified interface"
-    api_version = "2.0"
+    name = "anthropic"
+    description = "Anthropic Claude API with unified interface"
+    api_version = "2023-06-01"
     requires_api_key = True
     supported_models = list(MODEL_TOKEN_LIMITS.keys())
     supports_streaming = True
-    default_model = "gpt-4o"
+    default_model = "claude-sonnet-4-20250514"
 
     def __init__(self, config: ProviderConfig):
-        """Initialize enhanced OpenAI provider with unified components.
+        """Initialize enhanced Anthropic provider with unified components.
 
         Args:
             config: Provider configuration
         """
         super().__init__(config)
 
-        # Set base URL (default to OpenAI API)
-        self.base_url = config.endpoint or "https://api.openai.com/v1"
+        # Set base URL (default to Anthropic API)
+        self.base_url = config.endpoint or "https://api.anthropic.com/v1"
         if self.base_url.endswith("/"):
             self.base_url = self.base_url[:-1]
 
@@ -129,8 +208,8 @@ class OpenAIProvider(ModelProvider):
         self.retry_delay = 1.0  # Initial retry delay in seconds
         self.timeout = aiohttp.ClientTimeout(total=config.timeout)
 
-        # Initialize OpenAI-specific error handler
-        self.error_handler = OpenAIErrorHandler(
+        # Initialize Anthropic-specific error handler
+        self.error_handler = AnthropicErrorHandler(
             max_retries=self.max_retries,
             base_delay=self.retry_delay
         )
@@ -143,7 +222,7 @@ class OpenAIProvider(ModelProvider):
             success_threshold=2  # Require 2 successes to close from half-open
         )
         self.circuit_breaker = CircuitBreaker(
-            name=f"openai-{id(self)}",
+            name=f"anthropic-{id(self)}",
             config=circuit_config,
             on_state_change=self._on_circuit_state_change
         )
@@ -158,55 +237,48 @@ class OpenAIProvider(ModelProvider):
             "tokens_reset": None,
         }
 
-        # Available models cache
-        self._available_models: list[str] | None = None
-        self._models_last_fetched: float | None = None
-        self._models_cache_duration = 3600  # 1 hour
-
     def _init_unified_components(self) -> None:
         """Initialize unified abstraction layer components."""
-        # Authentication strategy
+        # Authentication strategy with Anthropic-specific headers
         credentials = {"api_key": self.config.api_key or ""}
         if self.config.extra_params:
-            if org_id := self.config.extra_params.get("organization"):
-                credentials["organization_id"] = org_id
-            if project_id := self.config.extra_params.get("project"):
-                credentials["project_id"] = project_id
+            # Support for beta features
+            if beta_features := self.config.extra_params.get("anthropic_beta"):
+                credentials["beta_features"] = beta_features
 
         self.auth_strategy = AuthStrategyFactory.create_from_provider(
-            "openai", credentials
+            "anthropic", credentials
         )
 
         # Transform pipeline
-        transformer = OpenAIRequestTransformer()
-        parser = OpenAIResponseParser()
+        transformer = AnthropicRequestTransformer()
+        parser = AnthropicResponseParser()
         pipeline_config = TransformPipelineConfig(
-            provider_name="openai",
+            provider_name="anthropic",
             default_model=self.default_model,
             supported_models=self.supported_models,
-            max_tokens_limit=128000,  # Use default max context
+            max_tokens_limit=200000,  # Use default max context for Claude
         )
         self.transform_pipeline = TransformPipeline(transformer, parser, pipeline_config)
 
-        # Token counter
-        self.token_counter = TiktokenCounter()
+        # Token counter - will be initialized with API client later
+        self.token_counter = AnthropicAPICounter()
 
         # Streaming adapter
-        self.streaming_adapter = SSEAdapter(provider="openai")
+        self.streaming_adapter = SSEAdapter(provider="anthropic")
 
         # Rate limiter
         self.rate_coordinator = RateLimitCoordinator()
-        # Initialize with conservative default limits
-        default_limiter = create_openai_limiter(
-            requests_per_minute=60,  # Conservative for new users
-            tokens_per_minute=10000
+        # Initialize with conservative default limits for Anthropic
+        default_limiter = create_anthropic_limiter(
+            tokens_per_minute=50000  # Conservative default
         )
-        self.rate_coordinator.add_provider_limiter("openai", default_limiter)
+        self.rate_coordinator.add_provider_limiter("anthropic", default_limiter)
 
     def _on_circuit_state_change(self, old_state, new_state) -> None:
         """Handle circuit breaker state changes."""
         logger.warning(
-            f"OpenAI circuit breaker state changed from {old_state.value} to {new_state.value}. "
+            f"Anthropic circuit breaker state changed from {old_state.value} to {new_state.value}. "
             f"Provider health: {new_state.value}"
         )
 
@@ -221,31 +293,36 @@ class OpenAIProvider(ModelProvider):
     def _init_capabilities(self) -> ProviderCapabilities:
         """Initialize enhanced provider capabilities."""
         model = self.config.model or self.default_model
-        token_limit = MODEL_TOKEN_LIMITS.get(model, 128000)  # Default to higher limit
-        pricing = MODEL_PRICING.get(model, (5.0, 20.0))  # Default to GPT-4o pricing
+        token_limit = MODEL_TOKEN_LIMITS.get(model, 200000)  # Default to higher limit
+        pricing = MODEL_PRICING.get(model, (3.0, 15.0))  # Default to Sonnet 4 pricing
 
         # Determine rate limits based on model tier
-        if "gpt-4o" in model or "gpt-4.1" in model:
+        if "opus-4" in model:
             rate_limits = {
-                "requests_per_minute": 5000,
-                "tokens_per_minute": 500000,
+                "requests_per_minute": 4000,
+                "tokens_per_minute": 400000,
             }
-        elif "gpt-4" in model:
+        elif "sonnet-4" in model:
+            rate_limits = {
+                "requests_per_minute": 4000,
+                "tokens_per_minute": 400000,
+            }
+        elif "haiku" in model:
+            rate_limits = {
+                "requests_per_minute": 4000,
+                "tokens_per_minute": 400000,
+            }
+        else:  # Legacy models
             rate_limits = {
                 "requests_per_minute": 1000,
-                "tokens_per_minute": 40000,
-            }
-        else:  # GPT-3.5 and others
-            rate_limits = {
-                "requests_per_minute": 3000,
-                "tokens_per_minute": 160000,
+                "tokens_per_minute": 80000,
             }
 
         return ProviderCapabilities(
             max_context_length=token_limit,
             supports_streaming=True,
-            supports_json_mode=True,  # All modern models support JSON mode
-            supports_function_calling=True,  # All models support function calling
+            supports_json_mode=False,  # Anthropic doesn't have JSON mode
+            supports_function_calling=True,  # Claude supports tool use
             rate_limits=rate_limits,
             supported_models=self.supported_models,
             cost_per_1k_prompt_tokens=pricing[0] / 1000,  # Convert to per-1k pricing
@@ -267,6 +344,10 @@ class OpenAIProvider(ModelProvider):
         Raises:
             Various provider exceptions
         """
+        # Ensure max_tokens is set (required by Anthropic)
+        if not request.max_tokens:
+            request.max_tokens = 4000  # Anthropic requires max_tokens
+
         # Validate and transform request
         provider_request = self.transform_pipeline.process_request(request)
 
@@ -279,12 +360,12 @@ class OpenAIProvider(ModelProvider):
             timeout=30.0,  # 30 second timeout for rate limit acquisition
         )
 
-        rate_result = await self.rate_coordinator.acquire("openai", rate_request)
+        rate_result = await self.rate_coordinator.acquire("anthropic", rate_request)
         if not rate_result.acquired:
             if rate_result.retry_after:
                 await asyncio.sleep(rate_result.retry_after)
                 # Retry once after waiting
-                rate_result = await self.rate_coordinator.acquire("openai", rate_request)
+                rate_result = await self.rate_coordinator.acquire("anthropic", rate_request)
                 if not rate_result.acquired:
                     retry_after = int(rate_result.retry_after) if rate_result.retry_after else None
                     raise ProviderRateLimitError(
@@ -298,12 +379,12 @@ class OpenAIProvider(ModelProvider):
             if request.stream:
                 # Handle streaming
                 response_data = await self._make_streaming_request(
-                    "chat/completions", provider_request
+                    "messages", provider_request
                 )
             else:
                 # Handle regular request
                 response_data = await self._make_request(
-                    "chat/completions", provider_request
+                    "messages", provider_request
                 )
 
             latency_ms = int((time.time() - start_time) * 1000)
@@ -312,9 +393,10 @@ class OpenAIProvider(ModelProvider):
             if request.stream and isinstance(response_data, str):
                 # For streaming, create a mock response format
                 mock_response = {
-                    "choices": [{"message": {"content": response_data}, "finish_reason": "stop"}],
+                    "content": [{"text": response_data}],
                     "model": request.model or self.default_model,
-                    "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+                    "stop_reason": "end_turn",
+                    "usage": {"input_tokens": 0, "output_tokens": 0}
                 }
                 unified_response = self.transform_pipeline.process_response(
                     mock_response, request, latency_ms
@@ -337,11 +419,32 @@ class OpenAIProvider(ModelProvider):
         finally:
             # Release rate limit resources
             actual_tokens = token_estimate  # Could be refined based on actual usage
-            self.rate_coordinator.release("openai", actual_tokens)
+            self.rate_coordinator.release("anthropic", actual_tokens)
 
     async def _estimate_request_tokens(self, request: UnifiedRequest) -> int:
         """Estimate tokens for a unified request."""
         try:
+            # Set up the token counter with a mock API client for the estimate
+            if not self.token_counter.api_client:
+                # Create a simple mock client for token counting
+                class MockAPIClient:
+                    async def post(self, endpoint: str, json: dict):
+                        # Return a mock response for estimation
+                        text_length = len(json.get("messages", [{}])[0].get("content", ""))
+                        if "system" in json:
+                            text_length += len(json["system"])
+                        
+                        # Rough estimation: ~4 chars per token for Anthropic
+                        estimated_tokens = max(1, text_length // 4)
+                        
+                        class MockResponse:
+                            def json(self):
+                                return {"input_tokens": estimated_tokens}
+                        
+                        return MockResponse()
+                
+                self.token_counter.api_client = MockAPIClient()
+
             token_request = TokenCountRequest(
                 text=request.prompt,
                 model=request.model or self.default_model,
@@ -359,7 +462,7 @@ class OpenAIProvider(ModelProvider):
 
     def _calculate_cost_unified(self, model: str, prompt_tokens: int, completion_tokens: int) -> float:
         """Calculate cost using 2025 pricing structure."""
-        pricing = MODEL_PRICING.get(model, (5.0, 20.0))  # Default to GPT-4o pricing
+        pricing = MODEL_PRICING.get(model, (3.0, 15.0))  # Default to Sonnet 4 pricing
 
         # Pricing is per 1M tokens
         prompt_cost = (prompt_tokens / 1_000_000) * pricing[0]
@@ -375,6 +478,10 @@ class OpenAIProvider(ModelProvider):
         Yields:
             StreamChunk objects with accumulated content
         """
+        # Ensure max_tokens is set (required by Anthropic)
+        if not request.max_tokens:
+            request.max_tokens = 4000
+
         # Set streaming in request
         stream_request = UnifiedRequest(
             prompt=request.prompt,
@@ -392,7 +499,7 @@ class OpenAIProvider(ModelProvider):
         # Handle rate limiting similar to regular request
         token_estimate = await self._estimate_request_tokens(stream_request)
         rate_request = AcquisitionRequest(estimated_tokens=token_estimate)
-        rate_result = await self.rate_coordinator.acquire("openai", rate_request)
+        rate_result = await self.rate_coordinator.acquire("anthropic", rate_request)
 
         if not rate_result.acquired and rate_result.retry_after:
             await asyncio.sleep(rate_result.retry_after)
@@ -400,14 +507,14 @@ class OpenAIProvider(ModelProvider):
         try:
             # Make streaming request
             async for chunk in self._make_streaming_request_chunks(
-                "chat/completions", provider_request
+                "messages", provider_request
             ):
                 yield chunk
         finally:
-            self.rate_coordinator.release("openai", token_estimate)
+            self.rate_coordinator.release("anthropic", token_estimate)
 
     async def generate(self, prompt: str, **kwargs: Any) -> ModelResponse:
-        """Generate a response from OpenAI (legacy interface).
+        """Generate a response from Anthropic (legacy interface).
         
         This method provides backward compatibility with the existing ModelProvider
         interface while delegating to the new unified implementation.
@@ -424,10 +531,12 @@ class OpenAIProvider(ModelProvider):
         """
         # Convert legacy parameters to unified format
         model = kwargs.get("model", self.config.model or self.default_model)
+        
+        # Handle messages format if provided
         messages = kwargs.get("messages", [{"role": "user", "content": prompt}])
+        system_message = kwargs.get("system")
 
         # Extract system message if present in messages
-        system_message = None
         user_content = prompt
 
         if messages and isinstance(messages, list):
@@ -443,11 +552,11 @@ class OpenAIProvider(ModelProvider):
         unified_request = UnifiedRequest(
             prompt=user_content,
             system_message=system_message,
-            max_tokens=kwargs.get("max_tokens", self.config.max_tokens),
+            max_tokens=kwargs.get("max_tokens", self.config.max_tokens or 4000),
             temperature=kwargs.get("temperature", self.config.temperature),
             stream=kwargs.get("stream", False),
             model=model,
-            stop_sequences=kwargs.get("stop", None)
+            stop_sequences=kwargs.get("stop_sequences", None)
         )
 
         # Use unified interface
@@ -521,10 +630,10 @@ class OpenAIProvider(ModelProvider):
         data: dict[str, Any] | None = None,
         method: str = "POST"
     ) -> Any:
-        """Make an HTTP request to the OpenAI API with retry logic.
+        """Make an HTTP request to the Anthropic API with retry logic.
 
         Args:
-            endpoint: API endpoint (e.g., "chat/completions")
+            endpoint: API endpoint (e.g., "messages")
             data: Request data
             method: HTTP method
 
@@ -540,9 +649,11 @@ class OpenAIProvider(ModelProvider):
         # Log request (sanitized)
         logger.debug(f"Making {method} request to {url}")
         if data and logger.isEnabledFor(logging.DEBUG):
-            sanitized_data = {k: v for k, v in data.items() if k != "messages"}
+            sanitized_data = {k: v for k, v in data.items() if k not in ["messages", "system"]}
             if "messages" in data:
                 sanitized_data["messages"] = f"[{len(data['messages'])} messages]"
+            if "system" in data:
+                sanitized_data["system"] = f"[system message: {len(data['system'])} chars]"
             logger.debug(f"Request data: {sanitized_data}")
 
         # Use circuit breaker to wrap the request
@@ -570,23 +681,16 @@ class OpenAIProvider(ModelProvider):
                                     return await response.json()
 
                             # Handle error responses using comprehensive error handler
-                            # Create a custom exception that carries the response
-                            http_error = aiohttp.ClientResponseError(
-                                request_info=response.request_info,
-                                history=response.history,
-                                status=response.status
-                            )
-                            http_error.response = response  # Attach response for error handler
-                            raise http_error
+                            classified_error = await self.error_handler.classify_response_error(response)
+                            raise classified_error
 
                 except Exception as e:
-                    # For HTTP errors, pass the response for detailed classification
-                    response_obj = getattr(e, 'response', None)
-                    if response_obj and hasattr(response_obj, 'status'):
-                        classified_error = await self.error_handler.classify_response_error(response_obj)
+                    # For already classified errors, pass through
+                    if isinstance(e, ProviderError):
+                        classified_error = e
                     else:
                         # For other errors, use general classification
-                        classified_error = self.error_handler.classify_error(e, response_obj)
+                        classified_error = self.error_handler.classify_error(e)
                     last_error = classified_error
 
                     # Check if we should retry this error
@@ -634,53 +738,37 @@ class OpenAIProvider(ModelProvider):
 
         return accumulated_content
 
-
-    async def _safe_json(self, response: aiohttp.ClientResponse) -> dict[str, Any]:
-        """Safely parse JSON from response.
-
-        Args:
-            response: HTTP response
-
-        Returns:
-            Parsed JSON or error dict
-        """
-        try:
-            return await response.json()  # type: ignore[no-any-return]
-        except Exception:
-            text = await response.text()
-            return {"error": {"message": text or "Unknown error"}}
-
     def _extract_rate_limit_info(self, headers: Any) -> None:
         """Extract rate limit information from response headers.
 
         Args:
             headers: Response headers
         """
-        # OpenAI rate limit headers
-        if "x-ratelimit-limit-requests" in headers:
+        # Anthropic rate limit headers (if available)
+        if "anthropic-ratelimit-requests-limit" in headers:
             self._rate_limit_info["requests_limit"] = (
-                int(headers["x-ratelimit-limit-requests"])
+                int(headers["anthropic-ratelimit-requests-limit"])
             )
-        if "x-ratelimit-remaining-requests" in headers:
+        if "anthropic-ratelimit-requests-remaining" in headers:
             self._rate_limit_info["requests_remaining"] = (
-                int(headers["x-ratelimit-remaining-requests"])
+                int(headers["anthropic-ratelimit-requests-remaining"])
             )
-        if "x-ratelimit-reset-requests" in headers:
+        if "anthropic-ratelimit-requests-reset" in headers:
             self._rate_limit_info["requests_reset"] = (
-                headers["x-ratelimit-reset-requests"]
+                headers["anthropic-ratelimit-requests-reset"]
             )
 
-        if "x-ratelimit-limit-tokens" in headers:
+        if "anthropic-ratelimit-tokens-limit" in headers:
             self._rate_limit_info["tokens_limit"] = (
-                int(headers["x-ratelimit-limit-tokens"])
+                int(headers["anthropic-ratelimit-tokens-limit"])
             )
-        if "x-ratelimit-remaining-tokens" in headers:
+        if "anthropic-ratelimit-tokens-remaining" in headers:
             self._rate_limit_info["tokens_remaining"] = (
-                int(headers["x-ratelimit-remaining-tokens"])
+                int(headers["anthropic-ratelimit-tokens-remaining"])
             )
-        if "x-ratelimit-reset-tokens" in headers:
+        if "anthropic-ratelimit-tokens-reset" in headers:
             self._rate_limit_info["tokens_reset"] = (
-                headers["x-ratelimit-reset-tokens"]
+                headers["anthropic-ratelimit-tokens-reset"]
             )
 
     def _calculate_cost(
@@ -699,52 +787,27 @@ class OpenAIProvider(ModelProvider):
         return self._calculate_cost_unified(model, prompt_tokens, completion_tokens)
 
     async def validate_connection(self) -> bool:
-        """Validate the OpenAI API connection.
+        """Validate the Anthropic API connection.
 
         Returns:
             True if connection is valid
         """
         try:
-            # Try to list models as a connection test
-            await self._make_request("models", method="GET")
+            # Try a minimal generation as a connection test
+            test_response = await self.generate(
+                "Respond with 'OK' if you receive this.",
+                max_tokens=10
+            )
             self._health_status = "healthy"
-            return True
+            return bool(test_response.content)
         except ProviderAuthenticationError:
-            logger.error("OpenAI API authentication failed")
+            logger.error("Anthropic API authentication failed")
             self._health_status = "unhealthy"
             return False
         except Exception as e:
-            logger.warning(f"OpenAI connection validation failed: {e}")
+            logger.warning(f"Anthropic connection validation failed: {e}")
             self._health_status = "unhealthy"
             return False
-
-    async def get_available_models(self) -> list[str]:
-        """Get list of available models from the API.
-
-        Returns:
-            List of model IDs
-        """
-        # Check cache
-        if (
-            self._available_models is not None
-            and self._models_last_fetched is not None
-            and time.time() - self._models_last_fetched < self._models_cache_duration
-        ):
-            return self._available_models
-
-        try:
-            response = await self._make_request("models", method="GET")
-            models = [model["id"] for model in response.get("data", [])]
-
-            # Cache the result
-            self._available_models = models
-            self._models_last_fetched = time.time()
-
-            return models
-        except Exception as e:
-            logger.warning(f"Failed to fetch available models: {e}")
-            # Return default list if API call fails
-            return self.supported_models
 
     def estimate_cost(self, prompt_tokens: int, max_tokens: int) -> float:
         """Estimate the cost of a generation.
@@ -778,7 +841,7 @@ class OpenAIProvider(ModelProvider):
     @classmethod
     def get_required_env_vars(cls) -> list[str]:
         """Get required environment variables."""
-        return ["OPENAI_API_KEY"]
+        return ["ANTHROPIC_API_KEY"]
 
     @classmethod
     def _config_from_env(
@@ -795,17 +858,17 @@ class OpenAIProvider(ModelProvider):
         """
         config = ProviderConfig(
             name=cls.name,
-            api_key=env_vars["OPENAI_API_KEY"],
-            model=model or os.getenv("OPENAI_MODEL") or cls.default_model,
+            api_key=env_vars["ANTHROPIC_API_KEY"],
+            model=model or os.getenv("ANTHROPIC_MODEL") or cls.default_model,
         )
 
         # Optional endpoint override
-        if "OPENAI_BASE_URL" in os.environ:
-            config.endpoint = os.environ["OPENAI_BASE_URL"]
+        if "ANTHROPIC_BASE_URL" in os.environ:
+            config.endpoint = os.environ["ANTHROPIC_BASE_URL"]
 
-        # Optional organization ID
-        if "OPENAI_ORG_ID" in os.environ:
-            config.extra_params = {"organization": os.environ["OPENAI_ORG_ID"]}
+        # Optional beta features
+        if "ANTHROPIC_BETA" in os.environ:
+            config.extra_params = {"anthropic_beta": os.environ["ANTHROPIC_BETA"]}
 
         return config
 
@@ -816,36 +879,28 @@ class OpenAIProvider(ModelProvider):
             Dictionary with rate limit details
         """
         # Combine legacy info with unified rate limiter status
-        unified_status = self.rate_coordinator.get_status("openai")
+        unified_status = self.rate_coordinator.get_status("anthropic")
         legacy_info = self._rate_limit_info.copy()
 
         return {
             "legacy_info": legacy_info,
             "unified_status": unified_status,
-            "provider": "openai"
+            "provider": "anthropic"
         }
 
     def configure_rate_limits(
         self,
-        requests_per_minute: int | None = None,
         tokens_per_minute: int | None = None
     ) -> None:
         """Configure rate limits for this provider.
         
         Args:
-            requests_per_minute: Requests per minute limit
             tokens_per_minute: Tokens per minute limit
         """
-        if requests_per_minute or tokens_per_minute:
-            limiter = create_openai_limiter(
-                requests_per_minute or 1000,
-                tokens_per_minute or 40000
-            )
-            self.rate_coordinator.add_provider_limiter("openai", limiter)
-            logger.info(
-                f"Updated OpenAI rate limits: {requests_per_minute} RPM, "
-                f"{tokens_per_minute} TPM"
-            )
+        if tokens_per_minute:
+            limiter = create_anthropic_limiter(tokens_per_minute)
+            self.rate_coordinator.add_provider_limiter("anthropic", limiter)
+            logger.info(f"Updated Anthropic rate limits: {tokens_per_minute} TPM")
 
     def get_token_limit(self) -> int:
         """Get the token limit for the current model.
@@ -854,4 +909,23 @@ class OpenAIProvider(ModelProvider):
             Maximum number of tokens
         """
         model = self.config.model or self.default_model
-        return MODEL_TOKEN_LIMITS.get(model, 4096)
+        return MODEL_TOKEN_LIMITS.get(model, 200000)
+
+    async def count_tokens(self, text: str, model: str) -> int:
+        """Token counting via Anthropic API.
+        
+        Args:
+            text: Text to count tokens for
+            model: Model name for tokenization
+            
+        Returns:
+            Number of tokens
+        """
+        token_request = TokenCountRequest(
+            text=text,
+            model=model,
+            system_message=None,
+            include_system=False
+        )
+        result = await self.token_counter.count_tokens(token_request)
+        return result.token_count

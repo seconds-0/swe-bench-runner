@@ -147,3 +147,8 @@ logs/
 *.jsonl
 !tests/fixtures/*.jsonl
 .mypy_cache/
+
+# Integration test credentials - NEVER commit these
+.env.integration
+integration_test_costs.json
+test_costs.csv

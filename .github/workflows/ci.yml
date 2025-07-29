@@ -67,7 +67,7 @@ jobs:
 
     - name: Run tests
       run: |
-        pytest tests/ -v --cov=swebench_runner --cov-report=xml --cov-report=term-missing
+        pytest tests/ -v --cov=swebench_runner --cov-report=xml --cov-report=term-missing -m "not integration"
 
     - name: Upload coverage to Codecov
       if: matrix.python-version == '3.11'

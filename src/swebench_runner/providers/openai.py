@@ -287,7 +287,9 @@ class OpenAIProvider(ModelProvider):
             if rate_result.retry_after:
                 await asyncio.sleep(rate_result.retry_after)
                 # Retry once after waiting
-                rate_result = await self.rate_coordinator.acquire("openai", rate_request)
+                rate_result = await self.rate_coordinator.acquire(
+                    "openai", rate_request
+                )
                 if not rate_result.acquired:
                     retry_after = (
                         int(rate_result.retry_after)
@@ -584,7 +586,9 @@ class OpenAIProvider(ModelProvider):
                             if response.status == 200:
                                 if data and data.get("stream"):
                                     # Handle streaming response using adapter
-                                    return await self._handle_streaming_response_legacy(response)
+                                    return await self._handle_streaming_response_legacy(
+                                response
+                            )
                                 else:
                                     return await response.json()
 
@@ -607,17 +611,21 @@ class OpenAIProvider(ModelProvider):
                             classify_response_error(response_obj)
                     else:
                         # For other errors, use general classification
-                        classified_error = self.error_handler.classify_error(e, response_obj)
+                        classified_error = self.error_handler.classify_error(
+                            e, response_obj
+                        )
                     last_error = classified_error
 
                     # Check if we should retry this error
                     if (not self.error_handler.should_retry(classified_error) or
                             attempt >= self.max_retries):
                         # Don't retry or exhausted retries
-                        raise classified_error
+                        raise classified_error from e
 
                     # Calculate retry delay
-                    delay = self.error_handler.get_retry_delay(classified_error, attempt)
+                    delay = self.error_handler.get_retry_delay(
+                        classified_error, attempt
+                    )
 
                     # Log retry attempt with user-friendly message
                     user_message = self.error_handler.get_user_message(classified_error)
@@ -634,7 +642,9 @@ class OpenAIProvider(ModelProvider):
             if last_error:
                 raise last_error
             else:
-                raise ProviderError("Request failed after all retries", provider="openai")
+                raise ProviderError(
+                    "Request failed after all retries", provider="openai"
+                )
 
         # Execute request through circuit breaker
         return await self.circuit_breaker.call(_make_single_request)

@@ -512,9 +512,9 @@ class OllamaProvider(ModelProvider):
                     running_models = ps_response.get("models", [])
                     health_info["running_models"] = len(running_models)
 
-                except Exception:
+                except Exception as e:
                     # Don't fail health check if extra info fails
-                    pass
+                    logger.debug(f"Failed to get extra health info: {e}")
 
             self._last_health_check = current_time
             self._health_status = health_info["status"]

@@ -6,10 +6,13 @@ AI providers (OpenAI, Anthropic, Ollama) with fallback mechanisms.
 
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class TokenCounterType(Enum):
@@ -309,7 +312,8 @@ class UnifiedTokenCounter:
             if counter.supports_model(model):
                 try:
                     return await counter.count_tokens(request)
-                except Exception:
+                except Exception as e:
+                    logger.debug(f"Counter {counter.__class__.__name__} failed: {e}")
                     continue  # Try next counter
 
         # Fallback to simple estimation

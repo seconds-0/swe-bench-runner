@@ -189,9 +189,9 @@ def status() -> None:
             config = config_manager.load_config(provider_name)
             if config:
                 config_status = "✅ Configured"
-                current_model = config.model or getattr(
+                current_model = str(config.model or getattr(
                     provider_class, 'default_model', 'default'
-                )
+                ))
                 # Test connection
                 try:
                     _provider = provider_class(config)
@@ -272,7 +272,7 @@ def models(provider_name: str) -> None:
             console.print(f"Default model: {provider_class.default_model}")
         return
 
-    for model_info in models_info:
+    for model_info in models_info:  # type: ignore[attr-defined]
         table.add_row(
             model_info['name'],
             model_info['context_length'],

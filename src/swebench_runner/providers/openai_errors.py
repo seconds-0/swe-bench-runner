@@ -151,7 +151,9 @@ class OpenAIErrorHandler:
                 )
             return ProviderConnectionError(f"Network error: {str(error)}")
 
-        return asyncio.create_task(self.classify_response_error(response))
+        # For response errors, we need to handle them synchronously
+        # This is a sync method, so we can't await here
+        return ProviderError(f"HTTP error {response.status}", provider="openai")
 
     async def classify_response_error(
         self, response: aiohttp.ClientResponse
@@ -446,18 +448,18 @@ class OpenAIErrorHandler:
             if error.retry_after:
                 # Add small jitter to avoid thundering herd
                 jitter = min(5.0, error.retry_after * 0.1)
-                return error.retry_after + (
+                return float(error.retry_after + (
                     jitter * (0.5 + 0.5 * hash(time.time()) % 1)
-                )
+                ))
             # Fallback to exponential backoff for rate limits without retry-after
-            return min(60.0, self.base_delay * (3 ** attempt))
+            return float(min(60.0, self.base_delay * (3 ** attempt)))
 
         # Longer delays for server errors
         if isinstance(error, OpenAIServerError | ProviderConnectionError):
-            return min(30.0, self.base_delay * (2 ** attempt))
+            return float(min(30.0, self.base_delay * (2 ** attempt)))
 
         # Standard exponential backoff for other retryable errors
-        return min(16.0, self.base_delay * (2 ** attempt))
+        return float(min(16.0, self.base_delay * (2 ** attempt)))
 
     def get_user_message(self, error: ProviderError) -> str:
         """Get user-friendly error message with actionable steps.

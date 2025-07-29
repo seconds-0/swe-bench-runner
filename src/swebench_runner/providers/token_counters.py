@@ -65,8 +65,8 @@ class TokenCounter(ABC):
 class TiktokenCounter(TokenCounter):
     """Token counter using OpenAI's tiktoken library."""
 
-    def __init__(self):
-        self._encodings = {}
+    def __init__(self) -> None:
+        self._encodings: dict[str, Any] = {}
         # Model to encoding mapping
         self._model_encodings = {
             "gpt-4o": "o200k_base",
@@ -132,7 +132,7 @@ class TiktokenCounter(TokenCounter):
 class AnthropicAPICounter(TokenCounter):
     """Token counter using Anthropic's count_tokens API."""
 
-    def __init__(self, api_client=None):
+    def __init__(self, api_client: Any = None) -> None:
         self.api_client = api_client
         self._supported_models = {
             "claude-opus-4-20250514",
@@ -216,8 +216,8 @@ class AnthropicAPICounter(TokenCounter):
 class MetadataTokenCounter(TokenCounter):
     """Token counter that extracts counts from response metadata (Ollama)."""
 
-    def __init__(self):
-        self._last_response = None
+    def __init__(self) -> None:
+        self._last_response: dict[str, Any] | None = None
         self._supported_models = {
             "llama3.3", "llama3.2", "mistral", "codellama",
             "deepseek-r1", "phi-4", "qwen2.5"
@@ -283,17 +283,17 @@ class MetadataTokenCounter(TokenCounter):
 class UnifiedTokenCounter:
     """Unified interface for token counting across all providers."""
 
-    def __init__(self):
-        self._counters = {}
+    def __init__(self) -> None:
+        self._counters: dict[str, TokenCounter] = {}
         self._setup_default_counters()
 
-    def _setup_default_counters(self):
+    def _setup_default_counters(self) -> None:
         """Setup default token counters."""
         self._counters["tiktoken"] = TiktokenCounter()
         self._counters["metadata"] = MetadataTokenCounter()
         # Note: AnthropicAPICounter requires client, set up separately
 
-    def add_counter(self, name: str, counter: TokenCounter):
+    def add_counter(self, name: str, counter: TokenCounter) -> None:
         """Add a token counter."""
         self._counters[name] = counter
 
@@ -348,7 +348,7 @@ class UnifiedTokenCounter:
 
 
 # Factory function for easy setup
-def create_unified_counter(anthropic_client=None) -> UnifiedTokenCounter:
+def create_unified_counter(anthropic_client: Any = None) -> UnifiedTokenCounter:
     """Create a unified token counter with all available counters."""
     counter = UnifiedTokenCounter()
 

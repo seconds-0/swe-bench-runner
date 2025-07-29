@@ -205,7 +205,7 @@ class OpenAIProvider(ModelProvider):
         )
         self.rate_coordinator.add_provider_limiter("openai", default_limiter)
 
-    def _on_circuit_state_change(self, old_state, new_state) -> None:
+    def _on_circuit_state_change(self, old_state: Any, new_state: Any) -> None:
         """Handle circuit breaker state changes."""
         logger.warning(
             f"OpenAI circuit breaker state changed from "
@@ -335,6 +335,9 @@ class OpenAIProvider(ModelProvider):
                     mock_response, request, latency_ms
                 )
             else:
+                # response_data should already be a dict[str, Any] for non-streaming
+                if not isinstance(response_data, dict):
+                    raise ValueError(f"Expected dict response, got {type(response_data)}")
                 unified_response = self.transform_pipeline.process_response(
                     response_data, request, latency_ms
                 )
@@ -567,7 +570,7 @@ class OpenAIProvider(ModelProvider):
             logger.debug(f"Request data: {sanitized_data}")
 
         # Use circuit breaker to wrap the request
-        async def _make_single_request():
+        async def _make_single_request() -> Any:
             # Enhanced retry logic with comprehensive error handling
             last_error = None
             for attempt in range(self.max_retries + 1):

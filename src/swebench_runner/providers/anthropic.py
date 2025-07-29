@@ -181,7 +181,7 @@ class AnthropicErrorHandler:
             return min(error.retry_after, 60.0)  # Cap at 60 seconds
 
         # Exponential backoff for other retryable errors
-        return min(base_delay * (2 ** attempt), 60.0)
+        return float(min(base_delay * (2 ** attempt), 60.0))
 
     def get_user_message(self, error: ProviderError) -> str:
         """Get user-friendly error message."""
@@ -305,7 +305,7 @@ class AnthropicProvider(ModelProvider):
         )
         self.rate_coordinator.add_provider_limiter("anthropic", default_limiter)
 
-    def _on_circuit_state_change(self, old_state, new_state) -> None:
+    def _on_circuit_state_change(self, old_state: Any, new_state: Any) -> None:
         """Handle circuit breaker state changes."""
         logger.warning(
             f"Anthropic circuit breaker state changed from {old_state.value} "
@@ -439,6 +439,9 @@ class AnthropicProvider(ModelProvider):
                     mock_response, request, latency_ms
                 )
             else:
+                # response_data should already be a dict[str, Any] for non-streaming
+                if not isinstance(response_data, dict):
+                    raise ValueError(f"Expected dict response, got {type(response_data)}")
                 unified_response = self.transform_pipeline.process_response(
                     response_data, request, latency_ms
                 )
@@ -465,7 +468,7 @@ class AnthropicProvider(ModelProvider):
             if not self.token_counter.api_client:
                 # Create a simple mock client for token counting
                 class MockAPIClient:
-                    async def post(self, endpoint: str, json: dict):
+                    async def post(self, endpoint: str, json: dict[str, Any]) -> Any:
                         # Return a mock response for estimation
                         messages = json.get("messages", [{}])
                         text_length = len(messages[0].get("content", ""))
@@ -476,7 +479,7 @@ class AnthropicProvider(ModelProvider):
                         estimated_tokens = max(1, text_length // 4)
 
                         class MockResponse:
-                            def json(self):
+                            def json(self) -> dict[str, int]:
                                 return {"input_tokens": estimated_tokens}
 
                         return MockResponse()
@@ -706,7 +709,7 @@ class AnthropicProvider(ModelProvider):
             logger.debug(f"Request data: {sanitized_data}")
 
         # Use circuit breaker to wrap the request
-        async def _make_single_request():
+        async def _make_single_request() -> Any:
             # Enhanced retry logic with comprehensive error handling
             last_error = None
             for attempt in range(self.max_retries + 1):

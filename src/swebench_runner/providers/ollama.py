@@ -517,7 +517,7 @@ class OllamaProvider(ModelProvider):
                     logger.debug(f"Failed to get extra health info: {e}")
 
             self._last_health_check = current_time
-            self._health_status = health_info["status"]
+            self._health_status = str(health_info["status"])
 
             return health_info
 
@@ -587,7 +587,7 @@ class OllamaProvider(ModelProvider):
 
                     if response.status == 200:
                         try:
-                            return json.loads(response_text)
+                            return json.loads(response_text)  # type: ignore[no-any-return]
                         except json.JSONDecodeError as e:
                             raise ProviderResponseError(
                                 f"Invalid JSON response from Ollama: {e}",

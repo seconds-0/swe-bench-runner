@@ -22,10 +22,8 @@ def test_generate_command_basic(tmp_path):
         output_file = tmp_path / "output.jsonl"
         output_file.write_text('{"instance_id": "test-1", "patch": "diff"}\n')
 
-        async def mock_generate(*args, **kwargs):
-            return output_file
-
-        mock_integration.return_value.generate_patches_for_evaluation = mock_generate
+        # Use a regular function that returns the path directly
+        mock_integration.return_value.generate_patches_for_evaluation = lambda *args, **kwargs: output_file
 
         # Run command
         result = runner.invoke(cli, ['generate', '-i', 'test-1', '-p', 'mock'])

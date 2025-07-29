@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import sys
 import time
-from typing import List, Dict
 
 import click
 from rich.console import Console
@@ -28,12 +27,12 @@ def provider_cli() -> None:
     pass
 
 
-@provider_cli.command()
+@provider_cli.command(name='list')
 @click.option(
     '--detailed', '-d', is_flag=True,
     help='Show detailed information including models and costs'
 )
-def list(detailed: bool) -> None:
+def list_providers(detailed: bool) -> None:
     """List all available providers and their configuration status."""
     registry = get_registry()
     config_manager = ProviderConfigManager()
@@ -300,7 +299,7 @@ def models(provider_name: str) -> None:
         )
 
 
-def _get_models_info(provider_name: str) -> List[Dict[str, str]]:
+def _get_models_info(provider_name: str) -> list[dict[str, str]]:
     """Get detailed model information for a provider."""
     # This would ideally come from the provider classes or an API call
     # For now, return static data for known providers

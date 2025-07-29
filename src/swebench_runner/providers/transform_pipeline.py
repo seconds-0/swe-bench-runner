@@ -292,7 +292,7 @@ class OllamaRequestTransformer(RequestTransformer):
             "temperature": unified_request.temperature,
             "num_ctx": 4096,  # Context window
         }
-        
+
         ollama_request: dict[str, Any] = {
             "model": unified_request.model,
             "prompt": unified_request.prompt,

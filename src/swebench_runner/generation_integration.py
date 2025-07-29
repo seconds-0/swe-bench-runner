@@ -92,7 +92,10 @@ class ProviderCoordinator:
             if validate_connectivity:
                 # For sync context, skip background validation
                 # Background validation only works in async context
-                logger.debug(f"Skipping background validation for {provider_name} in sync context")
+                logger.debug(
+                    f"Skipping background validation for {provider_name} "
+                    f"in sync context"
+                )
 
             return provider
 

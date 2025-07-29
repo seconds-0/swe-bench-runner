@@ -273,7 +273,7 @@ class SemaphoreLimiter(RateLimiter):
             self._semaphore = asyncio.Semaphore(self.concurrent_limit)
         if self._lock is None:
             self._lock = asyncio.Lock()
-            
+
         timeout = request.timeout
 
         try:
@@ -320,7 +320,7 @@ class SemaphoreLimiter(RateLimiter):
             "type": "semaphore",
             "active_requests": self._active_requests,
             "concurrent_limit": self.concurrent_limit,
-            "available": self._semaphore._value,
+            "available": self._semaphore._value if self._semaphore else self.concurrent_limit,
             "utilization": self._active_requests / self.concurrent_limit,
         }
 

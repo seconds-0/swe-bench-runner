@@ -1,11 +1,8 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 
 def test_generate_command_basic(tmp_path):
     """Test generate command works with mock provider."""
-    import pytest
-    pytest.skip("Test is hanging - needs investigation")
-    
     from click.testing import CliRunner
 
     from swebench_runner.cli import cli
@@ -16,21 +13,35 @@ def test_generate_command_basic(tmp_path):
     output_file = tmp_path / "output.jsonl"
     output_file.write_text('{"instance_id": "test-1", "patch": "diff"}\n')
 
-    with patch('swebench_runner.generation_integration.GenerationIntegration') as mock_integration, \
-         patch('swebench_runner.provider_utils.get_provider_for_cli'), \
-         patch('swebench_runner.datasets.DatasetManager') as mock_dm, \
-         patch('asyncio.run') as mock_asyncio_run:
+    # We need to mock the imports at their original locations
+    with patch('swebench_runner.generation_integration.GenerationIntegration') as mock_integration_class, \
+         patch('swebench_runner.provider_utils.ensure_provider_configured'), \
+         patch('swebench_runner.provider_utils.get_provider_for_cli') as mock_get_provider, \
+         patch('swebench_runner.datasets.DatasetManager') as mock_dm_class:
 
-        # Setup minimal mocks
-        mock_dm.return_value.get_instances.return_value = [
+        # Setup dataset mock
+        mock_dm = MagicMock()
+        mock_dm.get_instances.return_value = [
             {"instance_id": "test-1", "problem_statement": "Test", "repo": "test/repo"}
         ]
+        mock_dm_class.return_value = mock_dm
 
-        # Mock asyncio.run to return the output file directly
-        mock_asyncio_run.return_value = output_file
+        # Setup provider mock
+        mock_provider = MagicMock()
+        mock_provider.name = "mock"
+        mock_provider._async_provider = MagicMock()
+        mock_provider._async_provider.name = "mock"
+        mock_provider._async_provider.config = MagicMock(model="mock-model")
+        mock_get_provider.return_value = mock_provider
+
+        # Setup integration mock
+        mock_integration = MagicMock()
+        # Use AsyncMock for the async method
+        mock_integration.generate_patches_for_evaluation = AsyncMock(return_value=output_file)
+        mock_integration_class.return_value = mock_integration
 
         # Run command
-        result = runner.invoke(cli, ['generate', '-i', 'test-1', '-p', 'mock'])
+        result = runner.invoke(cli, ['generate', '-i', 'test-1', '-p', 'mock', '-d', 'lite'])
 
         assert result.exit_code == 0
-        assert "Patch generated successfully" in result.output
+        assert "Generating patch for test-1" in result.output

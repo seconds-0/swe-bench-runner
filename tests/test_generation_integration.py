@@ -62,7 +62,6 @@ def sample_instances():
 class TestGenerationIntegration:
     """Test GenerationIntegration class."""
 
-    @pytest.mark.skip(reason="Async test with complex mocking - fix later")
     @pytest.mark.asyncio
     async def test_generate_patches_for_evaluation(self, temp_cache_dir, mock_provider, sample_instances):
         """Test generating patches for evaluation."""
@@ -230,7 +229,6 @@ class TestGenerationIntegration:
             assert "model" in patches[1]
             assert patches[1]["model"] == "mock-small"
 
-    @pytest.mark.skip(reason="Async test with complex mocking - fix later")
     @pytest.mark.asyncio
     async def test_cost_warning(self, temp_cache_dir, mock_provider, sample_instances, capsys):
         """Test cost warning for expensive generation."""
@@ -754,7 +752,6 @@ class TestGenerationFailureHandler:
 class TestCLIIntegration:
     """Test CLI integration for generation."""
 
-    @pytest.mark.skip(reason="Complex CLI test - needs proper Docker mocking")
     def test_run_with_provider_generates_patches(self, tmp_path):
         """Test run command with provider generates patches."""
         runner = CliRunner()
@@ -818,7 +815,6 @@ class TestCLIIntegration:
             # Verify that we attempted async generation
             assert mock_async_run.called
 
-    @pytest.mark.skip(reason="Complex CLI test - needs proper Docker mocking")
     def test_run_with_generate_only(self, tmp_path):
         """Test run command with --generate-only flag."""
         runner = CliRunner()
@@ -867,7 +863,6 @@ class TestCLIIntegration:
             assert result.exit_code == 0
             assert "Patches generated successfully" in result.output
 
-    @pytest.mark.skip(reason="Complex CLI test - needs proper Docker mocking")
     def test_generate_command_with_instance(self, tmp_path):
         """Test generate command for single instance."""
         runner = CliRunner()

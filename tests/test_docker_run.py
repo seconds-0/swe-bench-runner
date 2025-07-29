@@ -241,8 +241,8 @@ class TestCreatePredictionsFile:
             data = json.load(f)
 
         assert data["instance_id"] == "test__repo-123"
-        assert data["model"] == "swebench-runner-mvp"
-        assert data["prediction"] == "diff --git a/file.py b/file.py\n+test"
+        assert data["model_name_or_path"] == "swebench-runner-mvp"
+        assert data["model_patch"] == "diff --git a/file.py b/file.py\n+test"
 
 
 class TestDetectPlatform:

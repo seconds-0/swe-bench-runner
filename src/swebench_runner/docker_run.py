@@ -367,13 +367,11 @@ def run_swebench_harness(predictions_file: Path, temp_dir: Path,
         "--cache_level", "env"
     ]
 
-    # Add namespace based on architecture
+    # Add namespace only for x86_64 architecture
     if arch == "x86_64":
         # Use Epoch AI optimized images for x86_64
         cmd.extend(["--namespace", "ghcr.io/epoch-research"])
-    else:
-        # Use empty namespace for ARM64 to force local builds
-        cmd.extend(["--namespace", ""])
+    # For ARM64, don't add namespace argument at all
 
     print(f"Running SWE-bench harness for {patch.instance_id}...")
     print(f"Command: {' '.join(cmd)}")

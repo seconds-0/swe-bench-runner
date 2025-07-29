@@ -214,8 +214,8 @@ class TestHarnessExecution:
         with pred_file.open() as f:
             data = json.load(f)
             assert data["instance_id"] == "test-123"
-            assert data["model"] == "swebench-runner-mvp"
-            assert data["prediction"] == "test patch"
+            assert data["model_name_or_path"] == "swebench-runner-mvp"
+            assert data["model_patch"] == "test patch"
 
     @patch("subprocess.run")
     def test_run_harness_timeout(self, mock_run):

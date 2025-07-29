@@ -472,12 +472,12 @@ class OpenAIErrorHandler:
         if isinstance(
             error,
             (
-                OpenAIRateLimitError
-                | OpenAIAuthenticationError
-                | OpenAIModelNotFoundError
-                | OpenAIContextLengthError
-                | OpenAIContentFilterError
-                | OpenAIServerError
+                OpenAIRateLimitError,
+                OpenAIAuthenticationError,
+                OpenAIModelNotFoundError,
+                OpenAIContextLengthError,
+                OpenAIContentFilterError,
+                OpenAIServerError,
             ),
         ):
             return str(error)

@@ -110,10 +110,12 @@ class TokenBucketLimiter(RateLimiter):
 
         self._tokens = float(capacity)
         self._last_refill = time.time()
-        self._lock = asyncio.Lock()
+        self._lock: asyncio.Lock | None = None
 
     async def acquire(self, request: AcquisitionRequest) -> AcquisitionResult:
         """Acquire tokens from the bucket."""
+        if self._lock is None:
+            self._lock = asyncio.Lock()
         async with self._lock:
             self._refill_tokens()
 
@@ -192,10 +194,12 @@ class SlidingWindowLimiter(RateLimiter):
         self.window_seconds = window_seconds
 
         self._requests: deque[float] = deque()
-        self._lock = asyncio.Lock()
+        self._lock: asyncio.Lock | None = None
 
     async def acquire(self, request: AcquisitionRequest) -> AcquisitionResult:
         """Acquire request permission."""
+        if self._lock is None:
+            self._lock = asyncio.Lock()
         async with self._lock:
             self._cleanup_old_requests()
 
@@ -259,12 +263,17 @@ class SemaphoreLimiter(RateLimiter):
     def __init__(self, concurrent_limit: int):
         """Initialize semaphore limiter."""
         self.concurrent_limit = concurrent_limit
-        self._semaphore = asyncio.Semaphore(concurrent_limit)
+        self._semaphore: asyncio.Semaphore | None = None
         self._active_requests = 0
-        self._lock = asyncio.Lock()
+        self._lock: asyncio.Lock | None = None
 
     async def acquire(self, request: AcquisitionRequest) -> AcquisitionResult:
         """Acquire semaphore permission."""
+        if self._semaphore is None:
+            self._semaphore = asyncio.Semaphore(self.concurrent_limit)
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+            
         timeout = request.timeout
 
         try:
@@ -299,13 +308,11 @@ class SemaphoreLimiter(RateLimiter):
 
     def release(self, tokens_used: int = 1) -> None:
         """Release semaphore."""
-        self._semaphore.release()
-        asyncio.create_task(self._decrement_counter())
+        if self._semaphore is not None:
+            self._semaphore.release()
+        # Note: Counter decrement happens in acquire method
+        # We don't need to track it separately in release
 
-    async def _decrement_counter(self) -> None:
-        """Decrement active request counter."""
-        async with self._lock:
-            self._active_requests = max(0, self._active_requests - 1)
 
     def get_status(self) -> dict[str, Any]:
         """Get current semaphore status."""

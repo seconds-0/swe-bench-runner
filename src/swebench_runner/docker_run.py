@@ -326,8 +326,8 @@ def create_predictions_file(patch: Patch, temp_dir: Path) -> Path:
 
     prediction_data = {
         "instance_id": patch.instance_id,
-        "model": "swebench-runner-mvp",
-        "prediction": patch.patch
+        "model_name_or_path": "swebench-runner-mvp",
+        "model_patch": patch.patch
     }
 
     with predictions_file.open('w', encoding='utf-8') as f:
@@ -359,6 +359,7 @@ def run_swebench_harness(predictions_file: Path, temp_dir: Path,
     # Build harness command
     cmd = [
         sys.executable, "-m", "swebench.harness.run_evaluation",
+        "--dataset_name", "SWE-bench/SWE-bench_Lite",
         "--predictions_path", str(predictions_file),
         "--max_workers", "1",
         "--run_id", run_id,
@@ -366,9 +367,13 @@ def run_swebench_harness(predictions_file: Path, temp_dir: Path,
         "--cache_level", "env"
     ]
 
-    # Add namespace for x86_64 (Epoch AI optimized images)
+    # Add namespace based on architecture
     if arch == "x86_64":
+        # Use Epoch AI optimized images for x86_64
         cmd.extend(["--namespace", "ghcr.io/epoch-research"])
+    else:
+        # Use empty namespace for ARM64 to force local builds
+        cmd.extend(["--namespace", ""])
 
     print(f"Running SWE-bench harness for {patch.instance_id}...")
     print(f"Command: {' '.join(cmd)}")

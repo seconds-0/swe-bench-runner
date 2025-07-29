@@ -68,10 +68,10 @@ Integration tests are located in `tests/integration/` and are marked with `@pyte
    ```bash
    # Install Ollama
    curl -fsSL https://ollama.com/install.sh | sh
-   
+
    # Start Ollama service
    ollama serve
-   
+
    # Pull test model
    ollama pull llama3.2:1b
    ```

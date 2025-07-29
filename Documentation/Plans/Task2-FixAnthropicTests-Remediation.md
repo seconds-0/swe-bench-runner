@@ -42,7 +42,7 @@ Replace all incorrect response access patterns:
 
 ### Phase 1: Fix Critical API Issues (Priority: URGENT)
 - [ ] Fix lines 58-59: response.content access
-- [ ] Fix line 60: response.finish_reason access  
+- [ ] Fix line 60: response.finish_reason access
 - [ ] Fix lines 69-71: cost calculation
 - [ ] Fix lines 98-99: streaming content access
 - [ ] Fix line 174: system message response
@@ -80,26 +80,26 @@ async def test_basic_generation(self, provider: AnthropicProvider, anthropic_tes
         temperature=0.0,
         max_tokens=10,
     )
-    
+
     response = await provider.generate_unified(request)
-    
+
     # Validate response structure - USE UNIFIED API
     assert response.id is not None
     assert response.model == anthropic_test_model
     assert response.content is not None  # FIXED
     assert "test" in response.content.lower()  # FIXED
     assert response.finish_reason in ["stop", "max_tokens"]  # FIXED
-    
+
     # Validate token usage
     assert response.usage is not None
     assert response.usage.prompt_tokens > 0
     assert response.usage.completion_tokens > 0
     assert response.usage.total_tokens == response.usage.prompt_tokens + response.usage.completion_tokens
-    
+
     # Validate cost calculation - USE UNIFIED API
     assert response.cost is not None  # FIXED
     assert response.cost > 0  # FIXED
-    
+
     # If we need component costs, calculate them
     capabilities = await provider.get_capabilities()
     model_info = next((m for m in capabilities.supported_models if m.id == anthropic_test_model), None)
@@ -122,19 +122,19 @@ async def test_streaming_generation(self, provider: AnthropicProvider, anthropic
         max_tokens=50,
         stream=True,
     )
-    
+
     chunks: List[str] = []
     chunk_count = 0
     start_time = datetime.now()
-    
+
     async for chunk in provider.generate_stream(request):  # USE UNIFIED STREAMING
         chunk_count += 1
         if chunk.content:  # FIXED - use unified chunk format
             chunks.append(chunk.content)
-    
+
     end_time = datetime.now()
     duration = (end_time - start_time).total_seconds()
-    
+
     # Validate streaming behavior
     assert chunk_count > 1
     assert len(chunks) > 0
@@ -150,19 +150,19 @@ async def test_authentication_error(self, monkeypatch):
     """Test handling of authentication errors with invalid key."""
     # Use monkeypatch for proper isolation
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-invalid-test-key-12345")
-    
+
     provider = AnthropicProvider()
     await provider.initialize()
-    
+
     request = UnifiedRequest(
         model="claude-3-haiku-20240307",
         prompt="test",
         max_tokens=10,
     )
-    
+
     with pytest.raises(ProviderAuthenticationError) as exc_info:
         await provider.generate_unified(request)
-    
+
     assert exc_info.value.provider == "anthropic"
     assert "authentication" in str(exc_info.value).lower() or "api key" in str(exc_info.value).lower()
 ```
@@ -175,7 +175,7 @@ async def test_vision_capability(self, provider: AnthropicProvider, anthropic_te
     # Only test if model supports vision
     if "vision" not in anthropic_test_model and "claude-3" not in anthropic_test_model:
         pytest.skip("Model doesn't support vision")
-    
+
     request = UnifiedRequest(
         model=anthropic_test_model,
         prompt="What do you see in this image? Just say 'test pattern' if you see anything.",
@@ -183,7 +183,7 @@ async def test_vision_capability(self, provider: AnthropicProvider, anthropic_te
         # In real implementation, would include base64 image
         # For now, just test the API accepts the format
     )
-    
+
     try:
         response = await provider.generate_unified(request)
         assert response.content is not None
@@ -204,10 +204,10 @@ async def test_multi_turn_conversation(self, provider: AnthropicProvider, anthro
         temperature=0.0,
         max_tokens=30,
     )
-    
+
     response1 = await provider.generate_unified(request1)
     assert response1.content is not None
-    
+
     # Second turn - should remember context
     request2 = UnifiedRequest(
         model=anthropic_test_model,
@@ -216,7 +216,7 @@ async def test_multi_turn_conversation(self, provider: AnthropicProvider, anthro
         max_tokens=30,
         # In real implementation, would pass conversation history
     )
-    
+
     response2 = await provider.generate_unified(request2)
     # Without conversation history, it won't know the name
     # This tests the API structure, not memory
@@ -241,7 +241,7 @@ async def test_multi_turn_conversation(self, provider: AnthropicProvider, anthro
 ### Blocking
 - None - API format is clearly wrong and must be fixed
 
-### Non-blocking  
+### Non-blocking
 - Should we test vision with actual images? (Assumption: Use mock for cost)
 - How deep should conversation testing go? (Assumption: Basic 2-turn test)
 - Should we validate Claude-specific formatting? (Assumption: Yes, basic test)

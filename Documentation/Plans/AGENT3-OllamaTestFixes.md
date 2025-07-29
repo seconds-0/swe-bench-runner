@@ -25,7 +25,7 @@ Replace all instances of:
 ### 3. Fix Conversation Test
 The test at line 180-198 needs proper implementation of context validation
 
-### 4. Fix Timeout Test  
+### 4. Fix Timeout Test
 The timeout test (lines 329-348) needs to be more reliable
 
 ### 5. Fix Malformed Request Test
@@ -44,21 +44,21 @@ async def test_basic_generation(self, provider: OllamaProvider, ollama_test_mode
         temperature=0.0,
         max_tokens=10,
     )
-    
+
     response = await provider.generate_unified(request)
-    
+
     # Validate response structure
     assert response.content is not None  # FIXED
     assert response.model == ollama_test_model
     assert len(response.content) > 0  # FIXED
     assert response.finish_reason in ["stop", "length"]  # FIXED
-    
+
     # Validate token usage
     assert response.usage is not None
     assert response.usage.prompt_tokens > 0
     assert response.usage.completion_tokens > 0
     assert response.usage.total_tokens == response.usage.prompt_tokens + response.usage.completion_tokens
-    
+
     # Ollama is free, so cost should be 0
     assert response.cost == 0.0
 ```
@@ -75,9 +75,9 @@ async def test_system_message_handling(self, provider: OllamaProvider, ollama_te
         temperature=0.7,
         max_tokens=50,
     )
-    
+
     response = await provider.generate_unified(request)
-    
+
     # Should get a response
     assert response.content is not None
     assert len(response.content) > 0

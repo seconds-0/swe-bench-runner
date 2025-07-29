@@ -133,13 +133,13 @@ async def test_streaming_interruption(provider):
         max_tokens=1000,
         stream=True,
     )
-    
+
     chunks = []
     async for i, chunk in enumerate(provider.generate_stream(request)):
         chunks.append(chunk)
         if i >= 5:  # Interrupt after 5 chunks
             break
-    
+
     # Should handle gracefully without errors
     assert len(chunks) >= 5
 ```
@@ -154,10 +154,10 @@ async def test_error_message_quality(provider):
         model="invalid-model-xyz",
         prompt="test"
     )
-    
+
     with pytest.raises(ProviderModelNotFoundError) as exc_info:
         await provider.generate_unified(request)
-    
+
     error_message = str(exc_info.value)
     assert "invalid-model-xyz" in error_message
     assert "available models" in error_message.lower() or "pull" in error_message.lower()
@@ -175,7 +175,7 @@ async def test_latency_baseline(provider, benchmark):
         prompt="Hi",
         max_tokens=5
     )
-    
+
     result = await benchmark(provider.generate_unified, request)
     assert result.latency_ms < 5000  # Should complete in 5 seconds
     assert result.latency_ms > 0
@@ -187,13 +187,13 @@ async def test_latency_baseline(provider, benchmark):
 ```python
 class TestOpenAIGeneration:
     """Basic generation tests."""
-    
+
 class TestOpenAIStreaming:
     """Streaming-specific tests."""
-    
+
 class TestOpenAIErrors:
     """Error handling tests."""
-    
+
 class TestOpenAICosts:
     """Cost calculation tests."""
 ```

@@ -2,7 +2,7 @@
 
 These tests make real API calls to a local Ollama instance and validate:
 - Basic generation functionality
-- Streaming responses  
+- Streaming responses
 - Error handling with real API errors
 - Model availability checks
 - Local execution characteristics
@@ -29,10 +29,10 @@ class TestOllamaIntegration:
     """Integration tests for Ollama provider with real local API calls."""
 
     @pytest.fixture
-    async def provider(self, skip_without_ollama) -> OllamaProvider:
+    async def provider(self, skip_without_ollama, ollama_config) -> OllamaProvider:
         """Create an Ollama provider connected to local instance."""
-        provider = OllamaProvider()
-        await provider.initialize()
+        provider = OllamaProvider(ollama_config)
+        # Note: initialize() is not needed for the new provider architecture
         return provider
 
     @pytest.mark.asyncio
@@ -305,19 +305,3 @@ class TestOllamaIntegration:
             if isinstance(response, Exception):
                 pytest.fail(f"Concurrent request failed: {response}")
             assert response.content is not None
-
-    @pytest.mark.asyncio
-    async def test_model_availability(self, provider: OllamaProvider):
-        """Test that we can query available models from local Ollama."""
-        capabilities = await provider.get_capabilities()
-
-        # Should have at least one model available
-        assert len(capabilities.supported_models) > 0
-
-        # All models should have valid info
-        for model in capabilities.supported_models:
-            assert model.id is not None
-            assert model.context_window > 0
-            # Ollama models are free
-            assert model.pricing.prompt_token_cost == 0
-            assert model.pricing.completion_token_cost == 0

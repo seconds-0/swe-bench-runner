@@ -29,7 +29,7 @@
 
 **Files affected**:
 - prompt_builder.py: 3 fixes
-- patch_validator.py: 4 fixes  
+- patch_validator.py: 4 fixes
 - response_parser.py: 10 fixes
 - batch_processor.py: 6 fixes
 - token_manager.py: 4 fixes

@@ -13,7 +13,7 @@ from typing import List, Tuple
 
 class TestValidator:
     """Validates integration test files for API compliance."""
-    
+
     def __init__(self):
         self.bad_patterns = [
             (r'messages\s*=\s*\[', 'Should use prompt= instead of messages='),
@@ -23,7 +23,7 @@ class TestValidator:
             (r'stream_unified', 'Should use generate_stream'),
             (r'os\.environ\[.*API_KEY.*\]\s*=', 'Should use monkeypatch for env vars'),
         ]
-        
+
         self.good_patterns = [
             ('prompt=', 'Using unified prompt parameter'),
             ('response.content', 'Using unified response.content'),
@@ -33,7 +33,7 @@ class TestValidator:
             ('monkeypatch', 'Using proper test isolation'),
             ('system_message=', 'Using system_message parameter'),
         ]
-        
+
         self.required_tests = [
             'test_basic_generation',
             'test_streaming_generation',
@@ -42,50 +42,50 @@ class TestValidator:
             'test_cost_calculation',
             'test_model_availability',
         ]
-        
+
         self.recommended_tests = [
             'test_network_timeout_handling',
             'test_concurrent_requests',
             'test_system_message_handling',
             'test_max_tokens_enforcement',
         ]
-    
+
     def check_file(self, filepath: Path) -> Tuple[List[str], List[str], List[str]]:
         """Check a single test file for issues and good patterns."""
         if not filepath.exists():
             return [f"File not found: {filepath}"], [], []
-        
+
         with open(filepath) as f:
             content = f.read()
             lines = content.split('\n')
-        
+
         issues = []
         good_indicators = []
-        
+
         # Check for bad patterns
         for line_num, line in enumerate(lines, 1):
             for pattern, message in self.bad_patterns:
                 if re.search(pattern, line):
                     issues.append(f"Line {line_num}: {message} - Found: {line.strip()[:80]}...")
-        
+
         # Check for good patterns
         for pattern, description in self.good_patterns:
             if pattern in content:
                 good_indicators.append(f"✅ {description}")
-        
+
         # Check for required tests
         missing_tests = []
         for test_name in self.required_tests:
             if f"def {test_name}" not in content:
                 missing_tests.append(f"Missing required test: {test_name}")
-        
+
         # Check for recommended tests
         for test_name in self.recommended_tests:
             if f"def {test_name}" in content:
                 good_indicators.append(f"✅ Has {test_name}")
-        
+
         return issues, good_indicators, missing_tests
-    
+
     def validate_all(self) -> int:
         """Validate all integration test files."""
         test_files = [
@@ -93,20 +93,20 @@ class TestValidator:
             ("Anthropic", Path("tests/integration/test_anthropic_integration.py")),
             ("Ollama", Path("tests/integration/test_ollama_integration.py")),
         ]
-        
+
         print("=" * 70)
         print("Comprehensive Integration Test Validation")
         print("=" * 70)
-        
+
         total_issues = 0
         all_results = []
-        
+
         for provider, filepath in test_files:
             print(f"\n## {provider} Integration Tests")
             print("-" * 50)
-            
+
             issues, good_indicators, missing_tests = self.check_file(filepath)
-            
+
             if issues:
                 print(f"❌ Found {len(issues)} API issues:")
                 for issue in issues[:5]:  # Show first 5 issues
@@ -116,36 +116,36 @@ class TestValidator:
                 total_issues += len(issues)
             else:
                 print("✅ No API mismatches found!")
-            
+
             if missing_tests:
                 print(f"\n⚠️  Missing {len(missing_tests)} required tests:")
                 for test in missing_tests:
                     print(f"   - {test}")
-            
+
             if good_indicators:
                 print("\n✅ Good patterns found:")
                 for indicator in good_indicators:
                     print(f"   {indicator}")
-            
+
             all_results.append({
                 'provider': provider,
                 'issues': len(issues),
                 'missing_tests': len(missing_tests),
                 'good_patterns': len(good_indicators)
             })
-        
+
         # Summary
         print("\n" + "=" * 70)
         print("SUMMARY")
         print("=" * 70)
-        
+
         print("\n| Provider   | Issues | Missing Tests | Good Patterns |")
         print("|------------|--------|---------------|---------------|")
         for result in all_results:
             print(f"| {result['provider']:10} | {result['issues']:6} | {result['missing_tests']:13} | {result['good_patterns']:13} |")
-        
+
         print(f"\nTotal Issues: {total_issues}")
-        
+
         if total_issues == 0:
             print("\n✅ SUCCESS: All integration tests follow the unified API correctly!")
             return 0

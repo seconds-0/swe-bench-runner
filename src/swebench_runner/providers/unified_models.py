@@ -152,4 +152,3 @@ class FinishReason(Enum):
 
         # Default fallback for unknown providers
         return cls.STOP.value
-

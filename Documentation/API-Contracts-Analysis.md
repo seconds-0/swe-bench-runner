@@ -28,7 +28,7 @@ This document provides comprehensive analysis of the three provider APIs we will
 ### Key Abstraction Challenges
 
 1. **Authentication**: Bearer tokens vs API keys vs none
-2. **Request Formats**: Similar but incompatible JSON schemas  
+2. **Request Formats**: Similar but incompatible JSON schemas
 3. **Response Formats**: Different field names and structures
 4. **Token Counting**: tiktoken vs API endpoint vs response metadata
 5. **Rate Limiting**: Different headers, algorithms, and resource types
@@ -69,7 +69,7 @@ OpenAI-Project: YOUR_PROJECT_ID   # Optional
   "max_tokens": 150,                    // Optional: Max response tokens
   "top_p": 1.0,                        // Optional: Nucleus sampling
   "frequency_penalty": 0.0,             // Optional: -2.0 to 2.0
-  "presence_penalty": 0.0,              // Optional: -2.0 to 2.0  
+  "presence_penalty": 0.0,              // Optional: -2.0 to 2.0
   "stream": false,                      // Optional: Enable streaming
   "response_format": {                  // Optional: JSON mode
     "type": "json_object"
@@ -106,7 +106,7 @@ OpenAI-Project: YOUR_PROJECT_ID   # Optional
 
 ### Available Models (2025)
 - `gpt-4.1`: 1M context, 32K output tokens
-- `gpt-4.1-mini`: Fast, cheap, 1M context  
+- `gpt-4.1-mini`: Fast, cheap, 1M context
 - `gpt-4o`: Multimodal, 128K context
 - `gpt-4o-mini`: Cost-optimized
 - `gpt-4`: Standard, 128K context
@@ -139,7 +139,7 @@ token_count = len(encoding.encode(text))
 
 ### Pricing (2025)
 **GPT-4o**: $5 input, $20 output per 1M tokens
-**GPT-4**: $10 input, $30 output per 1M tokens  
+**GPT-4**: $10 input, $30 output per 1M tokens
 **GPT-3.5-turbo**: $1.50 input, $2.00 output per 1M tokens
 
 ### Error Responses
@@ -148,7 +148,7 @@ token_count = len(encoding.encode(text))
   "error": {
     "message": "Detailed error description",
     "type": "invalid_request_error|authentication_error|rate_limit_error|server_error",
-    "param": "parameter_name", 
+    "param": "parameter_name",
     "code": "error_code"
   }
 }
@@ -279,7 +279,7 @@ Response:
 
 **Status Codes**: 400, 401, 403, 404, 413, 429, 500, 529
 
-### Streaming Format  
+### Streaming Format
 **Server-Sent Events** with multiple event types:
 - `message_start`: Stream initialization
 - `content_block_delta`: Incremental content
@@ -327,7 +327,7 @@ Response:
 ```json
 {
   "model": "llama3.2",                  // Model name used
-  "created_at": "2025-01-27T...",       // ISO timestamp  
+  "created_at": "2025-01-27T...",       // ISO timestamp
   "response": "Generated text",          // Response content
   "done": true,                         // Completion status
   "done_reason": "stop",                // Completion reason
@@ -436,8 +436,8 @@ class ModelRequest:
     temperature: float = 0.7
     stream: bool = False
     model: Optional[str] = None
-    
-@dataclass  
+
+@dataclass
 class ModelResponse:
     """Unified response format across all providers"""
     content: str
@@ -447,7 +447,7 @@ class ModelResponse:
     finish_reason: str
     provider: str
     raw_response: dict
-    
+
 @dataclass
 class TokenUsage:
     """Unified token usage information"""
@@ -466,14 +466,14 @@ class ProviderConfig:
     rate_limits: RateLimitConfig
     model_config: ModelConfig
     endpoint_config: EndpointConfig
-    
+
 @dataclass
 class AuthConfig:
     """Authentication configuration"""
     auth_type: AuthType  # bearer_token, api_key, none
     credentials: dict
     headers: dict
-    
+
 @dataclass
 class RateLimitConfig:
     """Rate limiting configuration"""
@@ -487,23 +487,23 @@ class RateLimitConfig:
 ```python
 class ModelProvider(ABC):
     """Abstract base class for all providers"""
-    
+
     @abstractmethod
     async def generate(self, request: ModelRequest) -> ModelResponse:
         """Generate a response for the given request"""
-        
+
     @abstractmethod
     def estimate_cost(self, request: ModelRequest) -> float:
         """Estimate the cost for this request"""
-        
+
     @abstractmethod
     def count_tokens(self, text: str) -> int:
         """Count tokens in the given text"""
-        
+
     @abstractmethod
     async def validate_config(self) -> bool:
         """Validate provider configuration"""
-        
+
     @property
     @abstractmethod
     def available_models(self) -> List[str]:
@@ -526,7 +526,7 @@ class AuthStrategy(ABC):
 class BearerTokenAuth(AuthStrategy):
     def prepare_headers(self, base_headers: dict) -> dict:
         return {**base_headers, "Authorization": f"Bearer {self.token}"}
-        
+
 class ApiKeyAuth(AuthStrategy):
     def prepare_headers(self, base_headers: dict) -> dict:
         return {**base_headers, "x-api-key": self.api_key}
@@ -551,7 +551,7 @@ class OpenAIRequestBuilder(RequestBuilder):
         }
 ```
 
-### 3. Response Format Normalization  
+### 3. Response Format Normalization
 **Challenge**: Different response structures
 **Solution**: Provider-specific response parsers
 ```python
@@ -586,7 +586,7 @@ class OpenAITokenCounter(TokenCounter):
     def count_tokens(self, text: str, model: str) -> int:
         encoding = tiktoken.encoding_for_model(model)
         return len(encoding.encode(text))
-        
+
 class AnthropicTokenCounter(TokenCounter):
     async def count_tokens(self, text: str, model: str) -> int:
         # Use API endpoint
@@ -602,7 +602,7 @@ class RateLimiter:
     def __init__(self, config: RateLimitConfig):
         self.requests_bucket = TokenBucket(config.requests_per_minute)
         self.tokens_bucket = TokenBucket(config.tokens_per_minute)
-        
+
     async def acquire(self, estimated_tokens: int) -> bool:
         request_ok = await self.requests_bucket.acquire(1)
         tokens_ok = await self.tokens_bucket.acquire(estimated_tokens)
@@ -625,7 +625,7 @@ class SSEAdapter(StreamingAdapter):
                 data = json.loads(line[6:])
                 if content := self._extract_content(data):
                     yield content
-                    
+
 class JSONLinesAdapter(StreamingAdapter):
     async def stream_response(self, response_stream) -> AsyncIterator[str]:
         async for line in response_stream:
@@ -639,7 +639,7 @@ class JSONLinesAdapter(StreamingAdapter):
 **Solution**: Unified error classification system
 ```python
 class ProviderError(Exception):
-    def __init__(self, category: ErrorCategory, message: str, 
+    def __init__(self, category: ErrorCategory, message: str,
                  retry_strategy: RetryStrategy, original_error: Exception):
         self.category = category
         self.message = message

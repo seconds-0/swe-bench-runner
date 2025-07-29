@@ -89,9 +89,9 @@ async def config_based_example():
     for provider in config.keys():
         request = AcquisitionRequest(estimated_tokens=50)
         result = await coordinator.acquire(provider, request)
-        
+
         print(f"{provider}: {'✓ Acquired' if result.acquired else '✗ Rate limited'}")
-        
+
         if result.acquired:
             coordinator.release(provider, request.estimated_tokens)
 
@@ -102,7 +102,7 @@ async def burst_handling_example():
 
     # Create a token bucket with burst allowance
     coordinator = RateLimitCoordinator()
-    
+
     # Anthropic limiter has 10% burst allowance by default
     coordinator.add_provider_limiter("anthropic", create_anthropic_limiter(1000))
 
@@ -113,7 +113,7 @@ async def burst_handling_example():
     for i, tokens in enumerate(burst_requests):
         request = AcquisitionRequest(estimated_tokens=tokens)
         result = await coordinator.acquire("anthropic", request)
-        
+
         if result.acquired:
             print(f"  Request {i+1}: ✓ {tokens} tokens acquired")
             coordinator.release("anthropic", tokens)
@@ -127,7 +127,7 @@ async def global_limiter_example():
     print("\n=== Global Rate Limiting Example ===")
 
     coordinator = RateLimitCoordinator()
-    
+
     # Set a global limit that applies to all providers
     global_limiter = create_openai_limiter(requests_per_minute=10, tokens_per_minute=500)
     coordinator.set_global_limiter(global_limiter)
@@ -138,11 +138,11 @@ async def global_limiter_example():
 
     # Make requests - they must pass both global AND provider limits
     providers = ["openai", "anthropic", "unknown_provider"]
-    
+
     for provider in providers:
         request = AcquisitionRequest(estimated_tokens=100)
         result = await coordinator.acquire(provider, request)
-        
+
         if result.acquired:
             limiters = result.metadata.get("limiters_acquired", [])
             print(f"✓ {provider}: Passed limiters: {limiters}")

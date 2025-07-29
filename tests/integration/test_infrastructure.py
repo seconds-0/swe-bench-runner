@@ -30,7 +30,7 @@ class TestInfrastructure:
             pytest.skip("INTEGRATION_TEST_DUMMY_KEY not set - skip mechanism working")
 
         # This line should not be reached in normal testing
-        assert False, "This should have been skipped"
+        raise AssertionError("This should have been skipped")
 
     def test_basic_assertion(self):
         """Test that basic assertions work in integration context."""

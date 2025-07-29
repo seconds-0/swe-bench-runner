@@ -66,8 +66,8 @@ logger.warning(
 
 # Line 361: Split exception types
 except (
-    ProviderAuthenticationError, 
-    ProviderTokenLimitError, 
+    ProviderAuthenticationError,
+    ProviderTokenLimitError,
     ProviderResponseError
 ):
 
@@ -352,7 +352,7 @@ None - all fixes are straightforward surgical changes
 
 - Python 3.10+ (already satisfied)
 - ruff (already installed)
-- mypy (already installed)  
+- mypy (already installed)
 - No new external dependencies required
 
 ## Components Involved

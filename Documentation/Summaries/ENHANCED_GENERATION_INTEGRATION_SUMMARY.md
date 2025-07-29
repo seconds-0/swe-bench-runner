@@ -170,7 +170,7 @@ Added extensive test cases covering:
 ### Test Coverage
 - `tests/test_generation_integration.py` - Added comprehensive test cases
   - `TestProviderCoordinator` - 6 test methods
-  - `TestUnifiedCostEstimator` - 4 test methods  
+  - `TestUnifiedCostEstimator` - 4 test methods
   - `TestEnhancedGenerationIntegration` - 6 test methods
 
 ## Benefits Achieved

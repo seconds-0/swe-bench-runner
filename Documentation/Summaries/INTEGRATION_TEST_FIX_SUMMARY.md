@@ -9,7 +9,7 @@ Successfully fixed critical API mismatches in all provider integration tests. Th
 ### 1. Anthropic Integration Tests (CRITICAL)
 **Status**: ✅ FIXED
 - Changed `response.choices[0].message.content` → `response.content` (13 instances)
-- Changed `response.usage.cost` → `response.cost` (3 instances)  
+- Changed `response.usage.cost` → `response.cost` (3 instances)
 - Fixed streaming to use `generate_stream` (2 instances)
 - Added monkeypatch for environment isolation
 - Added network timeout test

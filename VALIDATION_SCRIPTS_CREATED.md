@@ -6,7 +6,7 @@ Two validation scripts have been created to ensure the fixed integration tests a
 
 1. **`scripts/validate_integration_tests_simple.py`** - A simple validation script that checks:
    - UnifiedRequest object creation
-   - Provider imports 
+   - Provider imports
    - API format correctness (prompt= vs messages=)
    - Test syntax validity
 
@@ -58,7 +58,7 @@ The comprehensive script provides more detailed testing but encounters the same 
    # Set API keys (optional, for full testing)
    export OPENAI_API_KEY="your-key"
    export ANTHROPIC_API_KEY="your-key"
-   
+
    # Run comprehensive validation
    python3 scripts/validate_integration_tests_comprehensive.py
    ```

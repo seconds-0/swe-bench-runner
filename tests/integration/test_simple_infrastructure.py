@@ -20,7 +20,7 @@ def test_skip_mechanism():
     """Test that skip mechanism works."""
     if not os.environ.get("DUMMY_API_KEY"):
         pytest.skip("DUMMY_API_KEY not set - skip working correctly")
-    assert False  # Should not reach here
+    raise AssertionError("Should not reach here")
 
 
 @pytest.mark.integration

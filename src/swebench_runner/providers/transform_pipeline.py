@@ -129,6 +129,7 @@ class OpenAIRequestTransformer(RequestTransformer):
     """Base transformer for OpenAI-compatible APIs."""
 
     def __init__(self) -> None:
+        """Initialize OpenAI request transformer with supported models."""
         self.supported_models = [
             "gpt-4o", "gpt-4", "gpt-4-turbo", "gpt-3.5-turbo",
             "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini"
@@ -163,14 +164,16 @@ class OpenAIRequestTransformer(RequestTransformer):
         return "gpt-4o"
 
     def validate_model(self, model: str) -> bool:
+        """Validate if model is supported by OpenAI."""
         return model in self.supported_models
 
 
 class OpenAIResponseParser(ResponseParser):
-    """Base parser for OpenAI-compatible API responses"""
+    """Base parser for OpenAI-compatible API responses."""
 
     def parse(self, raw_response: dict[str, Any], request: UnifiedRequest,
               latency_ms: int) -> UnifiedResponse:
+        """Parse OpenAI response to unified format."""
         choice = raw_response["choices"][0]
         usage = raw_response.get("usage", {})
 
@@ -191,6 +194,7 @@ class OpenAIResponseParser(ResponseParser):
         )
 
     def parse_error(self, error_response: dict[str, Any]) -> str:
+        """Parse OpenAI error response to readable message."""
         error = error_response.get("error", {})
         message = error.get("message", "Unknown error")
         error_type = error.get("type", "unknown")
@@ -198,9 +202,10 @@ class OpenAIResponseParser(ResponseParser):
 
 
 class AnthropicRequestTransformer(RequestTransformer):
-    """Base transformer for Anthropic Claude API"""
+    """Base transformer for Anthropic Claude API."""
 
     def __init__(self) -> None:
+        """Initialize Anthropic request transformer with supported models."""
         self.supported_models = [
             "claude-opus-4-20250514",
             "claude-sonnet-4-20250514",
@@ -208,6 +213,7 @@ class AnthropicRequestTransformer(RequestTransformer):
         ]
 
     def transform(self, unified_request: UnifiedRequest) -> dict[str, Any]:
+        """Transform unified request to Anthropic API format."""
         anthropic_request = {
             "model": unified_request.model,
             "messages": [{"role": "user", "content": unified_request.prompt}],
@@ -224,17 +230,20 @@ class AnthropicRequestTransformer(RequestTransformer):
         return anthropic_request
 
     def get_default_model(self) -> str:
+        """Get default Anthropic model."""
         return "claude-sonnet-4-20250514"
 
     def validate_model(self, model: str) -> bool:
+        """Validate if model is supported by Anthropic."""
         return model in self.supported_models
 
 
 class AnthropicResponseParser(ResponseParser):
-    """Base parser for Anthropic Claude API responses"""
+    """Base parser for Anthropic Claude API responses."""
 
     def parse(self, raw_response: dict[str, Any], request: UnifiedRequest,
               latency_ms: int) -> UnifiedResponse:
+        """Parse Anthropic response to unified format."""
         content = raw_response["content"][0]["text"]
         usage = raw_response.get("usage", {})
 
@@ -244,7 +253,9 @@ class AnthropicResponseParser(ResponseParser):
             usage=TokenUsage(
                 prompt_tokens=usage.get("input_tokens", 0),
                 completion_tokens=usage.get("output_tokens", 0),
-                total_tokens=usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
+                total_tokens=(
+                    usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
+                )
             ),
             latency_ms=latency_ms,
             finish_reason=FinishReason.normalize(
@@ -255,6 +266,7 @@ class AnthropicResponseParser(ResponseParser):
         )
 
     def parse_error(self, error_response: dict[str, Any]) -> str:
+        """Parse Anthropic error response to readable message."""
         error = error_response.get("error", {})
         message = error.get("message", "Unknown error")
         error_type = error.get("type", "unknown")
@@ -262,15 +274,17 @@ class AnthropicResponseParser(ResponseParser):
 
 
 class OllamaRequestTransformer(RequestTransformer):
-    """Base transformer for Ollama API"""
+    """Base transformer for Ollama API."""
 
     def __init__(self) -> None:
+        """Initialize Ollama request transformer with supported models."""
         self.supported_models = [
             "llama3.3", "llama3.2", "mistral", "codellama",
             "deepseek-r1", "phi-4", "qwen2.5"
         ]
 
     def transform(self, unified_request: UnifiedRequest) -> dict[str, Any]:
+        """Transform unified request to Ollama API format."""
         ollama_request = {
             "model": unified_request.model,
             "prompt": unified_request.prompt,
@@ -291,22 +305,27 @@ class OllamaRequestTransformer(RequestTransformer):
         return ollama_request
 
     def get_default_model(self) -> str:
+        """Get default Ollama model."""
         return "llama3.3"
 
     def validate_model(self, model: str) -> bool:
+        """Validate if model is supported by Ollama."""
         # Handle versioned model names like "llama3.2:1b"
         base_model = model.split(":")[0]
         return base_model in self.supported_models
 
 
 class OllamaResponseParser(ResponseParser):
-    """Base parser for Ollama API responses"""
+    """Base parser for Ollama API responses."""
 
     def parse(self, raw_response: dict[str, Any], request: UnifiedRequest,
               latency_ms: int) -> UnifiedResponse:
+        """Parse Ollama response to unified format."""
         # Use latency from response if available, otherwise use provided
         total_duration_ns = raw_response.get("total_duration", 0)
-        response_latency = int(total_duration_ns / 1_000_000) if total_duration_ns else latency_ms
+        response_latency = (
+            int(total_duration_ns / 1_000_000) if total_duration_ns else latency_ms
+        )
 
         return UnifiedResponse(
             content=raw_response["response"],
@@ -314,7 +333,10 @@ class OllamaResponseParser(ResponseParser):
             usage=TokenUsage(
                 prompt_tokens=raw_response.get("prompt_eval_count", 0),
                 completion_tokens=raw_response.get("eval_count", 0),
-                total_tokens=raw_response.get("prompt_eval_count", 0) + raw_response.get("eval_count", 0)
+                total_tokens=(
+                    raw_response.get("prompt_eval_count", 0) +
+                    raw_response.get("eval_count", 0)
+                )
             ),
             latency_ms=response_latency,
             finish_reason=FinishReason.normalize(
@@ -325,7 +347,7 @@ class OllamaResponseParser(ResponseParser):
         )
 
     def parse_error(self, error_response: dict[str, Any]) -> str:
+        """Parse error from Ollama response."""
         error = error_response.get("error", {})
         message = error.get("message", "Unknown error")
         return f"Ollama error: {message}"
-

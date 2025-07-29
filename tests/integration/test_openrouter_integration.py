@@ -17,6 +17,7 @@ from datetime import datetime
 
 import pytest
 
+from swebench_runner.providers import ProviderConfig
 from swebench_runner.providers.exceptions import (
     ProviderAuthenticationError,
     ProviderResponseError,
@@ -42,10 +43,10 @@ class TestOpenRouterIntegration:
         return os.environ.get("OPENROUTER_TEST_MODEL", "anthropic/claude-3-haiku")
 
     @pytest.fixture
-    async def provider(self, skip_without_openrouter_key) -> OpenRouterProvider:
+    async def provider(self, skip_without_openrouter_key, openrouter_config) -> OpenRouterProvider:
         """Create an OpenRouter provider with real credentials."""
-        provider = OpenRouterProvider()
-        await provider.initialize()
+        provider = OpenRouterProvider(openrouter_config)
+        # Note: initialize() is not needed for the new provider architecture
         return provider
 
     @pytest.mark.asyncio
@@ -128,32 +129,24 @@ class TestOpenRouterIntegration:
     @pytest.mark.asyncio
     async def test_authentication_error(self):
         """Test handling of authentication errors with invalid key."""
-        # Temporarily set invalid key
-        original_key = os.environ.get("OPENROUTER_API_KEY")
-        os.environ["OPENROUTER_API_KEY"] = "sk-or-invalid-test-key-12345"
+        # Create config with invalid key
+        config = ProviderConfig(
+            name="openrouter",
+            api_key="sk-or-invalid-test-key-12345"
+        )
+        provider = OpenRouterProvider(config)
 
-        try:
-            provider = OpenRouterProvider()
-            await provider.initialize()
+        request = UnifiedRequest(
+            model="anthropic/claude-3-haiku",
+            prompt="test",
+            max_tokens=10,
+        )
 
-            request = UnifiedRequest(
-                model="anthropic/claude-3-haiku",
-                prompt="test",
-                max_tokens=10,
-            )
+        with pytest.raises(ProviderAuthenticationError) as exc_info:
+            await provider.generate_unified(request)
 
-            with pytest.raises(ProviderAuthenticationError) as exc_info:
-                await provider.generate_unified(request)
-
-            assert exc_info.value.provider == "openrouter"
-            assert "authentication" in str(exc_info.value).lower() or "unauthorized" in str(exc_info.value).lower()
-
-        finally:
-            # Restore original key
-            if original_key:
-                os.environ["OPENROUTER_API_KEY"] = original_key
-            else:
-                del os.environ["OPENROUTER_API_KEY"]
+        assert exc_info.value.provider == "openrouter"
+        assert "authentication" in str(exc_info.value).lower() or "unauthorized" in str(exc_info.value).lower()
 
     @pytest.mark.asyncio
     async def test_multi_provider_models(self, provider: OpenRouterProvider):
@@ -262,7 +255,7 @@ class TestOpenRouterIntegration:
         assert len(successful_responses) == 3
 
         # Each response should be valid
-        for i, response in enumerate(successful_responses):
+        for _i, response in enumerate(successful_responses):
             assert response.content is not None
             assert response.cost > 0
 

@@ -39,13 +39,13 @@ All response access in `test_anthropic_integration.py` needs fixing.
 async def test_request_timeout_handling(provider, test_model):
     """Verify requests don't hang indefinitely."""
     import asyncio
-    
+
     request = UnifiedRequest(
         model=test_model,
         prompt="Generate an extremely detailed 50,000 word essay",
         max_tokens=50000,  # Unreasonably large
     )
-    
+
     start = datetime.now()
     with pytest.raises(asyncio.TimeoutError):
         await asyncio.wait_for(
@@ -53,7 +53,7 @@ async def test_request_timeout_handling(provider, test_model):
             timeout=30.0
         )
     duration = (datetime.now() - start).total_seconds()
-    
+
     assert duration < 35  # Should timeout close to 30s
 ```
 
@@ -63,21 +63,21 @@ async def test_request_timeout_handling(provider, test_model):
 async def test_retry_with_backoff(provider, monkeypatch):
     """Verify exponential backoff retry logic."""
     attempt_times = []
-    
+
     async def track_retries(*args, **kwargs):
         attempt_times.append(datetime.now())
         if len(attempt_times) < 3:
             raise aiohttp.ClientError("Network error")
         return {"choices": [{"message": {"content": "success"}}]}
-    
+
     monkeypatch.setattr(provider, '_make_request', track_retries)
-    
+
     request = UnifiedRequest(model=test_model, prompt="test", max_tokens=5)
     response = await provider.generate_unified(request)
-    
+
     # Verify retry happened with backoff
     assert len(attempt_times) == 3
-    
+
     # Check exponential backoff timing
     gap1 = (attempt_times[1] - attempt_times[0]).total_seconds()
     gap2 = (attempt_times[2] - attempt_times[1]).total_seconds()
@@ -102,12 +102,12 @@ async def test_json_mode_structured_output(provider, openai_test_model):
         max_tokens=150,
         response_format={"type": "json_object"},
     )
-    
+
     response = await provider.generate_unified(request)
-    
+
     import json
     from jsonschema import validate
-    
+
     # Define expected schema
     schema = {
         "type": "object",
@@ -130,10 +130,10 @@ async def test_json_mode_structured_output(provider, openai_test_model):
             }
         }
     }
-    
+
     parsed = json.loads(response.content)
     validate(instance=parsed, schema=schema)  # Raises if invalid
-    
+
     # Additional specific checks
     assert parsed["name"].lower() == "alice"
     assert parsed["age"] == 30
@@ -165,7 +165,7 @@ async def test_authentication_error(invalid_api_key):
 async def test_latency_percentiles(provider, test_model):
     """Track latency percentiles for monitoring."""
     latencies = []
-    
+
     # Run 10 minimal requests
     for i in range(10):
         request = UnifiedRequest(
@@ -174,21 +174,21 @@ async def test_latency_percentiles(provider, test_model):
             max_tokens=2,
             temperature=0
         )
-        
+
         start = time.perf_counter()
         response = await provider.generate_unified(request)
         latency_ms = (time.perf_counter() - start) * 1000
         latencies.append(latency_ms)
-    
+
     latencies.sort()
-    
+
     # Calculate percentiles
     p50 = latencies[len(latencies) // 2]
     p95 = latencies[int(len(latencies) * 0.95)]
     p99 = latencies[-1]
-    
+
     print(f"{provider.name} Latencies - P50: {p50:.0f}ms, P95: {p95:.0f}ms, P99: {p99:.0f}ms")
-    
+
     # Set reasonable bounds
     assert p50 < 2000  # Median under 2s
     assert p95 < 5000  # 95th percentile under 5s
@@ -207,9 +207,9 @@ async def test_unicode_emoji_handling(provider, test_model):
         temperature=0.0,
         max_tokens=30
     )
-    
+
     response = await provider.generate_unified(request)
-    
+
     # Should handle Unicode properly
     assert "👋" in response.content or "世界" in response.content
     assert response.usage.prompt_tokens > 5  # Unicode counts differently
@@ -223,9 +223,9 @@ async def test_empty_response_handling(provider, test_model):
         temperature=0.0,
         max_tokens=10
     )
-    
+
     response = await provider.generate_unified(request)
-    
+
     # Empty response should be handled gracefully
     assert response.content == "" or len(response.content.strip()) == 0
     assert response.finish_reason in ["stop", "length"]
@@ -268,7 +268,7 @@ tests/integration/
 ## Priority Order
 
 1. **TODAY**: Fix Anthropic test API usage (it's completely broken)
-2. **THIS WEEK**: Add timeout and retry tests 
+2. **THIS WEEK**: Add timeout and retry tests
 3. **NEXT WEEK**: Add performance benchmarks
 4. **ONGOING**: Add edge cases and provider-specific features
 

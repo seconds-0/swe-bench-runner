@@ -50,7 +50,7 @@ The integration test infrastructure has been verified with the following finding
    ```bash
    # Run all integration tests
    pytest -m integration tests/integration/
-   
+
    # Run specific provider tests
    pytest -m integration tests/integration/test_openai_integration.py
    ```

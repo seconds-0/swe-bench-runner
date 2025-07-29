@@ -54,20 +54,20 @@ from swebench_runner.providers.unified_models import UnifiedRequest
 @pytest.mark.integration
 class TestOpenRouterIntegration:
     """Integration tests for OpenRouter with real API calls."""
-    
+
     @pytest.fixture
     def skip_without_openrouter_key():
         """Skip test if OpenRouter API key is not available."""
         if not os.environ.get("OPENROUTER_API_KEY"):
             pytest.skip("OPENROUTER_API_KEY not set")
-    
+
     @pytest.fixture
     async def provider(self, skip_without_openrouter_key) -> OpenRouterProvider:
         """Create an OpenRouter provider with real credentials."""
         provider = OpenRouterProvider()
         await provider.initialize()
         return provider
-    
+
     @pytest.mark.asyncio
     async def test_basic_generation(self, provider, openrouter_test_model):
         """Test basic generation with cost-effective model."""
@@ -77,9 +77,9 @@ class TestOpenRouterIntegration:
             temperature=0.0,
             max_tokens=10,
         )
-        
+
         response = await provider.generate_unified(request)
-        
+
         assert response.content is not None
         assert "test" in response.content.lower()
         assert response.cost > 0  # OpenRouter always returns costs
@@ -95,7 +95,7 @@ Add specific handling for CI environments:
 def _load_from_env(self, provider_name: str) -> ProviderConfig | None:
     """Load configuration from environment variables."""
     # ... existing code ...
-    
+
     # Special handling for CI environments
     if os.getenv("CI") == "true":
         # Use cost-effective models in CI

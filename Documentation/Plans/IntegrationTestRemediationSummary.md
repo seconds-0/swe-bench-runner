@@ -42,7 +42,7 @@ The tests were written based on the native provider APIs (OpenAI and Anthropic b
 
 **Task 3: Create Validation Scripts**
 - Branch: `fix/integration-test-validation`
-- Files: 
+- Files:
   - `scripts/validate-integration-tests.py` - Run actual tests
   - `scripts/check-integration-test-syntax.py` - Check for API misuse
 - Assignee: Code Implementer 3

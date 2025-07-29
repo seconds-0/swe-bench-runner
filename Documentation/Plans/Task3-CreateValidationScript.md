@@ -39,14 +39,14 @@ async def test_openai():
     try:
         if not os.getenv("OPENAI_API_KEY"):
             return False, "No OPENAI_API_KEY found"
-            
+
         from swebench_runner.providers.openai import OpenAIProvider
         from swebench_runner.providers.unified_models import UnifiedRequest
-        
+
         # Create provider
         provider = OpenAIProvider()
         await provider.initialize()
-        
+
         # Make simple request
         request = UnifiedRequest(
             prompt="Say 'test passed'",
@@ -54,15 +54,15 @@ async def test_openai():
             max_tokens=10,
             temperature=0.0
         )
-        
+
         response = await provider.generate_unified(request)
-        
+
         # Basic validation
         if response.content and len(response.content) > 0:
             return True, f"Success: {response.content[:50]}"
         else:
             return False, "Empty response"
-            
+
     except Exception as e:
         return False, f"Error: {str(e)}"
 
@@ -71,14 +71,14 @@ async def test_anthropic():
     try:
         if not os.getenv("ANTHROPIC_API_KEY"):
             return False, "No ANTHROPIC_API_KEY found"
-            
+
         from swebench_runner.providers.anthropic import AnthropicProvider
         from swebench_runner.providers.unified_models import UnifiedRequest
-        
+
         # Create provider
         provider = AnthropicProvider()
         await provider.initialize()
-        
+
         # Make simple request
         request = UnifiedRequest(
             prompt="Say 'test passed'",
@@ -86,15 +86,15 @@ async def test_anthropic():
             max_tokens=10,
             temperature=0.0
         )
-        
+
         response = await provider.generate_unified(request)
-        
+
         # Basic validation
         if response.content and len(response.content) > 0:
             return True, f"Success: {response.content[:50]}"
         else:
             return False, "Empty response"
-            
+
     except Exception as e:
         return False, f"Error: {str(e)}"
 
@@ -104,7 +104,7 @@ async def test_ollama():
         from swebench_runner.providers.ollama import OllamaProvider
         from swebench_runner.providers.unified_models import UnifiedRequest
         from swebench_runner.providers.base import ProviderConfig
-        
+
         # Create provider with config
         config = ProviderConfig(
             name="ollama",
@@ -115,7 +115,7 @@ async def test_ollama():
             timeout=30.0
         )
         provider = OllamaProvider(config)
-        
+
         # Make simple request
         request = UnifiedRequest(
             prompt="Say 'test passed'",
@@ -123,15 +123,15 @@ async def test_ollama():
             max_tokens=10,
             temperature=0.0
         )
-        
+
         response = await provider.generate_unified(request)
-        
+
         # Basic validation
         if response.content and len(response.content) > 0:
             return True, f"Success: {response.content[:50]}"
         else:
             return False, "Empty response"
-            
+
     except Exception as e:
         # Check if Ollama is not running
         if "Connection" in str(e):
@@ -142,40 +142,40 @@ async def run_validation():
     """Run all provider tests."""
     print("Integration Test Validation")
     print("=" * 50)
-    
+
     # Test each provider
     tests = [
         ("OpenAI", test_openai),
         ("Anthropic", test_anthropic),
         ("Ollama", test_ollama),
     ]
-    
+
     for name, test_func in tests:
         print(f"\nTesting {name}...", end="", flush=True)
         success, message = await test_func()
         results[name] = (success, message)
-        
+
         if success:
             print(f" ✅ PASSED")
         else:
             print(f" ❌ FAILED")
         print(f"  → {message}")
-    
+
     # Summary
     print("\n" + "=" * 50)
     print("Summary:")
     passed = sum(1 for success, _ in results.values() if success)
     total = len(results)
-    
+
     print(f"  Passed: {passed}/{total}")
-    
+
     # Detail any failures
     failures = [(name, msg) for name, (success, msg) in results.items() if not success]
     if failures:
         print("\nFailures:")
         for name, msg in failures:
             print(f"  - {name}: {msg}")
-    
+
     # Return appropriate exit code
     return 0 if passed == total else 1
 
@@ -210,13 +210,13 @@ from pathlib import Path
 def check_test_file(filepath: Path) -> List[str]:
     """Check a test file for common API misuse."""
     errors = []
-    
+
     with open(filepath) as f:
         content = f.read()
-    
+
     # Parse AST
     tree = ast.parse(content)
-    
+
     # Look for UnifiedRequest calls with 'messages' parameter
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
@@ -224,7 +224,7 @@ def check_test_file(filepath: Path) -> List[str]:
                 for keyword in node.keywords:
                     if keyword.arg == 'messages':
                         errors.append(f"Line {keyword.lineno}: Found 'messages=' parameter (should be 'prompt=')")
-    
+
     return errors
 
 def main():
@@ -235,9 +235,9 @@ def main():
         "test_anthropic_integration.py",
         "test_ollama_integration.py"
     ]
-    
+
     total_errors = 0
-    
+
     for filename in files_to_check:
         filepath = test_dir / filename
         if filepath.exists():
@@ -249,7 +249,7 @@ def main():
                 total_errors += len(errors)
             else:
                 print(f"{filename}: ✅ OK")
-    
+
     if total_errors:
         print(f"\nFound {total_errors} API usage errors!")
         sys.exit(1)

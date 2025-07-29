@@ -1,7 +1,7 @@
 """True integration tests for Anthropic provider.
 
 These tests make real API calls to Anthropic's service and validate:
-- Basic generation functionality  
+- Basic generation functionality
 - Streaming responses
 - Error handling with real API errors
 - Cost calculation accuracy
@@ -16,6 +16,7 @@ from datetime import datetime
 
 import pytest
 
+from swebench_runner.providers import ProviderConfig
 from swebench_runner.providers.anthropic import AnthropicProvider
 from swebench_runner.providers.exceptions import (
     ProviderAuthenticationError,
@@ -32,10 +33,10 @@ class TestAnthropicIntegration:
     """Integration tests for Anthropic provider with real API calls."""
 
     @pytest.fixture
-    async def provider(self, skip_without_anthropic_key) -> AnthropicProvider:
+    async def provider(self, skip_without_anthropic_key, anthropic_config) -> AnthropicProvider:
         """Create an Anthropic provider with real credentials."""
-        provider = AnthropicProvider()
-        await provider.initialize()
+        provider = AnthropicProvider(anthropic_config)
+        # Note: initialize() is not needed for the new provider architecture
         return provider
 
     @pytest.mark.asyncio
@@ -131,8 +132,12 @@ class TestAnthropicIntegration:
         # Use monkeypatch for proper test isolation
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-invalid-test-key-12345")
 
-        provider = AnthropicProvider()
-        await provider.initialize()
+        # Create config with invalid key
+        config = ProviderConfig(
+            name="anthropic",
+            api_key="sk-ant-invalid-test-key-12345"
+        )
+        provider = AnthropicProvider(config)
 
         request = UnifiedRequest(
             model="claude-3-haiku-20240307",
@@ -249,7 +254,7 @@ class TestAnthropicIntegration:
     async def test_long_context_handling(self, provider: AnthropicProvider, anthropic_test_model: str):
         """Test handling of longer contexts specific to Anthropic."""
         # Create a moderately long context (not too long to avoid costs)
-        long_context = "This is a test. " * 100  # ~400 tokens
+        # long_context = "This is a test. " * 100  # ~400 tokens  # noqa: F841
 
         request = UnifiedRequest(
             model=anthropic_test_model,

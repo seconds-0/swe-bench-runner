@@ -1,4 +1,4 @@
-"""Anthropic Claude provider implementation with unified interface and full compatibility."""
+"""Anthropic Claude provider implementation with unified interface."""
 
 from __future__ import annotations
 
@@ -76,48 +76,66 @@ class AnthropicErrorHandler:
         self.max_retries = max_retries
         self.base_delay = base_delay
 
-    async def classify_response_error(self, response: aiohttp.ClientResponse) -> ProviderError:
+    async def classify_response_error(
+        self, response: aiohttp.ClientResponse
+    ) -> ProviderError:
         """Classify HTTP response errors into appropriate provider exceptions."""
         try:
             error_data = await response.json()
         except Exception:
-            error_data = {"error": {"message": await response.text() or "Unknown error"}}
+            error_data = {
+                "error": {"message": await response.text() or "Unknown error"}
+            }
 
         error_info = error_data.get("error", {})
-        error_type = error_info.get("type", "unknown")
         message = error_info.get("message", "Unknown error")
 
         if response.status == 401:
             return ProviderAuthenticationError(
                 f"Anthropic authentication failed: {message}. "
-                "Check your ANTHROPIC_API_KEY environment variable."
+                "Check your ANTHROPIC_API_KEY environment variable.",
+                provider="anthropic"
             )
         elif response.status == 429:
             # Extract retry-after from headers if available
             retry_after = response.headers.get("retry-after")
-            retry_seconds = int(retry_after) if retry_after and retry_after.isdigit() else None
+            retry_seconds = (
+                int(retry_after) if retry_after and retry_after.isdigit() else None
+            )
             return ProviderRateLimitError(
                 f"Anthropic rate limit exceeded: {message}",
-                retry_after=retry_seconds
+                retry_after=retry_seconds,
+                provider="anthropic"
             )
         elif response.status == 400:
             # Check for specific input validation errors
             if "max_tokens" in message.lower():
                 return ProviderTokenLimitError(
                     f"Anthropic token limit error: {message}. "
-                    "Note: max_tokens is required for Anthropic API."
+                    "Note: max_tokens is required for Anthropic API.",
+                    provider="anthropic"
                 )
             else:
-                return ProviderError(f"Anthropic validation error: {message}")
+                return ProviderError(
+                    f"Anthropic validation error: {message}",
+                    provider="anthropic"
+                )
         elif response.status == 422:
-            return ProviderError(f"Anthropic request validation failed: {message}")
+            return ProviderError(
+                f"Anthropic request validation failed: {message}",
+                provider="anthropic"
+            )
         elif response.status >= 500:
             return ProviderResponseError(
                 f"Anthropic server error ({response.status}): {message}. "
-                "This is likely a temporary issue with Anthropic's servers."
+                "This is likely a temporary issue with Anthropic's servers.",
+                provider="anthropic"
             )
         else:
-            return ProviderError(f"Anthropic API error ({response.status}): {message}")
+            return ProviderError(
+                f"Anthropic API error ({response.status}): {message}",
+                provider="anthropic"
+            )
 
     def classify_error(self, error: Exception, response: Any = None) -> ProviderError:
         """Classify general exceptions into appropriate provider exceptions."""
@@ -126,23 +144,33 @@ class AnthropicErrorHandler:
         elif isinstance(error, asyncio.TimeoutError):
             return ProviderTimeoutError(
                 "Request to Anthropic API timed out. "
-                "Try increasing the timeout or check your network connection."
+                "Try increasing the timeout or check your network connection.",
+                provider="anthropic"
             )
         elif isinstance(error, aiohttp.ClientConnectorError):
             return ProviderResponseError(
                 "Failed to connect to Anthropic API. "
-                "Check your internet connection."
+                "Check your internet connection.",
+                provider="anthropic"
             )
         else:
-            return ProviderError(f"Unexpected error with Anthropic API: {error}")
+            return ProviderError(
+                f"Unexpected error with Anthropic API: {error}",
+                provider="anthropic"
+            )
 
     def should_retry(self, error: ProviderError) -> bool:
         """Determine if an error should be retried."""
         # Don't retry authentication or validation errors
-        if isinstance(error, (ProviderAuthenticationError, ProviderTokenLimitError)):
+        if isinstance(
+            error, ProviderAuthenticationError | ProviderTokenLimitError
+        ):
             return False
         # Retry rate limit, timeout, and server errors
-        return isinstance(error, (ProviderRateLimitError, ProviderTimeoutError, ProviderResponseError))
+        return isinstance(
+            error,
+            ProviderRateLimitError | ProviderTimeoutError | ProviderResponseError,
+        )
 
     def get_retry_delay(self, error: ProviderError, attempt: int) -> float:
         """Calculate retry delay with exponential backoff."""
@@ -218,7 +246,7 @@ class AnthropicProvider(ModelProvider):
         circuit_config = CircuitBreakerConfig(
             failure_threshold=5,  # Open after 5 consecutive failures
             recovery_timeout=60.0,  # Try half-open after 60 seconds
-            expected_exception=ProviderError,  # Consider all provider errors as failures
+            expected_exception=ProviderError,  # Consider provider errors as failures
             success_threshold=2  # Require 2 successes to close from half-open
         )
         self.circuit_breaker = CircuitBreaker(
@@ -259,7 +287,9 @@ class AnthropicProvider(ModelProvider):
             supported_models=self.supported_models,
             max_tokens_limit=200000,  # Use default max context for Claude
         )
-        self.transform_pipeline = TransformPipeline(transformer, parser, pipeline_config)
+        self.transform_pipeline = TransformPipeline(
+            transformer, parser, pipeline_config
+        )
 
         # Token counter - will be initialized with API client later
         self.token_counter = AnthropicAPICounter()
@@ -278,8 +308,8 @@ class AnthropicProvider(ModelProvider):
     def _on_circuit_state_change(self, old_state, new_state) -> None:
         """Handle circuit breaker state changes."""
         logger.warning(
-            f"Anthropic circuit breaker state changed from {old_state.value} to {new_state.value}. "
-            f"Provider health: {new_state.value}"
+            f"Anthropic circuit breaker state changed from {old_state.value} "
+            f"to {new_state.value}. Provider health: {new_state.value}"
         )
 
         # Update health status based on circuit state
@@ -331,16 +361,16 @@ class AnthropicProvider(ModelProvider):
 
     async def generate_unified(self, request: UnifiedRequest) -> UnifiedResponse:
         """Generate response using unified interface.
-        
+
         This is the main implementation using all unified components.
         The legacy generate() method delegates to this.
-        
+
         Args:
             request: Unified request format
-            
+
         Returns:
             Unified response format
-            
+
         Raises:
             Various provider exceptions
         """
@@ -365,12 +395,19 @@ class AnthropicProvider(ModelProvider):
             if rate_result.retry_after:
                 await asyncio.sleep(rate_result.retry_after)
                 # Retry once after waiting
-                rate_result = await self.rate_coordinator.acquire("anthropic", rate_request)
+                rate_result = await self.rate_coordinator.acquire(
+                    "anthropic", rate_request
+                )
                 if not rate_result.acquired:
-                    retry_after = int(rate_result.retry_after) if rate_result.retry_after else None
+                    retry_after = (
+                        int(rate_result.retry_after)
+                        if rate_result.retry_after
+                        else None
+                    )
                     raise ProviderRateLimitError(
                         f"Rate limit exceeded: {rate_result.limited_by}",
-                        retry_after=retry_after
+                        retry_after=retry_after,
+                        provider="anthropic"
                     )
 
         try:
@@ -430,7 +467,8 @@ class AnthropicProvider(ModelProvider):
                 class MockAPIClient:
                     async def post(self, endpoint: str, json: dict):
                         # Return a mock response for estimation
-                        text_length = len(json.get("messages", [{}])[0].get("content", ""))
+                        messages = json.get("messages", [{}])
+                        text_length = len(messages[0].get("content", ""))
                         if "system" in json:
                             text_length += len(json["system"])
 
@@ -460,7 +498,9 @@ class AnthropicProvider(ModelProvider):
                 text_length += len(request.system_message)
             return max(1, text_length // 4)
 
-    def _calculate_cost_unified(self, model: str, prompt_tokens: int, completion_tokens: int) -> float:
+    def _calculate_cost_unified(
+        self, model: str, prompt_tokens: int, completion_tokens: int
+    ) -> float:
         """Calculate cost using 2025 pricing structure."""
         pricing = MODEL_PRICING.get(model, (3.0, 15.0))  # Default to Sonnet 4 pricing
 
@@ -469,12 +509,14 @@ class AnthropicProvider(ModelProvider):
         completion_cost = (completion_tokens / 1_000_000) * pricing[1]
         return prompt_cost + completion_cost
 
-    async def generate_stream(self, request: UnifiedRequest) -> AsyncIterator[StreamChunk]:
+    async def generate_stream(
+        self, request: UnifiedRequest
+    ) -> AsyncIterator[StreamChunk]:
         """Generate streaming response using unified interface.
-        
+
         Args:
             request: Unified request with stream=True
-            
+
         Yields:
             StreamChunk objects with accumulated content
         """
@@ -515,7 +557,7 @@ class AnthropicProvider(ModelProvider):
 
     async def generate(self, prompt: str, **kwargs: Any) -> ModelResponse:
         """Generate a response from Anthropic (legacy interface).
-        
+
         This method provides backward compatibility with the existing ModelProvider
         interface while delegating to the new unified implementation.
 
@@ -604,7 +646,9 @@ class AnthropicProvider(ModelProvider):
                 async with session.post(url, headers=headers, json=data) as response:
                     if response.status != 200:
                         # Use comprehensive error handler for streaming errors
-                        error = await self.error_handler.classify_response_error(response)
+                        error = await self.error_handler.classify_response_error(
+                            response
+                        )
                         raise error
 
                     # Use streaming adapter to parse SSE response
@@ -616,7 +660,7 @@ class AnthropicProvider(ModelProvider):
             # Classify and re-raise streaming errors
             if not isinstance(e, ProviderError):
                 error = self.error_handler.classify_error(e)
-                raise error
+                raise error from e
             raise
 
     def _prepare_headers(self) -> dict[str, str]:
@@ -649,11 +693,16 @@ class AnthropicProvider(ModelProvider):
         # Log request (sanitized)
         logger.debug(f"Making {method} request to {url}")
         if data and logger.isEnabledFor(logging.DEBUG):
-            sanitized_data = {k: v for k, v in data.items() if k not in ["messages", "system"]}
+            sanitized_data = {
+                k: v for k, v in data.items()
+                if k not in ["messages", "system"]
+            }
             if "messages" in data:
                 sanitized_data["messages"] = f"[{len(data['messages'])} messages]"
             if "system" in data:
-                sanitized_data["system"] = f"[system message: {len(data['system'])} chars]"
+                sanitized_data["system"] = (
+                    f"[system message: {len(data['system'])} chars]"
+                )
             logger.debug(f"Request data: {sanitized_data}")
 
         # Use circuit breaker to wrap the request
@@ -676,12 +725,18 @@ class AnthropicProvider(ModelProvider):
                             if response.status == 200:
                                 if data and data.get("stream"):
                                     # Handle streaming response using adapter
-                                    return await self._handle_streaming_response_legacy(response)
+                                    return await self._handle_streaming_response_legacy(
+                                        response
+                                    )
                                 else:
                                     return await response.json()
 
                             # Handle error responses using comprehensive error handler
-                            classified_error = await self.error_handler.classify_response_error(response)
+                            classified_error = (
+                                await self.error_handler.classify_response_error(
+                                    response
+                                )
+                            )
                             raise classified_error
 
                 except Exception as e:
@@ -694,18 +749,23 @@ class AnthropicProvider(ModelProvider):
                     last_error = classified_error
 
                     # Check if we should retry this error
-                    if not self.error_handler.should_retry(classified_error) or attempt >= self.max_retries:
+                    if (
+                        not self.error_handler.should_retry(classified_error)
+                        or attempt >= self.max_retries
+                    ):
                         # Don't retry or exhausted retries
-                        raise classified_error
+                        raise classified_error from None
 
                     # Calculate retry delay
-                    delay = self.error_handler.get_retry_delay(classified_error, attempt)
+                    delay = self.error_handler.get_retry_delay(
+                        classified_error, attempt
+                    )
 
                     # Log retry attempt with user-friendly message
                     user_message = self.error_handler.get_user_message(classified_error)
                     logger.warning(
-                        f"Request failed on attempt {attempt + 1}/{self.max_retries + 1}: {user_message}. "
-                        f"Retrying in {delay:.1f}s"
+                        f"Request failed on attempt {attempt + 1}/{self.max_retries + 1}: "
+                        f"{user_message}. Retrying in {delay:.1f}s"
                     )
 
                     await asyncio.sleep(delay)
@@ -715,12 +775,16 @@ class AnthropicProvider(ModelProvider):
             if last_error:
                 raise last_error
             else:
-                raise ProviderError("Request failed after all retries")
+                raise ProviderError(
+                    "Request failed after all retries", provider="anthropic"
+                )
 
         # Execute request through circuit breaker
         return await self.circuit_breaker.call(_make_single_request)
 
-    async def _handle_streaming_response_legacy(self, response: aiohttp.ClientResponse) -> str:
+    async def _handle_streaming_response_legacy(
+        self, response: aiohttp.ClientResponse
+    ) -> str:
         """Handle streaming response for legacy interface compatibility.
 
         Args:
@@ -824,10 +888,10 @@ class AnthropicProvider(ModelProvider):
 
     async def estimate_cost_unified(self, request: UnifiedRequest) -> float:
         """Estimate cost for a unified request.
-        
+
         Args:
             request: Unified request format
-            
+
         Returns:
             Estimated cost in USD
         """
@@ -893,7 +957,7 @@ class AnthropicProvider(ModelProvider):
         tokens_per_minute: int | None = None
     ) -> None:
         """Configure rate limits for this provider.
-        
+
         Args:
             tokens_per_minute: Tokens per minute limit
         """
@@ -913,11 +977,11 @@ class AnthropicProvider(ModelProvider):
 
     async def count_tokens(self, text: str, model: str) -> int:
         """Token counting via Anthropic API.
-        
+
         Args:
             text: Text to count tokens for
             model: Model name for tokenization
-            
+
         Returns:
             Number of tokens
         """

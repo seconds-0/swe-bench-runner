@@ -216,14 +216,14 @@ jobs:
   integration-tests:
     name: Provider Integration Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 60
     # Only run on schedule, release branches, or when explicitly requested
     if: |
       github.event_name == 'schedule' ||
       contains(github.ref, 'release/') ||
       contains(github.event.head_commit.message, '[integration]') ||
       github.event_name == 'workflow_dispatch'
-    
+
     steps:
     - uses: actions/checkout@v4
 

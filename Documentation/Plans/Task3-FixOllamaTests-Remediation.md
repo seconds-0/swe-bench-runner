@@ -78,13 +78,13 @@ async def test_conversation_context(self, provider: OllamaProvider, ollama_test_
         temperature=0.0,
         max_tokens=30,
     )
-    
+
     response = await provider.generate_unified(request)
-    
+
     # Should maintain context within the prompt
     assert response.content is not None
     content = response.content.lower()
-    
+
     # Should mention Alice or indicate understanding
     # Small models might struggle, but should at least attempt
     if "alice" in content:
@@ -104,29 +104,29 @@ async def test_request_timeout_handling(self, provider: OllamaProvider, ollama_t
     """Test handling of request timeouts."""
     # Mock the actual generation to simulate timeout
     original_generate = provider._generate
-    
+
     async def mock_generate(*args, **kwargs):
         import asyncio
         await asyncio.sleep(10)  # Simulate long operation
         return await original_generate(*args, **kwargs)
-    
+
     mocker.patch.object(provider, '_generate', side_effect=mock_generate)
-    
+
     # Set a short timeout
     import aiohttp
     original_timeout = provider.timeout
     provider.timeout = aiohttp.ClientTimeout(total=0.5)  # 500ms timeout
-    
+
     try:
         request = UnifiedRequest(
             prompt="Test timeout",
             model=ollama_test_model,
             max_tokens=10,
         )
-        
+
         with pytest.raises(ProviderTimeoutError) as exc_info:
             await provider.generate_unified(request)
-        
+
         assert exc_info.value.provider == "ollama"
         assert "timeout" in str(exc_info.value).lower()
     finally:
@@ -145,7 +145,7 @@ async def test_malformed_request_handling(self, provider: OllamaProvider, ollama
             model=ollama_test_model,
             max_tokens=10,
         )
-    
+
     # Test with empty prompt after creation
     request = UnifiedRequest(
         prompt="test",
@@ -153,10 +153,10 @@ async def test_malformed_request_handling(self, provider: OllamaProvider, ollama
         max_tokens=10,
     )
     request.prompt = ""  # Make it empty after creation
-    
+
     with pytest.raises(ProviderError) as exc_info:
         await provider.generate_unified(request)
-    
+
     assert "empty" in str(exc_info.value).lower() or "prompt" in str(exc_info.value).lower()
 ```
 
@@ -167,7 +167,7 @@ async def test_retry_mechanism_with_backoff(self, provider: OllamaProvider, olla
     """Test exponential backoff retry mechanism."""
     call_count = 0
     original_post = provider.session.post
-    
+
     async def mock_post(url, **kwargs):
         nonlocal call_count
         call_count += 1
@@ -176,17 +176,17 @@ async def test_retry_mechanism_with_backoff(self, provider: OllamaProvider, olla
             raise aiohttp.ClientError("Temporary network error")
         # Success on third attempt
         return await original_post(url, **kwargs)
-    
+
     mocker.patch.object(provider.session, 'post', side_effect=mock_post)
-    
+
     request = UnifiedRequest(
         prompt="test retry",
         model=ollama_test_model,
         max_tokens=10,
     )
-    
+
     response = await provider.generate_unified(request)
-    
+
     # Should succeed after retries
     assert response.content is not None
     assert call_count == 3  # Failed twice, succeeded on third
@@ -200,26 +200,26 @@ async def test_embedding_generation(self, provider: OllamaProvider):
     # Check if any embedding models are available
     models = await provider.list_models()
     embedding_models = [m for m in models if 'embed' in m.lower()]
-    
+
     if not embedding_models:
         pytest.skip("No embedding models available")
-    
+
     # Test embedding generation
     try:
         embeddings = await provider.generate_embeddings(
             model=embedding_models[0],
             input="Hello, world!"
         )
-        
+
         assert isinstance(embeddings, list)
         assert len(embeddings) > 0
         assert all(isinstance(x, float) for x in embeddings)
-        
+
         # Embeddings should be normalized
         import math
         magnitude = math.sqrt(sum(x**2 for x in embeddings))
         assert 0.9 < magnitude < 1.1  # Approximately unit length
-        
+
     except NotImplementedError:
         pytest.skip("Embedding generation not implemented")
 ```
@@ -233,26 +233,26 @@ async def test_model_deletion(self, provider: OllamaProvider):
     models = await provider.list_models()
     if len(models) < 2:
         pytest.skip("Need at least 2 models for deletion test")
-    
+
     # Never delete the test model
     ollama_test_model = provider.config.model
     deletable_models = [m for m in models if m != ollama_test_model]
-    
+
     if not deletable_models:
         pytest.skip("No deletable models available")
-    
+
     # Pick a model to delete (preferably a small one)
     model_to_delete = min(deletable_models, key=lambda m: len(m))
-    
+
     try:
         # Delete the model
         result = await provider.delete_model(model_to_delete)
         assert result is True
-        
+
         # Verify it's gone
         models_after = await provider.list_models()
         assert model_to_delete not in models_after
-        
+
     except NotImplementedError:
         pytest.skip("Model deletion not implemented")
 ```

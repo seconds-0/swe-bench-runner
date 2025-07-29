@@ -58,7 +58,7 @@ Unable to run tests due to Python version constraints in the current environment
 
 The project still has proper integration tests in `tests/integration/`:
 - `test_openai_integration.py` - Real OpenAI API tests
-- `test_anthropic_integration.py` - Real Anthropic API tests  
+- `test_anthropic_integration.py` - Real Anthropic API tests
 - `test_ollama_integration.py` - Real Ollama service tests
 
 These tests:

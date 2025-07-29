@@ -254,16 +254,16 @@ class OpenAIProvider(ModelProvider):
 
     async def generate_unified(self, request: UnifiedRequest) -> UnifiedResponse:
         """Generate response using unified interface.
-        
+
         This is the main implementation using all unified components.
         The legacy generate() method delegates to this.
-        
+
         Args:
             request: Unified request format
-            
+
         Returns:
             Unified response format
-            
+
         Raises:
             Various provider exceptions
         """
@@ -368,10 +368,10 @@ class OpenAIProvider(ModelProvider):
 
     async def generate_stream(self, request: UnifiedRequest) -> AsyncIterator[StreamChunk]:
         """Generate streaming response using unified interface.
-        
+
         Args:
             request: Unified request with stream=True
-            
+
         Yields:
             StreamChunk objects with accumulated content
         """
@@ -408,7 +408,7 @@ class OpenAIProvider(ModelProvider):
 
     async def generate(self, prompt: str, **kwargs: Any) -> ModelResponse:
         """Generate a response from OpenAI (legacy interface).
-        
+
         This method provides backward compatibility with the existing ModelProvider
         interface while delegating to the new unified implementation.
 
@@ -611,7 +611,7 @@ class OpenAIProvider(ModelProvider):
             if last_error:
                 raise last_error
             else:
-                raise ProviderError("Request failed after all retries")
+                raise ProviderError("Request failed after all retries", provider="openai")
 
         # Execute request through circuit breaker
         return await self.circuit_breaker.call(_make_single_request)
@@ -761,10 +761,10 @@ class OpenAIProvider(ModelProvider):
 
     async def estimate_cost_unified(self, request: UnifiedRequest) -> float:
         """Estimate cost for a unified request.
-        
+
         Args:
             request: Unified request format
-            
+
         Returns:
             Estimated cost in USD
         """
@@ -831,7 +831,7 @@ class OpenAIProvider(ModelProvider):
         tokens_per_minute: int | None = None
     ) -> None:
         """Configure rate limits for this provider.
-        
+
         Args:
             requests_per_minute: Requests per minute limit
             tokens_per_minute: Tokens per minute limit

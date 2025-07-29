@@ -152,3 +152,10 @@ logs/
 .env.integration
 integration_test_costs.json
 test_costs.csv
+
+# Virtual environments
+venv*/
+test-install-env/
+
+# Test outputs
+test-model.test-run-*.json

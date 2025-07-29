@@ -17,10 +17,10 @@ from swebench_runner.providers.unified_models import UnifiedRequest
 
 async def main():
     """Demonstrate Anthropic provider usage."""
-    
+
     print("Anthropic Provider Usage Example")
     print("=" * 40)
-    
+
     # Check for API key
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
@@ -30,7 +30,7 @@ async def main():
         print("2. Run this script again")
         show_setup_only()
         return
-    
+
     # Create provider configuration
     config = ProviderConfig(
         name="anthropic",
@@ -40,14 +40,14 @@ async def main():
         max_tokens=1000,
         timeout=120
     )
-    
+
     # Initialize provider
     provider = AnthropicProvider(config)
     print(f"✓ Initialized {provider.name} provider")
     print(f"  Model: {provider.config.model}")
     print(f"  Supports streaming: {provider.supports_streaming}")
     print(f"  Token limit: {provider.get_token_limit():,}")
-    
+
     # Test connection
     print("\n1. Testing connection...")
     try:
@@ -60,7 +60,7 @@ async def main():
     except Exception as e:
         print(f"✗ Connection error: {e}")
         return
-    
+
     # Example 1: Basic unified interface
     print("\n2. Basic generation (unified interface)...")
     try:
@@ -70,7 +70,7 @@ async def main():
             max_tokens=100,
             temperature=0.7
         )
-        
+
         response = await provider.generate_unified(request)
         print(f"✓ Response: {response.content}")
         print(f"  Tokens: {response.usage.prompt_tokens} → {response.usage.completion_tokens}")
@@ -78,7 +78,7 @@ async def main():
         print(f"  Latency: {response.latency_ms}ms")
     except Exception as e:
         print(f"✗ Generation error: {e}")
-    
+
     # Example 2: Legacy interface compatibility
     print("\n3. Legacy interface compatibility...")
     try:
@@ -87,13 +87,13 @@ async def main():
             max_tokens=50,
             temperature=0.3
         )
-        
+
         print(f"✓ Response: {response.content}")
         print(f"  Usage: {response.usage}")
         print(f"  Cost: ${response.cost:.6f}")
     except Exception as e:
         print(f"✗ Legacy generation error: {e}")
-    
+
     # Example 3: System message usage
     print("\n4. System message example...")
     try:
@@ -104,13 +104,13 @@ async def main():
             max_tokens=150,
             temperature=0.5
         )
-        
+
         response = await provider.generate_unified(request)
         print(f"✓ Response: {response.content}")
         print(f"  Tokens used: {response.usage.total_tokens}")
     except Exception as e:
         print(f"✗ System message error: {e}")
-    
+
     # Example 4: Streaming response
     print("\n5. Streaming example...")
     try:
@@ -120,7 +120,7 @@ async def main():
             max_tokens=50,
             stream=True
         )
-        
+
         print("Streaming response: ", end="", flush=True)
         async for chunk in provider.generate_stream(stream_request):
             if chunk.delta:
@@ -130,7 +130,7 @@ async def main():
                 break
     except Exception as e:
         print(f"✗ Streaming error: {e}")
-    
+
     # Example 5: Cost estimation
     print("\n6. Cost estimation...")
     try:
@@ -139,10 +139,10 @@ async def main():
             model="claude-opus-4-20250514",  # More expensive model
             max_tokens=2000
         )
-        
+
         estimated_cost = await provider.estimate_cost_unified(test_request)
         print(f"✓ Estimated cost for long generation: ${estimated_cost:.6f}")
-        
+
         # Compare models
         for model in ["claude-haiku-3-5-20241022", "claude-sonnet-4-20250514", "claude-opus-4-20250514"]:
             test_request.model = model
@@ -150,7 +150,7 @@ async def main():
             print(f"  {model}: ${cost:.6f}")
     except Exception as e:
         print(f"✗ Cost estimation error: {e}")
-    
+
     # Example 6: Rate limit information
     print("\n7. Rate limit status...")
     try:
@@ -158,16 +158,16 @@ async def main():
         print(f"✓ Rate limit info: {rate_info['unified_status']}")
     except Exception as e:
         print(f"✗ Rate limit info error: {e}")
-    
+
     print("\n✓ All examples completed!")
 
 
 def show_setup_only():
     """Show provider setup without making API calls."""
-    
+
     print("\nProvider Setup Example (no API calls)")
     print("-" * 40)
-    
+
     # Show configuration options
     config = ProviderConfig(
         name="anthropic",
@@ -180,7 +180,7 @@ def show_setup_only():
             "anthropic_beta": "message-batches-2024-09-24"  # Optional beta features
         }
     )
-    
+
     print("Configuration options:")
     print(f"  name: {config.name}")
     print(f"  model: {config.model}")
@@ -188,21 +188,21 @@ def show_setup_only():
     print(f"  max_tokens: {config.max_tokens}")
     print(f"  timeout: {config.timeout}")
     print(f"  extra_params: {config.extra_params}")
-    
+
     print("\nSupported models:")
     models = [
         "claude-opus-4-20250514",      # $15 input, $75 output per 1M tokens
-        "claude-sonnet-4-20250514",    # $3 input, $15 output per 1M tokens  
+        "claude-sonnet-4-20250514",    # $3 input, $15 output per 1M tokens
         "claude-haiku-3-5-20241022",   # $0.8 input, $4 output per 1M tokens
     ]
-    
+
     for model in models:
         print(f"  - {model}")
-    
+
     print("\nKey features:")
     features = [
         "Unified interface with UnifiedRequest/UnifiedResponse",
-        "Legacy ModelProvider interface compatibility", 
+        "Legacy ModelProvider interface compatibility",
         "Streaming support with SSE parsing",
         "API-based token counting",
         "Rate limiting with token bucket",
@@ -211,7 +211,7 @@ def show_setup_only():
         "System message separation (Anthropic format)",
         "Required max_tokens handling"
     ]
-    
+
     for feature in features:
         print(f"  ✓ {feature}")
 

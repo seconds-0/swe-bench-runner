@@ -652,4 +652,3 @@ def create_streaming_manager() -> StreamingManager:
         Configured StreamingManager instance
     """
     return StreamingManager()
-

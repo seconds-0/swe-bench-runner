@@ -1,7 +1,7 @@
 # Master Implementation Plan: Model Provider System with Unified Abstraction Layer
 
 **Task ID**: MASTER-ProviderImplementation
-**Status**: Not Started  
+**Status**: Not Started
 **Created**: 2025-01-27
 **Priority**: High
 
@@ -16,7 +16,7 @@ This is the master implementation plan for building three model providers (OpenA
 ### Current State Assessment ✅
 - **Phase 1 Infrastructure**: Completed (FEAT-ModelProviders-Phase1.md)
   - Base provider system with capabilities ✅
-  - Thread-safe registry with validation ✅  
+  - Thread-safe registry with validation ✅
   - Circuit breaker implementation ✅
   - Async/sync bridge ✅
   - Multi-source configuration management ✅
@@ -28,7 +28,7 @@ This is the master implementation plan for building three model providers (OpenA
 Based on `Documentation/API-Contracts-Analysis.md`, key abstraction challenges identified:
 1. **Authentication**: Bearer tokens vs API keys vs none
 2. **Request Formats**: Similar but incompatible JSON schemas
-3. **Response Formats**: Different field names and structures  
+3. **Response Formats**: Different field names and structures
 4. **Token Counting**: tiktoken vs API endpoint vs response metadata
 5. **Rate Limiting**: Different headers, algorithms, and resource types
 6. **Error Handling**: Different error codes, types, and recovery strategies
@@ -92,8 +92,8 @@ class UnifiedRequest:
     stream: bool = False
     model: Optional[str] = None
     stop_sequences: Optional[List[str]] = None
-    
-@dataclass  
+
+@dataclass
 class UnifiedResponse:
     """Provider-agnostic response format"""
     content: str
@@ -104,7 +104,7 @@ class UnifiedResponse:
     provider: str
     cost: Optional[float] = None
     raw_response: dict = field(default_factory=dict)
-    
+
 @dataclass
 class TokenUsage:
     """Unified token usage information"""
@@ -123,11 +123,11 @@ class AuthStrategy(ABC):
 class BearerTokenAuth(AuthStrategy):
     def prepare_headers(self, base_headers: dict) -> dict:
         return {**base_headers, "Authorization": f"Bearer {self.token}"}
-        
+
 class ApiKeyAuth(AuthStrategy):
     def prepare_headers(self, base_headers: dict) -> dict:
         return {**base_headers, "x-api-key": self.api_key}
-        
+
 class NoAuth(AuthStrategy):
     def prepare_headers(self, base_headers: dict) -> dict:
         return base_headers
@@ -149,10 +149,10 @@ class TransformPipeline:
     def __init__(self, transformer: RequestTransformer, parser: ResponseParser):
         self.transformer = transformer
         self.parser = parser
-        
+
     def process_request(self, request: UnifiedRequest) -> dict:
         return self.transformer.transform(request)
-        
+
     def process_response(self, raw_response: dict) -> UnifiedResponse:
         return self.parser.parse(raw_response)
 ```
@@ -168,13 +168,13 @@ class TiktokenCounter(TokenCounter):
     def count_tokens(self, text: str, model: str) -> int:
         encoding = tiktoken.encoding_for_model(model)
         return len(encoding.encode(text))
-        
+
 class APITokenCounter(TokenCounter):
     async def count_tokens(self, text: str, model: str) -> int:
         # Use provider's API endpoint
         response = await self.client.count_tokens(text, model)
         return response["input_tokens"]
-        
+
 class MetadataTokenCounter(TokenCounter):
     def count_tokens(self, text: str, model: str) -> int:
         # Extract from response metadata (Ollama)
@@ -195,7 +195,7 @@ class SSEAdapter(StreamingAdapter):
                 data = json.loads(line[6:])
                 if content := self._extract_content(data):
                     yield content
-                    
+
 class JSONLinesAdapter(StreamingAdapter):
     async def stream_response(self, response_stream) -> AsyncIterator[str]:
         async for line in response_stream:
@@ -211,14 +211,14 @@ class RateLimitCoordinator:
         self.limiters = {}
         for provider, limits in provider_config.items():
             self.limiters[provider] = self._create_limiter(limits)
-            
+
     async def acquire(self, provider: str, estimated_tokens: int) -> bool:
         limiter = self.limiters.get(provider)
         if not limiter:
             return True  # No limits configured
-            
+
         return await limiter.acquire(estimated_tokens)
-        
+
     def _create_limiter(self, limits: dict):
         # Create token bucket or sliding window limiter
         return TokenBucketLimiter(
@@ -240,7 +240,7 @@ class RateLimitCoordinator:
 
 #### 2B.2 OpenAI-Compatible Endpoints
 - Support for vLLM endpoints
-- Support for FastChat endpoints  
+- Support for FastChat endpoints
 - Support for llama.cpp endpoints
 - Endpoint discovery and validation
 
@@ -254,14 +254,14 @@ class OpenAIRequestTransformer(RequestTransformer):
             "temperature": request.temperature,
             "stream": request.stream
         }
-        
+
         if request.max_tokens:
             openai_request["max_tokens"] = request.max_tokens
         if request.stop_sequences:
             openai_request["stop"] = request.stop_sequences
-            
+
         return openai_request
-        
+
     def _build_messages(self, request: UnifiedRequest) -> List[dict]:
         messages = []
         if request.system_message:
@@ -273,7 +273,7 @@ class OpenAIResponseParser(ResponseParser):
     def parse(self, raw_response: dict) -> UnifiedResponse:
         choice = raw_response["choices"][0]
         usage = raw_response.get("usage", {})
-        
+
         return UnifiedResponse(
             content=choice["message"]["content"],
             model=raw_response["model"],
@@ -288,7 +288,7 @@ class OpenAIResponseParser(ResponseParser):
         )
 ```
 
-### Phase 2C: Anthropic Provider Implementation  
+### Phase 2C: Anthropic Provider Implementation
 **Objective**: Native Anthropic Claude support with optimal API usage
 
 #### 2C.1 Anthropic Provider Features
@@ -309,19 +309,19 @@ class AnthropicRequestTransformer(RequestTransformer):
             "temperature": request.temperature,
             "stream": request.stream
         }
-        
+
         if request.system_message:
             anthropic_request["system"] = request.system_message
         if request.stop_sequences:
             anthropic_request["stop_sequences"] = request.stop_sequences
-            
+
         return anthropic_request
 
 class AnthropicResponseParser(ResponseParser):
     def parse(self, raw_response: dict) -> UnifiedResponse:
         content = raw_response["content"][0]["text"]
         usage = raw_response.get("usage", {})
-        
+
         return UnifiedResponse(
             content=content,
             model=raw_response["model"],
@@ -365,14 +365,14 @@ class OllamaRequestTransformer(RequestTransformer):
                 "num_ctx": 4096,  # Context window
             }
         }
-        
+
         if request.system_message:
             ollama_request["system"] = request.system_message
         if request.max_tokens:
             ollama_request["options"]["num_predict"] = request.max_tokens
         if request.stop_sequences:
             ollama_request["options"]["stop"] = request.stop_sequences
-            
+
         return ollama_request
 
 class OllamaResponseParser(ResponseParser):
@@ -417,7 +417,7 @@ swebench provider models openai          # List available models
 
 # Generation with providers
 swebench generate --provider openai --model gpt-4o --count 5
-swebench generate --provider anthropic --model claude-sonnet-4 --count 5  
+swebench generate --provider anthropic --model claude-sonnet-4 --count 5
 swebench generate --provider ollama --model llama3.3 --count 5
 
 # Comparison and evaluation
@@ -432,20 +432,20 @@ def init():
     """Interactive provider setup wizard."""
     registry = get_registry()
     providers = registry.list_providers()
-    
+
     # Show available providers
     selected = prompt_provider_selection(providers)
-    
+
     # Provider-specific setup
     provider_class = registry.get_provider_class(selected)
-    
+
     if provider_class.requires_api_key:
         api_key = click.prompt("API Key", hide_input=True)
-    
+
     # Model selection
     if hasattr(provider_class, 'supported_models'):
         model = prompt_model_selection(provider_class.supported_models)
-    
+
     # Test and save
     config = ProviderConfig(name=selected, api_key=api_key, model=model)
     test_provider_connection(provider_class, config)
@@ -492,14 +492,14 @@ class TestUnifiedAbstraction:
         request = UnifiedRequest(prompt="test", system_message="system")
         result = transformer.transform(request)
         assert result["messages"][0]["role"] == "system"
-        
+
     def test_response_parsing(self):
         # Test response parsing consistency
         parser = OpenAIResponseParser()
         mock_response = {"choices": [{"message": {"content": "test"}}]}
         result = parser.parse(mock_response)
         assert isinstance(result, UnifiedResponse)
-        
+
     def test_token_counting(self):
         # Test token counting accuracy
         counter = TiktokenCounter()
@@ -517,8 +517,8 @@ class TestProviderIntegration:
         response = await provider.generate_unified(request)
         assert response.content
         assert response.provider == "openai"
-        
-    @pytest.mark.integration  
+
+    @pytest.mark.integration
     async def test_provider_fallback(self):
         # Test fallback when primary provider fails
         coordinator = ProviderCoordinator(["openai", "anthropic"])
@@ -536,7 +536,7 @@ class TestPerformance:
         results = await asyncio.gather(*tasks)
         assert len(results) == 10
         assert all(r.content for r in results)
-        
+
     @pytest.mark.benchmark
     def test_token_counting_performance(self):
         # Test token counting speed
@@ -556,7 +556,7 @@ class TestPerformance:
 - Configuration guide for different environments
 - Troubleshooting guide for common issues
 
-#### 6.2 Developer Documentation  
+#### 6.2 Developer Documentation
 - Provider development guide for adding new providers
 - API reference for all classes and methods
 - Architecture overview with diagrams
@@ -570,13 +570,13 @@ from swebench_runner.providers import get_registry
 async def basic_example():
     registry = get_registry()
     provider = registry.get_provider("openai")
-    
+
     request = UnifiedRequest(
         prompt="Fix this Python bug: ...",
         system_message="You are a expert Python developer",
         max_tokens=1000
     )
-    
+
     response = await provider.generate_unified(request)
     print(f"Generated patch: {response.content}")
     print(f"Cost: ${response.cost:.4f}")
@@ -585,10 +585,10 @@ async def basic_example():
 # examples/batch_processing.py
 async def batch_example():
     coordinator = ProviderCoordinator(["openai", "anthropic"])
-    
+
     instances = load_swe_bench_instances("lite", limit=10)
     results = await coordinator.process_batch(instances)
-    
+
     for result in results:
         print(f"Instance {result.instance_id}: {result.success}")
 ```
@@ -708,14 +708,14 @@ async def batch_example():
 # Required packages
 providers = [
     "anthropic>=0.18.0",        # Anthropic Claude API
-    "openai>=1.12.0",          # OpenAI API  
+    "openai>=1.12.0",          # OpenAI API
     "tiktoken>=0.5.0",         # OpenAI token counting
     "aiohttp>=3.9.0",          # Async HTTP for Ollama
     "aiolimiter>=1.1.0",       # Rate limiting
 ]
 ```
 
-### Internal Dependencies  
+### Internal Dependencies
 - Existing provider infrastructure (✅ Phase 1 completed)
 - DatasetManager for instance loading
 - GenerationIntegration for batch processing
@@ -757,7 +757,7 @@ You have full authority to make architectural decisions for this implementation,
 ## Implementation Timeline
 
 **Phase 2A** (Unified Abstraction): 2-3 days
-**Phase 2B** (OpenAI Provider): 2-3 days  
+**Phase 2B** (OpenAI Provider): 2-3 days
 **Phase 2C** (Anthropic Provider): 2-3 days
 **Phase 2D** (Ollama Provider): 2-3 days
 **Phase 3** (Integration & CLI): 2-3 days

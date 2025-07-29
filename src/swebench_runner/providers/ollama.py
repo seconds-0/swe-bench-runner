@@ -280,7 +280,8 @@ class OllamaProvider(ModelProvider):
         # Validate service availability
         if not await self._check_service_health():
             raise ProviderConnectionError(
-                "Ollama service is not running. Start it with: ollama serve"
+                "Ollama service is not running. Start it with: ollama serve",
+                provider="ollama"
             )
 
         # Check if model is available locally
@@ -324,7 +325,9 @@ class OllamaProvider(ModelProvider):
             logger.error(f"Ollama generation failed: {e}")
             if isinstance(e, ProviderError):
                 raise
-            raise ProviderError(f"Ollama generation failed: {e}") from e
+            raise ProviderError(
+                f"Ollama generation failed: {e}", provider="ollama"
+            ) from e
 
     async def generate_stream(
         self, request: UnifiedRequest
@@ -343,7 +346,8 @@ class OllamaProvider(ModelProvider):
         # Validate service availability
         if not await self._check_service_health():
             raise ProviderConnectionError(
-                "Ollama service is not running. Start it with: ollama serve"
+                "Ollama service is not running. Start it with: ollama serve",
+                provider="ollama"
             )
 
         # Check model availability
@@ -376,7 +380,9 @@ class OllamaProvider(ModelProvider):
             logger.error(f"Ollama streaming failed: {e}")
             if isinstance(e, ProviderError):
                 raise
-            raise ProviderError(f"Ollama streaming failed: {e}") from e
+            raise ProviderError(
+                f"Ollama streaming failed: {e}", provider="ollama"
+            ) from e
 
     def estimate_cost(self, prompt_tokens: int, max_tokens: int) -> float:
         """Estimate cost for Ollama (free but hardware cost).
@@ -423,13 +429,17 @@ class OllamaProvider(ModelProvider):
                 return True
             else:
                 error_msg = response.get("error", "Unknown error during model pull")
-                raise ProviderError(f"Failed to pull model {model}: {error_msg}")
+                raise ProviderError(
+                    f"Failed to pull model {model}: {error_msg}", provider="ollama"
+                )
 
         except Exception as e:
             logger.error(f"Model pull failed for {model}: {e}")
             if isinstance(e, ProviderError):
                 raise
-            raise ProviderError(f"Failed to pull model {model}: {e}") from e
+            raise ProviderError(
+                f"Failed to pull model {model}: {e}", provider="ollama"
+            ) from e
 
     async def list_models(self) -> list[str]:
         """List available local models.
@@ -457,7 +467,8 @@ class OllamaProvider(ModelProvider):
             logger.error(f"Failed to list models: {e}")
             raise ProviderConnectionError(
                 f"Failed to list Ollama models: {e}. "
-                "Ensure Ollama service is running."
+                "Ensure Ollama service is running.",
+                provider="ollama"
             ) from e
 
     async def check_health(self) -> dict[str, Any]:
@@ -579,27 +590,30 @@ class OllamaProvider(ModelProvider):
                             return json.loads(response_text)
                         except json.JSONDecodeError as e:
                             raise ProviderResponseError(
-                                f"Invalid JSON response from Ollama: {e}"
+                                f"Invalid JSON response from Ollama: {e}",
+                                provider="ollama"
                             ) from e
                     else:
                         # Handle Ollama error responses
                         await self._handle_api_error(response.status, response_text)
                         # This line should not be reached due to exception
-                        raise ProviderError("API call failed")
+                        raise ProviderError("API call failed", provider="ollama")
 
         except aiohttp.ClientConnectionError as e:
             raise ProviderConnectionError(
                 f"Cannot connect to Ollama service at {self.base_url}. "
-                "Ensure Ollama is running with: ollama serve"
+                "Ensure Ollama is running with: ollama serve",
+                provider="ollama"
             ) from e
         except asyncio.TimeoutError as e:
             raise ProviderTimeoutError(
-                f"Ollama request timed out after {self.timeout.total} seconds"
+                f"Ollama request timed out after {self.timeout.total} seconds",
+                provider="ollama"
             ) from e
         except Exception as e:
             if isinstance(e, ProviderError):
                 raise
-            raise ProviderError(f"Ollama API call failed: {e}") from e
+            raise ProviderError(f"Ollama API call failed: {e}", provider="ollama") from e
 
     async def _stream_api_call(
         self, method: str, endpoint: str, data: dict[str, Any]
@@ -638,16 +652,18 @@ class OllamaProvider(ModelProvider):
         except aiohttp.ClientConnectionError as e:
             raise ProviderConnectionError(
                 f"Cannot connect to Ollama service at {self.base_url}. "
-                "Ensure Ollama is running with: ollama serve"
+                "Ensure Ollama is running with: ollama serve",
+                provider="ollama"
             ) from e
         except asyncio.TimeoutError as e:
             raise ProviderTimeoutError(
-                f"Ollama streaming request timed out after {self.timeout.total} seconds"
+                f"Ollama streaming request timed out after {self.timeout.total} seconds",
+                provider="ollama"
             ) from e
         except Exception as e:
             if isinstance(e, ProviderError):
                 raise
-            raise ProviderError(f"Ollama streaming failed: {e}") from e
+            raise ProviderError(f"Ollama streaming failed: {e}", provider="ollama") from e
 
     async def _handle_api_error(self, status_code: int, response_text: str) -> None:
         """Handle Ollama API errors.
@@ -669,19 +685,21 @@ class OllamaProvider(ModelProvider):
             if "model" in error_message.lower():
                 raise ProviderError(
                     f"Model not found: {error_message}. "
-                    "Pull the model with: ollama pull <model_name>"
+                    "Pull the model with: ollama pull <model_name>",
+                    provider="ollama"
                 )
             else:
-                raise ProviderError(f"Ollama endpoint not found: {error_message}")
+                raise ProviderError(f"Ollama endpoint not found: {error_message}", provider="ollama")
         elif status_code == 400:
-            raise ProviderError(f"Invalid request to Ollama: {error_message}")
+            raise ProviderError(f"Invalid request to Ollama: {error_message}", provider="ollama")
         elif status_code == 500:
             raise ProviderError(
                 f"Ollama server error: {error_message}. "
-                "Check Ollama service logs for details."
+                "Check Ollama service logs for details.",
+                provider="ollama"
             )
         else:
-            raise ProviderError(f"Ollama API error ({status_code}): {error_message}")
+            raise ProviderError(f"Ollama API error ({status_code}): {error_message}", provider="ollama")
 
     def get_token_limit(self) -> int:
         """Get token limit for current model."""

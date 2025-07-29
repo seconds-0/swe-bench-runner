@@ -9,6 +9,8 @@ import os
 
 import pytest
 
+from swebench_runner.providers import ProviderConfig, ProviderConfigManager
+
 
 def pytest_configure(config):
     """Register integration marker."""
@@ -43,7 +45,7 @@ def skip_without_ollama():
             async with aiohttp.ClientSession() as session:
                 async with session.get("http://localhost:11434/api/tags", timeout=aiohttp.ClientTimeout(total=2)) as resp:
                     return resp.status == 200
-        except:
+        except Exception:
             return False
 
     if not asyncio.run(check_ollama()):
@@ -91,3 +93,35 @@ def cost_test_prompt() -> str:
 def error_test_prompt() -> str:
     """Get a prompt that's safe but tests error boundaries."""
     return "a" * 10000  # Very long prompt to potentially trigger token limits
+
+
+@pytest.fixture
+def openai_config() -> ProviderConfig:
+    """Create OpenAI provider config from environment."""
+    config_manager = ProviderConfigManager()
+    return config_manager.load_config("openai")
+
+
+@pytest.fixture
+def anthropic_config() -> ProviderConfig:
+    """Create Anthropic provider config from environment."""
+    config_manager = ProviderConfigManager()
+    return config_manager.load_config("anthropic")
+
+
+@pytest.fixture
+def ollama_config() -> ProviderConfig:
+    """Create Ollama provider config."""
+    # Ollama doesn't require API key, just create config directly
+    return ProviderConfig(
+        name="ollama",
+        endpoint="http://localhost:11434",
+        model=os.environ.get("OLLAMA_TEST_MODEL", "llama3.2:1b"),
+    )
+
+
+@pytest.fixture
+def openrouter_config() -> ProviderConfig:
+    """Create OpenRouter provider config from environment."""
+    config_manager = ProviderConfigManager()
+    return config_manager.load_config("openrouter")

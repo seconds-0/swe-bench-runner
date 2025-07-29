@@ -8,7 +8,7 @@
 ## Implementation Tasks Created
 
 1. **Task 1**: Fix OpenAI Integration Tests - See `Documentation/Plans/Task1-FixOpenAITests.md`
-2. **Task 2**: Fix Anthropic Integration Tests - See `Documentation/Plans/Task2-FixAnthropicTests.md`  
+2. **Task 2**: Fix Anthropic Integration Tests - See `Documentation/Plans/Task2-FixAnthropicTests.md`
 3. **Task 3**: Create Validation Scripts - See `Documentation/Plans/Task3-CreateValidationScript.md`
 
 Each task has detailed line-by-line instructions for the code implementers.
@@ -130,7 +130,7 @@ None - the fix is clear from comparing with working Ollama tests
 3. Ensure response validation uses correct field names
 4. Pattern to follow: Ollama tests (test_ollama_integration.py)
 
-### Task 2: Fix Anthropic Integration Tests  
+### Task 2: Fix Anthropic Integration Tests
 **File**: `tests/integration/test_anthropic_integration.py`
 **Scope**: Fix all 10 tests to use correct UnifiedRequest API
 

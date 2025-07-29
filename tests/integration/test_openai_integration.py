@@ -16,6 +16,7 @@ from datetime import datetime
 
 import pytest
 
+from swebench_runner.providers import ProviderConfig
 from swebench_runner.providers.exceptions import (
     ProviderAuthenticationError,
     ProviderConnectionError,
@@ -32,10 +33,10 @@ class TestOpenAIIntegration:
     """Integration tests for OpenAI provider with real API calls."""
 
     @pytest.fixture
-    async def provider(self, skip_without_openai_key) -> OpenAIProvider:
+    async def provider(self, skip_without_openai_key, openai_config) -> OpenAIProvider:
         """Create an OpenAI provider with real credentials."""
-        provider = OpenAIProvider()
-        await provider.initialize()
+        provider = OpenAIProvider(openai_config)
+        # Note: initialize() is not needed for the new provider architecture
         return provider
 
     @pytest.mark.asyncio
@@ -119,8 +120,12 @@ class TestOpenAIIntegration:
         # Use monkeypatch for proper test isolation
         monkeypatch.setenv("OPENAI_API_KEY", "sk-invalid-test-key-12345")
 
-        provider = OpenAIProvider()
-        await provider.initialize()
+        # Create config with invalid key
+        config = ProviderConfig(
+            name="openai",
+            api_key="sk-invalid-test-key-12345"
+        )
+        provider = OpenAIProvider(config)
 
         request = UnifiedRequest(
             model="gpt-3.5-turbo",

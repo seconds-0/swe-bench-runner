@@ -558,4 +558,3 @@ class TestAuthStrategyIntegration:
 
         # Verify original base_headers wasn't modified
         assert base_headers == {"Content-Type": "application/json"}
-

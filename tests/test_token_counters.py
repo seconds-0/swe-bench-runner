@@ -345,7 +345,7 @@ class TestUnifiedTokenCounter:
         )
         counter._counters["tiktoken"] = mock_tiktoken
 
-        result = await counter.count_tokens(
+        await counter.count_tokens(
             "Hello",
             "gpt-4",
             system_message="You are helpful"

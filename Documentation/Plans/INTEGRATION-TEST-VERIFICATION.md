@@ -69,7 +69,7 @@ Create a systematic approach to verify all integration tests work with real APIs
 
 ### Phase 4: Full Test Execution
 - [ ] Run all OpenAI tests (~$0.01 estimated)
-- [ ] Run all Anthropic tests (~$0.008 estimated)  
+- [ ] Run all Anthropic tests (~$0.008 estimated)
 - [ ] Monitor real-time costs
 - [ ] Document test results
 
@@ -200,7 +200,7 @@ os.system('pytest tests/integration -m integration -v')
 - No costs incurred (local execution)
 - ~30 seconds execution time
 
-### OpenAI Tests  
+### OpenAI Tests
 - All 14 tests should pass
 - ~$0.01 total cost
 - ~45 seconds execution time

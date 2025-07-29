@@ -40,7 +40,7 @@ request = UnifiedRequest(
 - **Response access issues**: Expects `response.choices[0].message.content` but should be `response.content`
 - **Other API mismatches**: Expects `response.id`, `response.choices` structure
 
-#### test_anthropic_integration.py  
+#### test_anthropic_integration.py
 - **Lines with messages array**: 47, 78, 120, 143, 165-168, 183, 199, 213, 224, 270-274, 298, 331-335, 353, 369-374, 392-396
 - **Response access issues**: Same as OpenAI tests
 - **Other API mismatches**: Same structural issues
@@ -131,9 +131,9 @@ async def test_basic_generation(provider, model, prompt):
         temperature=0.0,
         max_tokens=10
     )
-    
+
     response = await provider.generate_unified(request)
-    
+
     # CORRECT response access
     assert response.content is not None
     assert response.model == model

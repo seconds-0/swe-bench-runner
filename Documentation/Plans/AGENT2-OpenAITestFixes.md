@@ -61,21 +61,21 @@ async def test_basic_generation(self, provider: OpenAIProvider, openai_test_mode
         temperature=0.0,
         max_tokens=10,
     )
-    
+
     response = await provider.generate_unified(request)
-    
+
     # Validate response structure
     assert response.content is not None  # FIXED: Use unified API
     assert response.model == openai_test_model
     assert "test" in response.content.lower()  # FIXED
     assert response.finish_reason in ["stop", "length"]  # FIXED
-    
+
     # Validate token usage
     assert response.usage is not None
     assert response.usage.prompt_tokens > 0
     assert response.usage.completion_tokens > 0
     assert response.usage.total_tokens == response.usage.prompt_tokens + response.usage.completion_tokens
-    
+
     # Validate cost calculation
     assert response.cost is not None  # FIXED: Use unified cost
     assert response.cost > 0
@@ -93,9 +93,9 @@ async def test_system_message_handling(self, provider: OpenAIProvider, openai_te
         temperature=0.7,
         max_tokens=30,
     )
-    
+
     response = await provider.generate_unified(request)
-    
+
     # Should get a response
     assert response.content is not None
     assert len(response.content) > 0

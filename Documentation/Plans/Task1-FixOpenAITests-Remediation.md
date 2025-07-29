@@ -89,19 +89,19 @@ async def test_authentication_error(self, monkeypatch):
     """Test handling of authentication errors with invalid key."""
     # Use monkeypatch instead of direct os.environ modification
     monkeypatch.setenv("OPENAI_API_KEY", "sk-invalid-test-key-12345")
-    
+
     provider = OpenAIProvider()
     await provider.initialize()
-    
+
     request = UnifiedRequest(
         model="gpt-3.5-turbo",
         prompt="test",
         max_tokens=10,
     )
-    
+
     with pytest.raises(ProviderAuthenticationError) as exc_info:
         await provider.generate_unified(request)
-    
+
     assert exc_info.value.provider == "openai"
     assert "authentication" in str(exc_info.value).lower() or "api key" in str(exc_info.value).lower()
 ```
@@ -118,13 +118,13 @@ async def test_json_mode_generation(self, provider: OpenAIProvider, openai_test_
         max_tokens=50,
         response_format={"type": "json_object"},
     )
-    
+
     response = await provider.generate_unified(request)
-    
+
     # Validate response
     assert response.content is not None
     content = response.content.strip()
-    
+
     # Should be valid JSON with expected structure
     import json
     parsed = json.loads(content)
@@ -143,17 +143,17 @@ async def test_network_timeout_handling(self, provider: OpenAIProvider, openai_t
     # Temporarily set very low timeout
     original_timeout = provider._client.timeout
     provider._client.timeout = 0.001  # 1ms timeout
-    
+
     try:
         request = UnifiedRequest(
             model=openai_test_model,
             prompt="test",
             max_tokens=10,
         )
-        
+
         with pytest.raises(ProviderNetworkError) as exc_info:
             await provider.generate_unified(request)
-        
+
         assert "timeout" in str(exc_info.value).lower()
         assert exc_info.value.provider == "openai"
     finally:
@@ -168,24 +168,24 @@ async def test_retry_mechanism(self, provider: OpenAIProvider, openai_test_model
     # Mock the underlying API call to fail twice then succeed
     call_count = 0
     original_create = provider._client.chat.completions.create
-    
+
     async def mock_create(*args, **kwargs):
         nonlocal call_count
         call_count += 1
         if call_count < 3:
             raise ProviderNetworkError("openai", "Temporary network error")
         return await original_create(*args, **kwargs)
-    
+
     mocker.patch.object(provider._client.chat.completions, 'create', side_effect=mock_create)
-    
+
     request = UnifiedRequest(
         model=openai_test_model,
         prompt="test",
         max_tokens=10,
     )
-    
+
     response = await provider.generate_unified(request)
-    
+
     # Should succeed after retries
     assert response.content is not None
     assert call_count == 3  # Failed twice, succeeded on third

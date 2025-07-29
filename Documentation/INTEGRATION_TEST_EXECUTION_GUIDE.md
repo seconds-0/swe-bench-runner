@@ -29,7 +29,7 @@ python scripts/run_integration_tests.py --provider ollama
 
 - [ ] Review estimated costs:
   - OpenAI: ~$0.01 for full test suite
-  - Anthropic: ~$0.008 for full test suite  
+  - Anthropic: ~$0.008 for full test suite
   - Ollama: Free (local execution)
   - **Total: < $0.02**
 - [ ] Set spending alerts in provider dashboards
@@ -74,7 +74,7 @@ python scripts/run_integration_tests.py \
   --provider openai \
   --single-test test_basic_generation
 
-# Test one Anthropic call  
+# Test one Anthropic call
 python scripts/run_integration_tests.py \
   --provider anthropic \
   --single-test test_basic_generation
@@ -137,7 +137,7 @@ Tests handle:
    - OpenAI: https://platform.openai.com/usage
    - Anthropic: https://console.anthropic.com/usage
 
-3. **Cost Tracking**: 
+3. **Cost Tracking**:
    - Live updates in terminal
    - Final report in JSON
 
@@ -293,7 +293,7 @@ Integration tests are successful when:
 
 1. **Check timeouts** are working (60s default)
 2. **Force stop**: Ctrl+C twice
-3. **Clean up**: 
+3. **Clean up**:
    ```bash
    ps aux | grep pytest | grep -v grep | awk '{print $2}' | xargs kill -9
    ```

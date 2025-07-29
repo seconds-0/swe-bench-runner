@@ -45,7 +45,7 @@ All 16 integration tests now pass:
 
 ```
 ✓ test_basic_generation - Tests basic text generation
-✓ test_streaming_generation - Tests streaming responses  
+✓ test_streaming_generation - Tests streaming responses
 ✓ test_model_not_found_error - Tests handling of non-existent models
 ✓ test_connection_error_handling - Tests connection failure handling
 ✓ test_model_availability - Tests listing available models

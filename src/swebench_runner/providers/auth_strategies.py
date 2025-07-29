@@ -359,4 +359,3 @@ class AuthStrategyFactory:
             List of supported provider names
         """
         return ["openai", "anthropic", "ollama"]
-

@@ -34,7 +34,7 @@ class OpenAIRateLimitError(ProviderRateLimitError):
         limit_type: str | None = None,
         daily_limit_reset: str | None = None,
     ):
-        super().__init__(message, retry_after)
+        super().__init__(message, retry_after, provider="openai")
         self.limit_type = limit_type  # "requests" or "tokens"
         self.daily_limit_reset = daily_limit_reset
 
@@ -43,7 +43,7 @@ class OpenAIAuthenticationError(ProviderAuthenticationError):
     """OpenAI-specific authentication error."""
 
     def __init__(self, message: str, error_code: str | None = None):
-        super().__init__(message)
+        super().__init__(message, provider="openai")
         self.error_code = error_code
 
 
@@ -51,7 +51,7 @@ class OpenAIModelNotFoundError(ProviderResponseError):
     """OpenAI model not found or not accessible."""
 
     def __init__(self, message: str, model: str | None = None):
-        super().__init__(message)
+        super().__init__(message, provider="openai")
         self.model = model
 
 
@@ -65,7 +65,7 @@ class OpenAIContextLengthError(ProviderTokenLimitError):
         limit: int | None = None,
         suggested_max_tokens: int | None = None,
     ):
-        super().__init__(message, token_count, limit)
+        super().__init__(message, token_count, limit, provider="openai")
         self.suggested_max_tokens = suggested_max_tokens
 
 
@@ -73,7 +73,7 @@ class OpenAIContentFilterError(ProviderResponseError):
     """OpenAI content policy violation error."""
 
     def __init__(self, message: str, filter_type: str | None = None):
-        super().__init__(message)
+        super().__init__(message, provider="openai")
         self.filter_type = filter_type  # "content_policy", "safety", etc.
 
 
@@ -86,7 +86,7 @@ class OpenAIServerError(ProviderConnectionError):
         status_code: int | None = None,
         server_error_type: str | None = None,
     ):
-        super().__init__(message)
+        super().__init__(message, provider="openai")
         self.status_code = status_code
         self.server_error_type = server_error_type
 
@@ -548,4 +548,3 @@ class OpenAIErrorHandler:
                 return {"error": {"message": text or "Unknown error"}}
             except Exception:
                 return {"error": {"message": f"HTTP {response.status}"}}
-

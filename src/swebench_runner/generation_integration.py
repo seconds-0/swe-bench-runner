@@ -59,15 +59,15 @@ class ProviderCoordinator:
         validate_connectivity: bool = True
     ) -> ModelProvider:
         """Select and configure appropriate provider with validation.
-        
+
         Args:
             provider_name: Name of the provider to use
             model: Optional model override
             validate_connectivity: Whether to test connectivity
-            
+
         Returns:
             Configured and validated provider instance
-            
+
         Raises:
             ProviderNotFoundError: If provider doesn't exist
             ProviderConfigurationError: If provider misconfigured
@@ -110,10 +110,10 @@ class ProviderCoordinator:
 
     def get_provider_info(self, provider_name: str) -> dict[str, Any]:
         """Get detailed information about a provider.
-        
+
         Args:
             provider_name: Name of the provider
-            
+
         Returns:
             Dictionary with provider capabilities and status
         """
@@ -160,17 +160,17 @@ class ProviderCoordinator:
         **kwargs
     ) -> UnifiedResponse:
         """Generate with provider fallback on failures.
-        
+
         Args:
             instance: SWE-bench instance data
             primary_provider: Primary provider to try first
             fallback_providers: List of fallback providers
             model: Optional model override
             **kwargs: Additional generation parameters
-            
+
         Returns:
             UnifiedResponse from successful provider
-            
+
         Raises:
             Exception: If all providers fail
         """
@@ -183,7 +183,9 @@ class ProviderCoordinator:
         for provider_name in providers_to_try:
             try:
                 logger.info(f"Attempting generation with provider: {provider_name}")
-                provider = self.select_provider(provider_name, model, validate_connectivity=False)
+                provider = self.select_provider(
+                    provider_name, model, validate_connectivity=False
+                )
 
                 # Create unified request from instance
                 request = self._build_request_from_instance(instance, **kwargs)
@@ -194,7 +196,9 @@ class ProviderCoordinator:
                 else:
                     # Fallback to legacy generate method
                     model_response = await provider.generate(request.prompt, **kwargs)
-                    response = self._convert_to_unified_response(model_response, provider_name)
+                    response = self._convert_to_unified_response(
+                        model_response, provider_name
+                    )
 
                 logger.info(f"Successfully generated with provider: {provider_name}")
                 return response
@@ -256,7 +260,7 @@ class ProviderCoordinator:
 
 class GenerationIntegration:
     """Enhanced generation integration with unified provider support.
-    
+
     This class provides a high-level interface for patch generation that:
     - Uses the new unified provider system (OpenAI, Anthropic, Ollama)
     - Supports provider selection and validation
@@ -279,16 +283,18 @@ class GenerationIntegration:
         # Initialize cost estimator with unified providers
         self.cost_estimator = UnifiedCostEstimator()
 
-    def select_provider(self, provider_name: str, model: str | None = None) -> ModelProvider:
+    def select_provider(
+        self, provider_name: str, model: str | None = None
+    ) -> ModelProvider:
         """Select and configure appropriate provider with validation.
-        
+
         Args:
             provider_name: Name of the provider to use
             model: Optional model override
-            
+
         Returns:
             Configured and validated provider instance
-            
+
         Raises:
             ProviderNotFoundError: If provider doesn't exist
             ProviderConfigurationError: If provider misconfigured
@@ -302,12 +308,12 @@ class GenerationIntegration:
         model: str | None = None
     ) -> float:
         """Estimate cost for batch processing across providers.
-        
+
         Args:
             instances: List of SWE-bench instances
             provider_name: Provider to use for cost estimation
             model: Optional model override
-            
+
         Returns:
             Estimated cost in USD
         """
@@ -322,14 +328,14 @@ class GenerationIntegration:
         **kwargs
     ) -> UnifiedResponse:
         """Generate with provider fallback on failures.
-        
+
         Args:
             instance: SWE-bench instance data
             primary_provider: Primary provider to try first
             fallback_providers: List of fallback providers
             model: Optional model override
             **kwargs: Additional generation parameters
-            
+
         Returns:
             UnifiedResponse from successful provider
         """
@@ -361,7 +367,12 @@ class GenerationIntegration:
                 models_str += "..."
 
             configured = "✅" if provider.get("configured") else "❌"
-            api_key = "✅" if provider.get("requires_api_key", False) and provider.get("configured") else ("❌" if provider.get("requires_api_key", False) else "N/A")
+            api_key = (
+                "✅"
+                if provider.get("requires_api_key", False)
+                and provider.get("configured")
+                else ("❌" if provider.get("requires_api_key", False) else "N/A")
+            )
 
             table.add_row(
                 provider["name"],
@@ -413,7 +424,9 @@ class GenerationIntegration:
                         f"(max tokens: {caps.max_context_length:,})"
                     )
         except Exception as e:
-            self.console.print(f"[red]❌ Failed to initialize provider '{provider_name}': {e}[/red]")
+            self.console.print(
+                f"[red]❌ Failed to initialize provider '{provider_name}': {e}[/red]"
+            )
             raise
 
         # Create generation components
@@ -445,7 +458,9 @@ class GenerationIntegration:
 
             if show_progress:
                 # Show provider-specific cost information
-                provider_info = self.provider_coordinator.get_provider_info(provider_name)
+                provider_info = self.provider_coordinator.get_provider_info(
+                    provider_name
+                )
 
                 self.console.print(f"\n💰 Estimated cost: ${estimated_cost:.4f}")
 
@@ -453,9 +468,11 @@ class GenerationIntegration:
                 if provider_info.get("capabilities"):
                     caps = provider_info["capabilities"]
                     if caps.get("cost_per_1k_prompt_tokens"):
+                        prompt_cost = caps['cost_per_1k_prompt_tokens']
+                        completion_cost = caps.get('cost_per_1k_completion_tokens', 0)
                         self.console.print(
-                            f"   Cost per 1K tokens: ${caps['cost_per_1k_prompt_tokens']:.4f} "
-                            f"(prompt) / ${caps.get('cost_per_1k_completion_tokens', 0):.4f} (completion)"
+                            f"   Cost per 1K tokens: ${prompt_cost:.4f} "
+                            f"(prompt) / ${completion_cost:.4f} (completion)"
                         )
 
                 # Warning for expensive operations
@@ -467,7 +484,8 @@ class GenerationIntegration:
                         raise click.Abort()
                 elif estimated_cost > 1.0:
                     self.console.print(
-                        "[yellow]💡 Tip: Consider using a less expensive model for development[/yellow]"
+                        "[yellow]💡 Tip: Consider using a less expensive model "
+                        "for development[/yellow]"
                     )
         except Exception as e:
             if show_progress:
@@ -653,12 +671,12 @@ class UnifiedCostEstimator:
         model: str | None = None
     ) -> float:
         """Estimate cost for batch generation using provider-specific methods.
-        
+
         Args:
             instances: List of SWE-bench instances
             provider_name: Provider to use for cost estimation
             model: Optional model override
-            
+
         Returns:
             Estimated cost in USD
         """
@@ -721,7 +739,6 @@ class UnifiedCostEstimator:
             # Very basic fallback
             return len(instances) * 0.01  # $0.01 per instance
 
-        caps = provider.capabilities
         total_cost = 0.0
 
         for instance in instances:
@@ -740,7 +757,9 @@ class UnifiedCostEstimator:
         caps = provider.capabilities
 
         # Get cost per 1K tokens
-        prompt_cost_per_1k = caps.cost_per_1k_prompt_tokens or 0.001  # Default fallback
+        prompt_cost_per_1k = (
+            caps.cost_per_1k_prompt_tokens or 0.001
+        )  # Default fallback
         completion_cost_per_1k = caps.cost_per_1k_completion_tokens or 0.002
 
         # Calculate costs

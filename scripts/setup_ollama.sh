@@ -9,7 +9,7 @@ echo "================================"
 # Check if Ollama is installed
 if ! command -v ollama &> /dev/null; then
     echo "❌ Ollama not found. Installing..."
-    
+
     # Detect OS
     if [[ "$OSTYPE" == "darwin"* ]]; then
         # macOS
@@ -34,11 +34,11 @@ if curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
 else
     echo "⚠️  Ollama service is not running"
     echo "Starting Ollama service..."
-    
+
     # Start Ollama in background
     ollama serve > /dev/null 2>&1 &
     OLLAMA_PID=$!
-    
+
     # Wait for service to start
     echo -n "Waiting for Ollama to start"
     for i in {1..30}; do
@@ -50,7 +50,7 @@ else
         echo -n "."
         sleep 1
     done
-    
+
     if ! curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
         echo ""
         echo "❌ Failed to start Ollama service"
@@ -68,7 +68,7 @@ if ollama list | grep -q "$TEST_MODEL"; then
 else
     echo "📥 Pulling test model $TEST_MODEL..."
     echo "This may take a few minutes on first run..."
-    
+
     if ollama pull "$TEST_MODEL"; then
         echo "✅ Successfully pulled $TEST_MODEL"
     else

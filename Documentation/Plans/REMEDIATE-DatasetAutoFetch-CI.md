@@ -42,7 +42,7 @@ Fix all CI failures in priority order using surgical task decomposition:
 2. **Ruff F841 Unused Variable** - 1 variable removal needed
 3. **MyPy Import Errors** - Rich library imports missing from mypy.ini ignore
 
-### Phase 2: Type Annotation Issues (P1) 
+### Phase 2: Type Annotation Issues (P1)
 4. **Core Provider Type Annotations** - Add missing type hints to public functions
 5. **Async Bridge Type Annotations** - Complete async/sync wrapper typing
 6. **Circuit Breaker Type Annotations** - Fix provider wrapper typing
@@ -107,7 +107,7 @@ Fix all CI failures in priority order using surgical task decomposition:
 **Fix**: Break long strings across multiple lines using parentheses
 **Estimated Time**: 5 minutes
 
-### Task 2: Remove Unused Variable in generation_integration.py  
+### Task 2: Remove Unused Variable in generation_integration.py
 **File**: `src/swebench_runner/generation_integration.py`
 **Lines**: 86
 **Fix**: Remove `token_manager = TokenManager(...)` assignment or add usage
@@ -120,7 +120,7 @@ Fix all CI failures in priority order using surgical task decomposition:
 **Estimated Time**: 15 minutes
 
 ### Task 4: Fix Callable Type Hint in wrappers.py
-**File**: `src/swebench_runner/providers/wrappers.py` 
+**File**: `src/swebench_runner/providers/wrappers.py`
 **Lines**: 26
 **Fix**: Replace `callable` with `typing.Callable`
 **Estimated Time**: 2 minutes
@@ -143,14 +143,14 @@ Fix all CI failures in priority order using surgical task decomposition:
 **Estimated Time**: 10 minutes
 
 ## Verification Steps
-1. **Phase 1 Verification**: 
+1. **Phase 1 Verification**:
    - Run `ruff check src/swebench_runner tests` → Should show 0 errors
    - Run `pre-commit run --all-files` → Should pass ruff checks
-   
+
 2. **Phase 2 Verification**:
    - Run `mypy src/swebench_runner` → Should show <20 errors (significant reduction)
    - Verify type annotation completeness for modified files
-   
+
 3. **Phase 3 Verification**:
    - Run `mypy src/swebench_runner` → Should show 0-5 errors maximum
    - Run `make pre-pr` → Should pass all checks
@@ -159,7 +159,7 @@ Fix all CI failures in priority order using surgical task decomposition:
 4. **Final Verification**:
    - All pre-commit hooks pass
    - MyPy type checking passes
-   - Ruff linting passes  
+   - Ruff linting passes
    - No functionality regression
    - Ready for merge to main
 
@@ -173,7 +173,7 @@ Fix all CI failures in priority order using surgical task decomposition:
 ### Blocking
 None identified - all issues appear to be straightforward type annotation and formatting fixes.
 
-### Non-blocking  
+### Non-blocking
 1. **Rich import strategy**: Assuming mypy.ini ignore is preferred over stub files
    - **Working assumption**: Add rich.* to mypy.ini ignore list
    - **Rationale**: Consistent with existing external library handling pattern

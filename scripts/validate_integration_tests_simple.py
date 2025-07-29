@@ -19,7 +19,7 @@ def test_unified_request_creation():
     print("\n1. Testing UnifiedRequest creation...")
     try:
         from swebench_runner.providers.unified_models import UnifiedRequest
-        
+
         # Test basic creation with prompt
         request = UnifiedRequest(
             prompt="Test prompt",
@@ -27,16 +27,16 @@ def test_unified_request_creation():
             max_tokens=100,
             temperature=0.7
         )
-        
+
         # Verify attributes
         assert request.prompt == "Test prompt"
         assert request.model == "gpt-3.5-turbo"
         assert request.max_tokens == 100
         assert request.temperature == 0.7
-        
+
         print("   ✅ UnifiedRequest creation works correctly")
         return True
-        
+
     except Exception as e:
         print(f"   ❌ Failed: {e}")
         return False
@@ -45,13 +45,13 @@ def test_unified_request_creation():
 def test_provider_imports():
     """Test that we can import all providers."""
     print("\n2. Testing provider imports...")
-    
+
     providers_to_test = [
         ("OpenAI", "swebench_runner.providers.openai", "OpenAIProvider"),
         ("Anthropic", "swebench_runner.providers.anthropic", "AnthropicProvider"),
         ("Ollama", "swebench_runner.providers.ollama", "OllamaProvider"),
     ]
-    
+
     all_passed = True
     for name, module_path, class_name in providers_to_test:
         try:
@@ -61,35 +61,35 @@ def test_provider_imports():
         except Exception as e:
             print(f"   ❌ {name} provider import failed: {e}")
             all_passed = False
-    
+
     return all_passed
 
 
 def test_api_format():
     """Test that the API format is correct (no 'messages' parameter)."""
     print("\n3. Testing API format correctness...")
-    
+
     test_files = [
         "tests/integration/test_openai_integration.py",
         "tests/integration/test_anthropic_integration.py",
         "tests/integration/test_ollama_integration.py"
     ]
-    
+
     all_passed = True
     for filepath in test_files:
         path = Path(filepath)
         if not path.exists():
             print(f"   ⚠️  {filepath} not found")
             continue
-            
+
         with open(path) as f:
             content = f.read()
-        
+
         # Check for incorrect 'messages=' usage in UnifiedRequest calls
         # Look for patterns like UnifiedRequest(...messages=...)
         import re
         unified_request_pattern = r'UnifiedRequest\s*\([^)]*messages\s*='
-        
+
         if re.search(unified_request_pattern, content):
             print(f"   ❌ {path.name}: Found 'messages=' parameter in UnifiedRequest (should be 'prompt=')")
             all_passed = False
@@ -99,21 +99,21 @@ def test_api_format():
                 print(f"   ✅ {path.name}: Uses correct API format with 'prompt='")
             else:
                 print(f"   ✅ {path.name}: Uses correct API format")
-    
+
     return all_passed
 
 
 def test_single_test_syntax():
     """Test that a single test from each provider has valid syntax."""
     print("\n4. Testing individual test syntax...")
-    
+
     # Try to run a simple test function from each provider
     test_modules = [
         ("OpenAI", "tests.integration.test_openai_integration"),
         ("Anthropic", "tests.integration.test_anthropic_integration"),
         ("Ollama", "tests.integration.test_ollama_integration"),
     ]
-    
+
     all_passed = True
     for name, module_path in test_modules:
         try:
@@ -126,7 +126,7 @@ def test_single_test_syntax():
         except Exception as e:
             # Other errors (like missing imports) are OK for syntax check
             print(f"   ✅ {name} tests have valid syntax (import error expected: {type(e).__name__})")
-    
+
     return all_passed
 
 
@@ -135,29 +135,29 @@ def main():
     print("=" * 60)
     print("Simple Integration Test Validation")
     print("=" * 60)
-    
+
     results = []
-    
+
     # Run each test
     results.append(("UnifiedRequest Creation", test_unified_request_creation()))
     results.append(("Provider Imports", test_provider_imports()))
     results.append(("API Format", test_api_format()))
     results.append(("Test Syntax", test_single_test_syntax()))
-    
+
     # Summary
     print("\n" + "=" * 60)
     print("Summary:")
     print("=" * 60)
-    
+
     passed = sum(1 for _, result in results if result)
     total = len(results)
-    
+
     for test_name, result in results:
         status = "✅ PASSED" if result else "❌ FAILED"
         print(f"{test_name}: {status}")
-    
+
     print(f"\nTotal: {passed}/{total} passed")
-    
+
     if passed == total:
         print("\n✅ All validation tests passed!")
         return 0

@@ -12,7 +12,7 @@ Successfully enhanced the existing OpenAI provider to use the unified interface 
   - `estimate_cost_unified()`: Cost estimation for unified requests
   - `configure_rate_limits()`: Dynamic rate limit configuration
 
-- **Backward Compatibility**: 
+- **Backward Compatibility**:
   - Existing `generate()` method now delegates to unified interface
   - All legacy interfaces preserved and fully functional
 
@@ -46,7 +46,7 @@ Successfully enhanced the existing OpenAI provider to use the unified interface 
 
 ### Latest Models (2025)
 - **GPT-4o**: $5 input, $20 output per 1M tokens
-- **GPT-4o-mini**: $0.15 input, $0.6 output per 1M tokens  
+- **GPT-4o-mini**: $0.15 input, $0.6 output per 1M tokens
 - **GPT-4.1**: $5 input, $20 output per 1M tokens
 - **GPT-4.1-mini**: $0.15 input, $0.6 output per 1M tokens
 
@@ -63,7 +63,7 @@ Successfully enhanced the existing OpenAI provider to use the unified interface 
 # Authentication
 self.auth_strategy = BearerTokenAuth(credentials)
 
-# Transform Pipeline  
+# Transform Pipeline
 self.transform_pipeline = TransformPipeline(transformer, parser, config)
 
 # Token Counting

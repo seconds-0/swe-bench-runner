@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 class ProviderCoordinator:
     """Coordinates provider selection, validation, and fallback management."""
 
-    def __init__(self, registry=None):
+    def __init__(self, registry: Any = None) -> None:
         self.registry = registry or get_registry()
         self.config_manager = ProviderConfigManager()
 
@@ -157,7 +157,7 @@ class ProviderCoordinator:
         primary_provider: str,
         fallback_providers: list[str] | None = None,
         model: str | None = None,
-        **kwargs
+        **kwargs: Any
     ) -> UnifiedResponse:
         """Generate with provider fallback on failures.
 
@@ -191,6 +191,7 @@ class ProviderCoordinator:
                 request = self._build_request_from_instance(instance, **kwargs)
 
                 # For providers that support unified interface
+                response: UnifiedResponse
                 if hasattr(provider, 'generate_unified'):
                     response = await provider.generate_unified(request)
                 else:
@@ -212,7 +213,7 @@ class ProviderCoordinator:
         raise Exception(f"All providers failed. Last error: {last_error}")
 
     def _build_request_from_instance(
-        self, instance: dict[str, Any], **kwargs
+        self, instance: dict[str, Any], **kwargs: Any
     ) -> UnifiedRequest:
         """Build UnifiedRequest from SWE-bench instance."""
         # For now, use a simple prompt format
@@ -230,7 +231,7 @@ class ProviderCoordinator:
         )
 
     def _convert_to_unified_response(
-        self, model_response, provider_name: str
+        self, model_response: Any, provider_name: str
     ) -> UnifiedResponse:
         """Convert legacy ModelResponse to UnifiedResponse."""
         from .providers.unified_models import TokenUsage
@@ -325,7 +326,7 @@ class GenerationIntegration:
         primary_provider: str,
         fallback_providers: list[str] | None = None,
         model: str | None = None,
-        **kwargs
+        **kwargs: Any
     ) -> UnifiedResponse:
         """Generate with provider fallback on failures.
 
@@ -653,7 +654,7 @@ class CostEstimator:
 class UnifiedCostEstimator:
     """Enhanced cost estimation using unified provider interfaces."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.registry = get_registry()
 
         # Fallback token estimates per instance component
@@ -774,11 +775,11 @@ class UnifiedCostEstimator:
 
         # Problem statement tokens
         problem_statement = instance.get("problem_statement", "")
-        total += len(problem_statement.split()) * 1.3  # Rough token multiplier
+        total += int(len(problem_statement.split()) * 1.3)  # Rough token multiplier
 
         # Test patch tokens
         test_patch = instance.get("test_patch", "")
-        total += len(test_patch.split()) * 1.3
+        total += int(len(test_patch.split()) * 1.3)
 
         # Base prompt overhead
         total += self.TOKENS_PER_INSTANCE["base_prompt"]

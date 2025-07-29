@@ -759,7 +759,12 @@ def generate(
 
     # Remove duplicates while preserving order
     seen = set()
-    providers_to_try = [p for p in providers_to_try if not (p in seen or seen.add(p))]
+    unique_providers = []
+    for p in providers_to_try:
+        if p not in seen:
+            seen.add(p)
+            unique_providers.append(p)
+    providers_to_try = unique_providers
 
     # Ensure all providers are configured
     for provider_name in providers_to_try:

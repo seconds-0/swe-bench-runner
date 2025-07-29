@@ -598,15 +598,10 @@ class OpenAIProvider(ModelProvider):
                                     return await response.json()
 
                             # Handle error responses
-                            # Create custom exception with response
-                            http_error = aiohttp.ClientResponseError(
-                                request_info=response.request_info,
-                                history=response.history,
-                                status=response.status
-                            )
-                            # Attach response for error handler
-                            http_error.response = response
-                            raise http_error
+                            # Pass response directly to error classifier
+                            classified_error = await self.error_handler.\
+                                classify_response_error(response)
+                            raise classified_error
 
                 except Exception as e:
                     # For HTTP errors, pass the response for detailed classification

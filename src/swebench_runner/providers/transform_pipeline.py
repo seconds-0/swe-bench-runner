@@ -140,7 +140,7 @@ class OpenAIRequestTransformer(RequestTransformer):
 
     def transform(self, unified_request: UnifiedRequest) -> dict[str, Any]:
         """Transform unified request to OpenAI API format."""
-        openai_request = {
+        openai_request: dict[str, Any] = {
             "model": unified_request.model,
             "messages": self._build_messages(unified_request),
             "temperature": unified_request.temperature,
@@ -217,7 +217,7 @@ class AnthropicRequestTransformer(RequestTransformer):
 
     def transform(self, unified_request: UnifiedRequest) -> dict[str, Any]:
         """Transform unified request to Anthropic API format."""
-        anthropic_request = {
+        anthropic_request: dict[str, Any] = {
             "model": unified_request.model,
             "messages": [{"role": "user", "content": unified_request.prompt}],
             "max_tokens": unified_request.max_tokens or 4000,
@@ -288,22 +288,24 @@ class OllamaRequestTransformer(RequestTransformer):
 
     def transform(self, unified_request: UnifiedRequest) -> dict[str, Any]:
         """Transform unified request to Ollama API format."""
-        ollama_request = {
+        options: dict[str, Any] = {
+            "temperature": unified_request.temperature,
+            "num_ctx": 4096,  # Context window
+        }
+        
+        ollama_request: dict[str, Any] = {
             "model": unified_request.model,
             "prompt": unified_request.prompt,
             "stream": unified_request.stream,
-            "options": {
-                "temperature": unified_request.temperature,
-                "num_ctx": 4096,  # Context window
-            }
+            "options": options
         }
 
         if unified_request.system_message:
             ollama_request["system"] = unified_request.system_message
         if unified_request.max_tokens:
-            ollama_request["options"]["num_predict"] = unified_request.max_tokens
+            options["num_predict"] = unified_request.max_tokens
         if unified_request.stop_sequences:
-            ollama_request["options"]["stop"] = unified_request.stop_sequences
+            options["stop"] = unified_request.stop_sequences
 
         return ollama_request
 

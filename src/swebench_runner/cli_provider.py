@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 import time
+from typing import List, Dict
 
 import click
 from rich.console import Console
@@ -299,7 +300,7 @@ def models(provider_name: str) -> None:
         )
 
 
-def _get_models_info(provider_name: str) -> list[dict[str, str]]:
+def _get_models_info(provider_name: str) -> List[Dict[str, str]]:
     """Get detailed model information for a provider."""
     # This would ideally come from the provider classes or an API call
     # For now, return static data for known providers

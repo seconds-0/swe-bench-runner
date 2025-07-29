@@ -79,11 +79,11 @@ class TiktokenCounter(TokenCounter):
         """Count tokens using tiktoken"""
         try:
             import tiktoken
-        except ImportError:
+        except ImportError as e:
             raise ImportError(
                 "tiktoken library required for OpenAI token counting. "
                 "Install with: pip install tiktoken"
-            )
+            ) from e
 
         encoding_name = self._model_encodings.get(request.model, "cl100k_base")
 

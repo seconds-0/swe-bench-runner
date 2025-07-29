@@ -15,7 +15,7 @@ from .unified_models import FinishReason, TokenUsage, UnifiedRequest, UnifiedRes
 
 
 class RequestTransformer(ABC):
-    """Abstract base class for transforming unified requests to provider-specific format."""
+    """Abstract base class for transforming unified requests to provider formats."""
 
     @abstractmethod
     def transform(self, unified_request: UnifiedRequest) -> dict[str, Any]:
@@ -59,7 +59,7 @@ class TransformPipelineConfig:
 
 
 class TransformPipeline:
-    """Pipeline for transforming requests and responses between unified and provider formats."""
+    """Pipeline for transforming requests/responses between formats."""
 
     def __init__(self,
                  transformer: RequestTransformer,
@@ -76,7 +76,8 @@ class TransformPipeline:
             request.model = self.config.default_model
 
         if not self.transformer.validate_model(request.model):
-            msg = f"Model '{request.model}' not supported by {self.config.provider_name}"
+            msg = (f"Model '{request.model}' not supported by "
+                   f"{self.config.provider_name}")
             raise ValueError(msg)
 
         # Validate parameters
@@ -87,7 +88,7 @@ class TransformPipeline:
             return self.transformer.transform(request)
         except Exception as e:
             msg = f"Failed to transform request for {self.config.provider_name}: {e}"
-            raise ValueError(msg)
+            raise ValueError(msg) from e
 
     def process_response(self, raw_response: dict[str, Any],
                         request: UnifiedRequest, latency_ms: int) -> UnifiedResponse:
@@ -98,7 +99,7 @@ class TransformPipeline:
             return response
         except Exception as e:
             msg = f"Failed to parse response from {self.config.provider_name}: {e}"
-            raise ValueError(msg)
+            raise ValueError(msg) from e
 
     def process_error(self, error_response: dict[str, Any]) -> str:
         """Process provider error response to readable message."""
@@ -112,14 +113,16 @@ class TransformPipeline:
         # Validate temperature
         min_temp, max_temp = self.config.temperature_range
         if not (min_temp <= request.temperature <= max_temp):
-            msg = f"Temperature {request.temperature} outside range [{min_temp}, {max_temp}]"
+            msg = (f"Temperature {request.temperature} outside range "
+                   f"[{min_temp}, {max_temp}]")
             raise ValueError(msg)
 
         # Validate max_tokens
         if (self.config.max_tokens_limit and
             request.max_tokens and
             request.max_tokens > self.config.max_tokens_limit):
-            msg = f"max_tokens {request.max_tokens} exceeds limit {self.config.max_tokens_limit}"
+            msg = (f"max_tokens {request.max_tokens} exceeds limit "
+                   f"{self.config.max_tokens_limit}")
             raise ValueError(msg)
 
 

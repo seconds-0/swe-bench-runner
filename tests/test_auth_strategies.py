@@ -138,11 +138,12 @@ class TestBearerTokenAuth:
 
     def test_prepare_headers_missing_api_key(self) -> None:
         """Test error when API key is missing."""
+        # Create config with minimal valid credentials to pass validation
         config = AuthConfig(
             auth_type=AuthType.BEARER_TOKEN,
-            credentials={}  # This will be allowed by __post_init__ but fail in prepare_headers
+            credentials={"api_key": "dummy"}  # Valid config
         )
-        # Override the validation to test the specific error
+        # Override the credentials to simulate missing API key
         config.credentials = {}
         auth = BearerTokenAuth(config)
 
@@ -161,9 +162,10 @@ class TestBearerTokenAuth:
 
     def test_validate_credentials_missing(self) -> None:
         """Test credential validation with missing API key."""
+        # Create valid config first
         config = AuthConfig(
             auth_type=AuthType.BEARER_TOKEN,
-            credentials={}
+            credentials={"api_key": "dummy"}
         )
         # Override to test validation
         config.credentials = {}
@@ -175,7 +177,7 @@ class TestBearerTokenAuth:
         """Test credential validation with empty API key."""
         config = AuthConfig(
             auth_type=AuthType.BEARER_TOKEN,
-            credentials={"api_key": ""}
+            credentials={"api_key": "dummy"}  # Valid config initially
         )
         # Override to test validation
         config.credentials = {"api_key": ""}
@@ -187,7 +189,7 @@ class TestBearerTokenAuth:
         """Test credential validation with whitespace-only API key."""
         config = AuthConfig(
             auth_type=AuthType.BEARER_TOKEN,
-            credentials={"api_key": "   "}
+            credentials={"api_key": "dummy"}  # Valid config initially
         )
         # Override to test validation
         config.credentials = {"api_key": "   "}
@@ -252,9 +254,10 @@ class TestApiKeyAuth:
 
     def test_prepare_headers_missing_api_key(self) -> None:
         """Test error when API key is missing."""
+        # Create valid config first
         config = AuthConfig(
             auth_type=AuthType.API_KEY,
-            credentials={}
+            credentials={"api_key": "dummy"}
         )
         # Override to test the specific error
         config.credentials = {}
@@ -275,9 +278,10 @@ class TestApiKeyAuth:
 
     def test_validate_credentials_missing(self) -> None:
         """Test credential validation with missing API key."""
+        # Create valid config first
         config = AuthConfig(
             auth_type=AuthType.API_KEY,
-            credentials={}
+            credentials={"api_key": "dummy"}
         )
         # Override to test validation
         config.credentials = {}

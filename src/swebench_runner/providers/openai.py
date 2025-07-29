@@ -496,7 +496,7 @@ class OpenAIProvider(ModelProvider):
                     if response.status != 200:
                         # Use comprehensive error handler for streaming errors
                         error = await self.error_handler.classify_response_error(response)
-                        raise error
+                        raise error from None
 
                     # Use streaming adapter to parse SSE response
                     async for chunk in self.streaming_adapter.stream_response(
@@ -507,7 +507,7 @@ class OpenAIProvider(ModelProvider):
             # Classify and re-raise streaming errors
             if not isinstance(e, ProviderError):
                 error = self.error_handler.classify_error(e)
-                raise error
+                raise error from e
             raise
 
     def _prepare_headers(self) -> dict[str, str]:

@@ -441,7 +441,9 @@ class AnthropicProvider(ModelProvider):
             else:
                 # response_data should already be a dict[str, Any] for non-streaming
                 if not isinstance(response_data, dict):
-                    raise ValueError(f"Expected dict response, got {type(response_data)}")
+                    raise ValueError(
+                        f"Expected dict response, got {type(response_data)}"
+                    )
                 unified_response = self.transform_pipeline.process_response(
                     response_data, request, latency_ms
                 )

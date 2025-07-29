@@ -320,7 +320,9 @@ class SemaphoreLimiter(RateLimiter):
             "type": "semaphore",
             "active_requests": self._active_requests,
             "concurrent_limit": self.concurrent_limit,
-            "available": self._semaphore._value if self._semaphore else self.concurrent_limit,
+            "available": (
+                self._semaphore._value if self._semaphore else self.concurrent_limit
+            ),
             "utilization": self._active_requests / self.concurrent_limit,
         }
 

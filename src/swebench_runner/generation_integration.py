@@ -90,8 +90,9 @@ class ProviderCoordinator:
 
             # Validate connectivity if requested
             if validate_connectivity:
-                # Run connectivity check in background, don't block
-                asyncio.create_task(self._validate_provider_async(provider))
+                # For sync context, skip background validation
+                # Background validation only works in async context
+                logger.debug(f"Skipping background validation for {provider_name} in sync context")
 
             return provider
 
@@ -99,14 +100,6 @@ class ProviderCoordinator:
             logger.error(f"Failed to select provider '{provider_name}': {e}")
             raise
 
-    async def _validate_provider_async(self, provider: ModelProvider) -> None:
-        """Validate provider connectivity asynchronously."""
-        try:
-            is_valid = await provider.validate_connection()
-            if not is_valid:
-                logger.warning(f"Provider {provider.name} failed connectivity check")
-        except Exception as e:
-            logger.warning(f"Provider {provider.name} validation error: {e}")
 
     def get_provider_info(self, provider_name: str) -> dict[str, Any]:
         """Get detailed information about a provider.

@@ -613,7 +613,9 @@ class OllamaProvider(ModelProvider):
         except Exception as e:
             if isinstance(e, ProviderError):
                 raise
-            raise ProviderError(f"Ollama API call failed: {e}", provider="ollama") from e
+            raise ProviderError(
+                f"Ollama API call failed: {e}", provider="ollama"
+            ) from e
 
     async def _stream_api_call(
         self, method: str, endpoint: str, data: dict[str, Any]
@@ -657,13 +659,16 @@ class OllamaProvider(ModelProvider):
             ) from e
         except asyncio.TimeoutError as e:
             raise ProviderTimeoutError(
-                f"Ollama streaming request timed out after {self.timeout.total} seconds",
+                f"Ollama streaming request timed out after "
+                f"{self.timeout.total} seconds",
                 provider="ollama"
             ) from e
         except Exception as e:
             if isinstance(e, ProviderError):
                 raise
-            raise ProviderError(f"Ollama streaming failed: {e}", provider="ollama") from e
+            raise ProviderError(
+                f"Ollama streaming failed: {e}", provider="ollama"
+            ) from e
 
     async def _handle_api_error(self, status_code: int, response_text: str) -> None:
         """Handle Ollama API errors.
@@ -689,9 +694,15 @@ class OllamaProvider(ModelProvider):
                     provider="ollama"
                 )
             else:
-                raise ProviderError(f"Ollama endpoint not found: {error_message}", provider="ollama")
+                raise ProviderError(
+                    f"Ollama endpoint not found: {error_message}",
+                    provider="ollama"
+                )
         elif status_code == 400:
-            raise ProviderError(f"Invalid request to Ollama: {error_message}", provider="ollama")
+            raise ProviderError(
+                f"Invalid request to Ollama: {error_message}",
+                provider="ollama"
+            )
         elif status_code == 500:
             raise ProviderError(
                 f"Ollama server error: {error_message}. "
@@ -699,7 +710,10 @@ class OllamaProvider(ModelProvider):
                 provider="ollama"
             )
         else:
-            raise ProviderError(f"Ollama API error ({status_code}): {error_message}", provider="ollama")
+            raise ProviderError(
+                f"Ollama API error ({status_code}): {error_message}",
+                provider="ollama"
+            )
 
     def get_token_limit(self) -> int:
         """Get token limit for current model."""

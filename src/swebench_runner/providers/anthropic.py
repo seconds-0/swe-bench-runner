@@ -764,7 +764,8 @@ class AnthropicProvider(ModelProvider):
                     # Log retry attempt with user-friendly message
                     user_message = self.error_handler.get_user_message(classified_error)
                     logger.warning(
-                        f"Request failed on attempt {attempt + 1}/{self.max_retries + 1}: "
+                        f"Request failed on attempt "
+                        f"{attempt + 1}/{self.max_retries + 1}: "
                         f"{user_message}. Retrying in {delay:.1f}s"
                     )
 

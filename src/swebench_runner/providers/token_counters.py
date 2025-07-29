@@ -13,7 +13,7 @@ from typing import Any
 
 
 class TokenCounterType(Enum):
-    """Types of token counting methods"""
+    """Types of token counting methods."""
     TIKTOKEN = "tiktoken"      # Local tiktoken library
     API = "api"                # Remote API endpoint
     METADATA = "metadata"      # Extract from response metadata
@@ -22,7 +22,7 @@ class TokenCounterType(Enum):
 
 @dataclass
 class TokenCountRequest:
-    """Request for token counting"""
+    """Request for token counting."""
     text: str
     model: str
     include_system: bool = True
@@ -31,7 +31,7 @@ class TokenCountRequest:
 
 @dataclass
 class TokenCountResult:
-    """Result of token counting"""
+    """Result of token counting."""
     token_count: int
     method: TokenCounterType
     model: str
@@ -40,27 +40,27 @@ class TokenCountResult:
 
 
 class TokenCounter(ABC):
-    """Abstract base class for token counting strategies"""
+    """Abstract base class for token counting strategies."""
 
     @abstractmethod
     async def count_tokens(self, request: TokenCountRequest) -> TokenCountResult:
-        """Count tokens for the given text and model"""
+        """Count tokens for the given text and model."""
         pass
 
     @abstractmethod
     def supports_model(self, model: str) -> bool:
-        """Check if this counter supports the given model"""
+        """Check if this counter supports the given model."""
         pass
 
     @property
     @abstractmethod
     def counter_type(self) -> TokenCounterType:
-        """Get the type of this token counter"""
+        """Get the type of this token counter."""
         pass
 
 
 class TiktokenCounter(TokenCounter):
-    """Token counter using OpenAI's tiktoken library"""
+    """Token counter using OpenAI's tiktoken library."""
 
     def __init__(self):
         self._encodings = {}
@@ -76,7 +76,7 @@ class TiktokenCounter(TokenCounter):
         }
 
     async def count_tokens(self, request: TokenCountRequest) -> TokenCountResult:
-        """Count tokens using tiktoken"""
+        """Count tokens using tiktoken."""
         try:
             import tiktoken
         except ImportError as e:
@@ -117,16 +117,17 @@ class TiktokenCounter(TokenCounter):
         )
 
     def supports_model(self, model: str) -> bool:
-        """Check if model is supported by tiktoken"""
+        """Check if model is supported by tiktoken."""
         return model in self._model_encodings
 
     @property
     def counter_type(self) -> TokenCounterType:
+        """Get the counter type."""
         return TokenCounterType.TIKTOKEN
 
 
 class AnthropicAPICounter(TokenCounter):
-    """Token counter using Anthropic's count_tokens API"""
+    """Token counter using Anthropic's count_tokens API."""
 
     def __init__(self, api_client=None):
         self.api_client = api_client
@@ -137,7 +138,7 @@ class AnthropicAPICounter(TokenCounter):
         }
 
     async def count_tokens(self, request: TokenCountRequest) -> TokenCountResult:
-        """Count tokens using Anthropic API"""
+        """Count tokens using Anthropic API."""
         if not self.api_client:
             raise ValueError("Anthropic API client required for token counting")
 
@@ -179,7 +180,7 @@ class AnthropicAPICounter(TokenCounter):
             return await self._estimate_tokens(request)
 
     async def _estimate_tokens(self, request: TokenCountRequest) -> TokenCountResult:
-        """Fallback token estimation for Anthropic"""
+        """Fallback token estimation for Anthropic."""
         # Rough estimation: ~4 characters per token
         text_length = len(request.text)
         if request.include_system and request.system_message:
@@ -200,16 +201,17 @@ class AnthropicAPICounter(TokenCounter):
         )
 
     def supports_model(self, model: str) -> bool:
-        """Check if model is supported by Anthropic API"""
+        """Check if model is supported by Anthropic API."""
         return model in self._supported_models
 
     @property
     def counter_type(self) -> TokenCounterType:
+        """Get the counter type."""
         return TokenCounterType.API
 
 
 class MetadataTokenCounter(TokenCounter):
-    """Token counter that extracts counts from response metadata (Ollama)"""
+    """Token counter that extracts counts from response metadata (Ollama)."""
 
     def __init__(self):
         self._last_response = None
@@ -219,12 +221,14 @@ class MetadataTokenCounter(TokenCounter):
         }
 
     async def count_tokens(self, request: TokenCountRequest) -> TokenCountResult:
-        """Count tokens using estimation (metadata available after generation)"""
+        """Count tokens using estimation (metadata available after generation)."""
         # For pre-generation counting, we need to estimate
         return await self._estimate_tokens(request)
 
-    def count_from_response(self, response_data: dict[str, Any], model: str) -> TokenCountResult:
-        """Extract token count from Ollama response metadata"""
+    def count_from_response(
+        self, response_data: dict[str, Any], model: str
+    ) -> TokenCountResult:
+        """Extract token count from Ollama response metadata."""
         prompt_tokens = response_data.get("prompt_eval_count", 0)
         completion_tokens = response_data.get("eval_count", 0)
         total_tokens = prompt_tokens + completion_tokens
@@ -243,7 +247,7 @@ class MetadataTokenCounter(TokenCounter):
         )
 
     async def _estimate_tokens(self, request: TokenCountRequest) -> TokenCountResult:
-        """Estimate tokens for Ollama models"""
+        """Estimate tokens for Ollama models."""
         # Rough estimation: ~4 characters per token
         text_length = len(request.text)
         if request.include_system and request.system_message:
@@ -264,34 +268,35 @@ class MetadataTokenCounter(TokenCounter):
         )
 
     def supports_model(self, model: str) -> bool:
-        """Check if model is supported"""
+        """Check if model is supported."""
         return model in self._supported_models
 
     @property
     def counter_type(self) -> TokenCounterType:
+        """Get the counter type."""
         return TokenCounterType.METADATA
 
 
 class UnifiedTokenCounter:
-    """Unified interface for token counting across all providers"""
+    """Unified interface for token counting across all providers."""
 
     def __init__(self):
         self._counters = {}
         self._setup_default_counters()
 
     def _setup_default_counters(self):
-        """Setup default token counters"""
+        """Setup default token counters."""
         self._counters["tiktoken"] = TiktokenCounter()
         self._counters["metadata"] = MetadataTokenCounter()
         # Note: AnthropicAPICounter requires client, set up separately
 
     def add_counter(self, name: str, counter: TokenCounter):
-        """Add a token counter"""
+        """Add a token counter."""
         self._counters[name] = counter
 
     async def count_tokens(self, text: str, model: str,
                           system_message: str | None = None) -> TokenCountResult:
-        """Count tokens using the best available counter for the model"""
+        """Count tokens using the best available counter for the model."""
         request = TokenCountRequest(
             text=text,
             model=model,
@@ -311,7 +316,7 @@ class UnifiedTokenCounter:
         return await self._estimate_tokens(request)
 
     async def _estimate_tokens(self, request: TokenCountRequest) -> TokenCountResult:
-        """Fallback token estimation"""
+        """Fallback token estimation."""
         text_length = len(request.text)
         if request.include_system and request.system_message:
             text_length += len(request.system_message)
@@ -331,7 +336,7 @@ class UnifiedTokenCounter:
         )
 
     def get_counter_for_model(self, model: str) -> TokenCounter | None:
-        """Get the best counter for a specific model"""
+        """Get the best counter for a specific model."""
         for counter in self._counters.values():
             if counter.supports_model(model):
                 return counter
@@ -340,7 +345,7 @@ class UnifiedTokenCounter:
 
 # Factory function for easy setup
 def create_unified_counter(anthropic_client=None) -> UnifiedTokenCounter:
-    """Create a unified token counter with all available counters"""
+    """Create a unified token counter with all available counters."""
     counter = UnifiedTokenCounter()
 
     if anthropic_client:

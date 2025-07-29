@@ -139,7 +139,7 @@ class OpenAIProvider(ModelProvider):
         circuit_config = CircuitBreakerConfig(
             failure_threshold=5,  # Open after 5 consecutive failures
             recovery_timeout=60.0,  # Try half-open after 60 seconds
-            expected_exception=ProviderError,  # Consider all provider errors as failures
+            expected_exception=ProviderError,
             success_threshold=2  # Require 2 successes to close from half-open
         )
         self.circuit_breaker = CircuitBreaker(
@@ -186,7 +186,9 @@ class OpenAIProvider(ModelProvider):
             supported_models=self.supported_models,
             max_tokens_limit=128000,  # Use default max context
         )
-        self.transform_pipeline = TransformPipeline(transformer, parser, pipeline_config)
+        self.transform_pipeline = TransformPipeline(
+            transformer, parser, pipeline_config
+        )
 
         # Token counter
         self.token_counter = TiktokenCounter()
@@ -206,7 +208,8 @@ class OpenAIProvider(ModelProvider):
     def _on_circuit_state_change(self, old_state, new_state) -> None:
         """Handle circuit breaker state changes."""
         logger.warning(
-            f"OpenAI circuit breaker state changed from {old_state.value} to {new_state.value}. "
+            f"OpenAI circuit breaker state changed from "
+            f"{old_state.value} to {new_state.value}. "
             f"Provider health: {new_state.value}"
         )
 
@@ -286,7 +289,10 @@ class OpenAIProvider(ModelProvider):
                 # Retry once after waiting
                 rate_result = await self.rate_coordinator.acquire("openai", rate_request)
                 if not rate_result.acquired:
-                    retry_after = int(rate_result.retry_after) if rate_result.retry_after else None
+                    retry_after = (
+                        int(rate_result.retry_after)
+                        if rate_result.retry_after else None
+                    )
                     raise ProviderRateLimitError(
                         f"Rate limit exceeded: {rate_result.limited_by}",
                         retry_after=retry_after
@@ -312,9 +318,16 @@ class OpenAIProvider(ModelProvider):
             if request.stream and isinstance(response_data, str):
                 # For streaming, create a mock response format
                 mock_response = {
-                    "choices": [{"message": {"content": response_data}, "finish_reason": "stop"}],
+                    "choices": [{
+                        "message": {"content": response_data},
+                        "finish_reason": "stop"
+                    }],
                     "model": request.model or self.default_model,
-                    "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+                    "usage": {
+                        "prompt_tokens": 0,
+                        "completion_tokens": 0,
+                        "total_tokens": 0
+                    }
                 }
                 unified_response = self.transform_pipeline.process_response(
                     mock_response, request, latency_ms
@@ -357,7 +370,9 @@ class OpenAIProvider(ModelProvider):
                 text_length += len(request.system_message)
             return max(1, text_length // 4)
 
-    def _calculate_cost_unified(self, model: str, prompt_tokens: int, completion_tokens: int) -> float:
+    def _calculate_cost_unified(
+        self, model: str, prompt_tokens: int, completion_tokens: int
+    ) -> float:
         """Calculate cost using 2025 pricing structure."""
         pricing = MODEL_PRICING.get(model, (5.0, 20.0))  # Default to GPT-4o pricing
 
@@ -366,7 +381,9 @@ class OpenAIProvider(ModelProvider):
         completion_cost = (completion_tokens / 1_000_000) * pricing[1]
         return prompt_cost + completion_cost
 
-    async def generate_stream(self, request: UnifiedRequest) -> AsyncIterator[StreamChunk]:
+    async def generate_stream(
+        self, request: UnifiedRequest
+    ) -> AsyncIterator[StreamChunk]:
         """Generate streaming response using unified interface.
 
         Args:
@@ -495,7 +512,9 @@ class OpenAIProvider(ModelProvider):
                 async with session.post(url, headers=headers, json=data) as response:
                     if response.status != 200:
                         # Use comprehensive error handler for streaming errors
-                        error = await self.error_handler.classify_response_error(response)
+                        error = await self.error_handler.classify_response_error(
+                            response
+                        )
                         raise error from None
 
                     # Use streaming adapter to parse SSE response
@@ -569,28 +588,31 @@ class OpenAIProvider(ModelProvider):
                                 else:
                                     return await response.json()
 
-                            # Handle error responses using comprehensive error handler
-                            # Create a custom exception that carries the response
+                            # Handle error responses
+                            # Create custom exception with response
                             http_error = aiohttp.ClientResponseError(
                                 request_info=response.request_info,
                                 history=response.history,
                                 status=response.status
                             )
-                            http_error.response = response  # Attach response for error handler
+                            # Attach response for error handler
+                            http_error.response = response
                             raise http_error
 
                 except Exception as e:
                     # For HTTP errors, pass the response for detailed classification
                     response_obj = getattr(e, 'response', None)
                     if response_obj and hasattr(response_obj, 'status'):
-                        classified_error = await self.error_handler.classify_response_error(response_obj)
+                        classified_error = await self.error_handler.\
+                            classify_response_error(response_obj)
                     else:
                         # For other errors, use general classification
                         classified_error = self.error_handler.classify_error(e, response_obj)
                     last_error = classified_error
 
                     # Check if we should retry this error
-                    if not self.error_handler.should_retry(classified_error) or attempt >= self.max_retries:
+                    if (not self.error_handler.should_retry(classified_error) or
+                            attempt >= self.max_retries):
                         # Don't retry or exhausted retries
                         raise classified_error
 
@@ -600,8 +622,9 @@ class OpenAIProvider(ModelProvider):
                     # Log retry attempt with user-friendly message
                     user_message = self.error_handler.get_user_message(classified_error)
                     logger.warning(
-                        f"Request failed on attempt {attempt + 1}/{self.max_retries + 1}: {user_message}. "
-                        f"Retrying in {delay:.1f}s"
+                        f"Request failed on attempt "
+                        f"{attempt + 1}/{self.max_retries + 1}: "
+                        f"{user_message}. Retrying in {delay:.1f}s"
                     )
 
                     await asyncio.sleep(delay)
@@ -616,7 +639,9 @@ class OpenAIProvider(ModelProvider):
         # Execute request through circuit breaker
         return await self.circuit_breaker.call(_make_single_request)
 
-    async def _handle_streaming_response_legacy(self, response: aiohttp.ClientResponse) -> str:
+    async def _handle_streaming_response_legacy(
+        self, response: aiohttp.ClientResponse
+    ) -> str:
         """Handle streaming response for legacy interface compatibility.
 
         Args:

@@ -397,7 +397,7 @@ class OpenAIErrorHandler:
             True if the error is retryable
         """
         # Never retry authentication or permission errors
-        if isinstance(error, (OpenAIAuthenticationError, ProviderAuthenticationError)):
+        if isinstance(error, OpenAIAuthenticationError | ProviderAuthenticationError):
             return False
 
         # Never retry content policy violations
@@ -413,11 +413,11 @@ class OpenAIErrorHandler:
             return False
 
         # Retry rate limits with backoff
-        if isinstance(error, (OpenAIRateLimitError, ProviderRateLimitError)):
+        if isinstance(error, OpenAIRateLimitError | ProviderRateLimitError):
             return True
 
         # Retry server errors
-        if isinstance(error, (OpenAIServerError, ProviderConnectionError)):
+        if isinstance(error, OpenAIServerError | ProviderConnectionError):
             return True
 
         # Retry timeouts
@@ -442,7 +442,7 @@ class OpenAIErrorHandler:
             Delay in seconds
         """
         # Use specific retry-after for rate limits
-        if isinstance(error, (OpenAIRateLimitError, ProviderRateLimitError)):
+        if isinstance(error, OpenAIRateLimitError | ProviderRateLimitError):
             if error.retry_after:
                 # Add small jitter to avoid thundering herd
                 jitter = min(5.0, error.retry_after * 0.1)
@@ -453,7 +453,7 @@ class OpenAIErrorHandler:
             return min(60.0, self.base_delay * (3 ** attempt))
 
         # Longer delays for server errors
-        if isinstance(error, (OpenAIServerError, ProviderConnectionError)):
+        if isinstance(error, OpenAIServerError | ProviderConnectionError):
             return min(30.0, self.base_delay * (2 ** attempt))
 
         # Standard exponential backoff for other retryable errors
@@ -472,12 +472,12 @@ class OpenAIErrorHandler:
         if isinstance(
             error,
             (
-                OpenAIRateLimitError,
-                OpenAIAuthenticationError,
-                OpenAIModelNotFoundError,
-                OpenAIContextLengthError,
-                OpenAIContentFilterError,
-                OpenAIServerError,
+                OpenAIRateLimitError
+                | OpenAIAuthenticationError
+                | OpenAIModelNotFoundError
+                | OpenAIContextLengthError
+                | OpenAIContentFilterError
+                | OpenAIServerError
             ),
         ):
             return str(error)

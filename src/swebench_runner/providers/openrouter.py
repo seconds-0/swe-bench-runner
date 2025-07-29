@@ -379,7 +379,9 @@ class OpenRouterProvider(ModelProvider):
         if last_error:
             raise last_error
         else:
-            raise ProviderError("Request failed after all retries", provider="openrouter")
+            raise ProviderError(
+                "Request failed after all retries", provider="openrouter"
+            )
 
     async def _handle_streaming_response(self, response: aiohttp.ClientResponse) -> str:
         """Handle streaming response from OpenRouter.

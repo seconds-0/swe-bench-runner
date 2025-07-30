@@ -128,7 +128,7 @@ class TestCLI:
         assert result.exit_code == 0
         assert "✅ test__repo-456: PASSED" in result.output
 
-    @patch("swebench_runner.docker_run.run_batch_evaluation")
+    @patch("swebench_runner.cli.run_batch_evaluation")
     def test_run_with_batch_file(self, mock_run_batch_evaluation) -> None:
         """Test run command works with multi-patch JSONL file triggering batch mode."""
         # For batch evaluation, return a list of results

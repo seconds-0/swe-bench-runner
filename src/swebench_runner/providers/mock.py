@@ -94,19 +94,24 @@ class MockProvider(ModelProvider):
 
         # Check for specific error patterns in prompt
         if "auth_error" in prompt.lower():
-            raise ProviderAuthenticationError("Mock authentication failed")
+            raise ProviderAuthenticationError(
+                "Mock authentication failed", provider="mock"
+            )
         elif "rate_limit" in prompt.lower():
-            raise ProviderRateLimitError("Mock rate limit exceeded", retry_after=60)
+            raise ProviderRateLimitError(
+                "Mock rate limit exceeded", retry_after=60, provider="mock"
+            )
         elif "timeout" in prompt.lower():
-            raise ProviderTimeoutError("Mock request timed out")
+            raise ProviderTimeoutError("Mock request timed out", provider="mock")
         elif "token_limit" in prompt.lower():
             raise ProviderTokenLimitError(
                 "Mock token limit exceeded",
                 token_count=10000,
-                limit=self.capabilities.max_context_length
+                limit=self.capabilities.max_context_length,
+                provider="mock"
             )
         elif "generic_error" in prompt.lower():
-            raise ProviderError("Mock generic error")
+            raise ProviderError("Mock generic error", provider="mock")
 
         # Simulate response delay
         await asyncio.sleep(self.response_delay)

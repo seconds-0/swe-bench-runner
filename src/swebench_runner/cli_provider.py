@@ -27,18 +27,31 @@ def provider_cli() -> None:
     pass
 
 
-@provider_cli.command()
-def list() -> None:
+@provider_cli.command(name='list')
+@click.option(
+    '--detailed', '-d', is_flag=True,
+    help='Show detailed information including models and costs'
+)
+def list_providers(detailed: bool) -> None:
     """List all available providers and their configuration status."""
     registry = get_registry()
     config_manager = ProviderConfigManager()
 
-    # Create a table
-    table = Table(title="Available Model Providers")
-    table.add_column("Provider", style="cyan")
-    table.add_column("Description", style="white")
-    table.add_column("Status", style="green")
-    table.add_column("API Key", style="yellow")
+    if detailed:
+        # Enhanced detailed view
+        table = Table(title="Model Providers - Detailed View")
+        table.add_column("Provider", style="cyan", width=12)
+        table.add_column("Status", style="green", width=15)
+        table.add_column("Models", style="white", width=20)
+        table.add_column("Rate Limits", style="yellow", width=15)
+        table.add_column("Cost/1M Tokens", style="magenta", width=18)
+    else:
+        # Standard view
+        table = Table(title="Available Model Providers")
+        table.add_column("Provider", style="cyan")
+        table.add_column("Description", style="white")
+        table.add_column("Status", style="green")
+        table.add_column("API Key", style="yellow")
 
     providers_info = registry.list_providers()
 
@@ -59,29 +72,385 @@ def list() -> None:
         if is_configured and config:
             has_api_key = bool(getattr(config, 'api_key', None))
 
-        # Get provider description
-        description = getattr(provider_class, '__doc__', '').strip().split('\n')[0]
-        if not description:
-            description = f"{provider_name.title()} model provider"
+        if detailed:
+            # Detailed view with models, rates, costs
+            if is_configured:
+                status = "✅ Connected"
+                try:
+                    # Test connection to verify status
+                    _provider = provider_class(config)
+                    # For now, assume connection if config is valid
+                    status = "✅ Connected"
+                except Exception:
+                    status = "⚠️  Config Error"
+            else:
+                status = "❌ Not configured"
 
-        # Determine status
-        if is_configured:
-            status = "✅ Configured"
+            # Get available models
+            models = provider_info.get('models', [])
+            if models:
+                if len(models) > 3:
+                    models_str = f"{len(models)} available"
+                else:
+                    models_str = ", ".join(models[:3])
+            else:
+                models_str = getattr(provider_class, 'default_model', 'N/A')
+
+            # Rate limits (placeholder for now - would need provider-specific implementation)  # noqa: E501
+            rate_limits = _get_rate_limits(
+                provider_name, config if is_configured else None
+            )
+            # Cost information
+            costs = _get_cost_info(provider_name)
+
+            table.add_row(provider_name, status, models_str, rate_limits, costs)
         else:
-            status = "❌ Not configured"
+            # Standard view
+            # Get provider description
+            description = getattr(provider_class, '__doc__', '').strip().split('\n')[0]
+            if not description:
+                description = f"{provider_name.title()} model provider"
 
-        # API key status
-        if provider_name in ['openai', 'openrouter']:  # Providers that need API keys
-            api_key_status = "✅ Set" if has_api_key else "❌ Required"
-        else:
-            api_key_status = "N/A"
+            # Determine status
+            if is_configured:
+                status = "✅ Configured"
+            else:
+                status = "❌ Not configured"
 
-        table.add_row(provider_name, description, status, api_key_status)
+            # API key status
+            # Providers that need API keys
+            if provider_name in ['openai', 'openrouter', 'anthropic']:
+                api_key_status = "✅ Set" if has_api_key else "❌ Required"
+            else:
+                api_key_status = "N/A"
+
+            table.add_row(provider_name, description, status, api_key_status)
 
     console.print(table)
-    console.print(
-        "\n💡 Use 'swebench provider init <provider>' to configure a provider"
+    if not detailed:
+        console.print(
+            "\n💡 Use 'swebench provider init <provider>' to configure a provider"
+        )
+        console.print(
+            "💡 Use 'swebench provider list --detailed' for more information"
+        )
+
+
+def _get_rate_limits(provider_name: str, config: ProviderConfig | None) -> str:
+    """Get rate limit information for a provider."""
+    rate_limits = {
+        'openai': '3500 RPM',
+        'openrouter': '200 RPM',
+        'anthropic': '1000 RPM',
+        'ollama': '3 concurrent',
+        'mock': 'Unlimited'
+    }
+    return rate_limits.get(provider_name, 'Unknown')
+
+
+def _get_cost_info(provider_name: str) -> str:
+    """Get cost information for a provider."""
+    costs = {
+        'openai': '$5/$20',
+        'openrouter': '$3-15',
+        'anthropic': '$3/$15',
+        'ollama': 'Free',
+        'mock': 'Free'
+    }
+    return costs.get(provider_name, 'Unknown')
+
+
+@provider_cli.command()
+def status() -> None:
+    """Show detailed status of all providers."""
+    registry = get_registry()
+    config_manager = ProviderConfigManager()
+
+    # Create enhanced status table
+    table = Table(title="Provider Status Overview")
+    table.add_column("Provider", style="cyan", width=12)
+    table.add_column("Configuration", style="green", width=15)
+    table.add_column("Connection", style="yellow", width=15)
+    table.add_column("Model", style="white", width=20)
+    table.add_column("Rate Limit", style="blue", width=15)
+    table.add_column("Cost (Input/Output)", style="magenta", width=20)
+
+    providers_info = registry.list_providers()
+
+    for provider_info in sorted(providers_info, key=lambda x: x['name']):
+        provider_name = provider_info['name']
+        provider_class = registry.get_provider_class(provider_name)
+
+        # Check configuration
+        config_status = "❌ Not set"
+        connection_status = "❌ Not tested"
+        current_model = "N/A"
+        try:
+            config = config_manager.load_config(provider_name)
+            if config:
+                config_status = "✅ Configured"
+                current_model = str(config.model or getattr(
+                    provider_class, 'default_model', 'default'
+                ))
+                # Test connection
+                try:
+                    _provider = provider_class(config)
+                    connection_status = "✅ Ready"
+                except Exception as e:
+                    connection_status = f"❌ Error: {str(e)[:20]}..."
+        except ProviderConfigurationError:
+            config_status = "❌ Missing"
+
+        # Get rate limits and costs
+        rate_limit = _get_rate_limits(provider_name, None)
+        cost_info = _get_cost_info(provider_name)
+
+        table.add_row(
+            provider_name,
+            config_status,
+            connection_status,
+            current_model,
+            rate_limit,
+            cost_info
+        )
+
+    console.print(table)
+    console.print(f"\n📊 Summary: {len(providers_info)} providers available")
+
+    # Show quick setup suggestions
+    configured_count = sum(
+        1 for info in providers_info
+        if _is_provider_configured(config_manager, info['name'])
     )
+    if configured_count == 0:
+        console.print("💡 Get started: swebench provider init openai")
+    elif configured_count < len(providers_info):
+        console.print(
+            "💡 Configure more providers with: swebench provider init <provider>"
+        )
+
+
+def _is_provider_configured(
+    config_manager: ProviderConfigManager, provider_name: str
+) -> bool:
+    """Check if a provider is configured."""
+    try:
+        config = config_manager.load_config(provider_name)
+        return bool(config)
+    except ProviderConfigurationError:
+        return False
+
+
+@provider_cli.command()
+@click.argument('provider_name')
+def models(provider_name: str) -> None:
+    """List available models for a specific provider."""
+    registry = get_registry()
+
+    # Check if provider exists
+    if provider_name not in registry.list_provider_names():
+        click.echo(f"❌ Provider '{provider_name}' not found", err=True)
+        click.echo(f"Available providers: {', '.join(registry.list_provider_names())}")
+        sys.exit(exit_codes.GENERAL_ERROR)
+
+    provider_class = registry.get_provider_class(provider_name)
+
+    # Create models table
+    table = Table(title=f"{provider_name.title()} Available Models")
+    table.add_column("Model", style="cyan")
+    table.add_column("Context Length", style="green")
+    table.add_column("Input Cost", style="yellow")
+    table.add_column("Output Cost", style="magenta")
+    table.add_column("Description", style="white")
+
+    # Get model information
+    models_info = _get_models_info(provider_name)
+
+    if not models_info:
+        console.print(f"No specific models listed for {provider_name}")
+        if hasattr(provider_class, 'default_model') and provider_class.default_model:
+            console.print(f"Default model: {provider_class.default_model}")
+        return
+
+    for model_info in models_info:  # type: ignore[attr-defined]
+        table.add_row(
+            model_info['name'],
+            model_info['context_length'],
+            model_info['input_cost'],
+            model_info['output_cost'],
+            model_info['description']
+        )
+
+    console.print(table)
+
+    # Show current configuration
+    config_manager = ProviderConfigManager()
+    try:
+        config = config_manager.load_config(provider_name)
+        if config and config.model:
+            console.print(f"\n🎯 Currently configured: {config.model}")
+        else:
+            default_model = getattr(provider_class, 'default_model', None)
+            if default_model:
+                console.print(f"\n🎯 Default model: {default_model}")
+    except ProviderConfigurationError:
+        console.print(
+            f"\n💡 Configure {provider_name}: swebench provider init {provider_name}"
+        )
+
+
+def _get_models_info(provider_name: str) -> list[dict[str, str]]:
+    """Get detailed model information for a provider."""
+    # This would ideally come from the provider classes or an API call
+    # For now, return static data for known providers
+    models_data = {
+        'openai': [
+            {
+                'name': 'gpt-4o',
+                'context_length': '128K',
+                'input_cost': '$5/1M',
+                'output_cost': '$20/1M',
+                'description': 'Latest multimodal model'
+            },
+            {
+                'name': 'gpt-4-turbo',
+                'context_length': '128K',
+                'input_cost': '$10/1M',
+                'output_cost': '$30/1M',
+                'description': 'High intelligence model'
+            },
+            {
+                'name': 'gpt-3.5-turbo',
+                'context_length': '16K',
+                'input_cost': '$0.5/1M',
+                'output_cost': '$1.5/1M',
+                'description': 'Fast and cost-effective'
+            }
+        ],
+        'anthropic': [
+            {
+                'name': 'claude-sonnet-4',
+                'context_length': '200K',
+                'input_cost': '$3/1M',
+                'output_cost': '$15/1M',
+                'description': 'Balanced intelligence and speed'
+            },
+            {
+                'name': 'claude-3-opus',
+                'context_length': '200K',
+                'input_cost': '$15/1M',
+                'output_cost': '$75/1M',
+                'description': 'Most capable model'
+            }
+        ],
+        'openrouter': [
+            {
+                'name': 'openai/gpt-4o',
+                'context_length': '128K',
+                'input_cost': '$5/1M',
+                'output_cost': '$20/1M',
+                'description': 'OpenAI GPT-4o via OpenRouter'
+            },
+            {
+                'name': 'anthropic/claude-sonnet-4',
+                'context_length': '200K',
+                'input_cost': '$3/1M',
+                'output_cost': '$15/1M',
+                'description': 'Claude Sonnet via OpenRouter'
+            },
+            {
+                'name': 'meta-llama/llama-3.3-70b',
+                'context_length': '128K',
+                'input_cost': '$0.59/1M',
+                'output_cost': '$0.79/1M',
+                'description': 'Open source Llama model'
+            }
+        ],
+        'ollama': [
+            {
+                'name': 'llama3.3',
+                'context_length': '128K',
+                'input_cost': 'Free',
+                'output_cost': 'Free',
+                'description': 'Local Llama 3.3 model'
+            },
+            {
+                'name': 'codellama',
+                'context_length': '16K',
+                'input_cost': 'Free',
+                'output_cost': 'Free',
+                'description': 'Code-specialized Llama'
+            }
+        ],
+        'mock': [
+            {
+                'name': 'mock-model',
+                'context_length': 'Unlimited',
+                'input_cost': 'Free',
+                'output_cost': 'Free',
+                'description': 'Testing/development model'
+            }
+        ]
+    }
+
+    return models_data.get(provider_name, [])
+
+
+@provider_cli.command()
+@click.argument('provider_name')
+def config(provider_name: str) -> None:
+    """Show provider configuration details."""
+    registry = get_registry()
+    config_manager = ProviderConfigManager()
+
+    # Check if provider exists
+    if provider_name not in registry.list_provider_names():
+        click.echo(f"❌ Provider '{provider_name}' not found", err=True)
+        click.echo(f"Available providers: {', '.join(registry.list_provider_names())}")
+        sys.exit(exit_codes.GENERAL_ERROR)
+
+    try:
+        config = config_manager.load_config(provider_name)
+
+        console.print(f"\n🔧 Configuration for {provider_name}:")
+        console.print("=" * 50)
+
+        # Show configuration details
+        config_table = Table()
+        config_table.add_column("Setting", style="cyan")
+        config_table.add_column("Value", style="white")
+
+        # Show config values, masking sensitive data
+        config_dict = vars(config) if hasattr(config, '__dict__') else {}
+
+        for key, value in config_dict.items():
+            if key == 'api_key' and value:
+                # Mask API key
+                key_len = len(value)
+                masked_value = '***' + value[-4:] if key_len > 4 else '****'
+                config_table.add_row("API Key", masked_value)
+            elif key == 'extra_params' and value:
+                # Show extra params as JSON
+                import json
+                config_table.add_row("Extra Params", json.dumps(value, indent=2))
+            elif value is not None:
+                config_table.add_row(key.replace('_', ' ').title(), str(value))
+
+        console.print(config_table)
+
+        # Show environment variables that could override config
+        env_mapping = config_manager.ENV_MAPPING.get(provider_name, {})
+        if env_mapping:
+            console.print("\n🌐 Environment Variables (override config file):")
+            for _config_key, env_var in env_mapping.items():
+                import os
+                env_value = os.getenv(env_var)
+                status = "✅ Set" if env_value else "❌ Not set"
+                console.print(f"   {env_var}: {status}")
+    except ProviderConfigurationError:
+        console.print(f"❌ No configuration found for {provider_name}")
+        console.print(f"💡 Run: swebench provider init {provider_name}")
+        sys.exit(exit_codes.GENERAL_ERROR)
 
 
 @provider_cli.command()

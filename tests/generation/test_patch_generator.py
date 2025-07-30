@@ -80,7 +80,7 @@ def sample_instance():
     }
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_generate_patch_success(patch_generator, mock_provider, sample_instance):
     """Test successful patch generation."""
     # Configure mock to return a valid patch
@@ -116,7 +116,7 @@ This should fix the issue.""",
     assert "+    return \"fixed\"" in result.patch
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_generate_patch_retry_on_parse_failure(
     patch_generator, mock_provider, sample_instance
 ):
@@ -150,7 +150,7 @@ async def test_generate_patch_retry_on_parse_failure(
     assert result.metadata["final_temperature"] == 0.1  # Increased from 0.0
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_generate_patch_token_limit_retry(
     patch_generator, mock_provider, sample_instance
 ):
@@ -179,7 +179,7 @@ async def test_generate_patch_token_limit_retry(
     assert result.cost == 0.002
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_generate_patch_rate_limit_retry(
     patch_generator, mock_provider, sample_instance
 ):
@@ -207,7 +207,7 @@ async def test_generate_patch_rate_limit_retry(
     assert result.attempts == 2
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_generate_patch_all_attempts_fail(
     patch_generator, mock_provider, sample_instance
 ):
@@ -228,7 +228,7 @@ async def test_generate_patch_all_attempts_fail(
     assert result.patch is None
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_generate_batch(patch_generator, mock_provider):
     """Test batch generation with multiple instances."""
     instances = [
@@ -255,7 +255,7 @@ async def test_generate_batch(patch_generator, mock_provider):
     assert sum(r.cost for r in results) == 0.003
 
 
-@pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_generate_batch_with_progress_callback(patch_generator, mock_provider):
     """Test batch generation with progress tracking."""
     instances = [
@@ -326,7 +326,9 @@ def test_extract_basic_patch_diff_block(patch_generator):
 
 This should resolve the issue."""
 
-    patch = patch_generator._extract_basic_patch(response)
+    # Use the response_parser to extract the patch
+    result = patch_generator.response_parser.extract_patch(response)
+    patch = result.patch
 
     assert patch is not None
     assert "--- a/src/main.py" in patch
@@ -348,7 +350,9 @@ index 123..456 100644
 
 That's the patch you need."""
 
-    patch = patch_generator._extract_basic_patch(response)
+    # Use the response_parser to extract the patch
+    result = patch_generator.response_parser.extract_patch(response)
+    patch = result.patch
 
     assert patch is not None
     # When patch starts with ---, diff --git line might not be included
@@ -369,7 +373,9 @@ def test_validate_patch_valid(patch_generator):
     ]
 
     for patch in valid_patches:
-        assert patch_generator._validate_patch(patch) is True
+        # Use the response_parser to validate the patch
+        result = patch_generator.response_parser.validate_patch(patch)
+        assert result.is_valid is True
 
 
 def test_validate_patch_invalid(patch_generator):
@@ -383,7 +389,9 @@ def test_validate_patch_invalid(patch_generator):
     ]
 
     for patch in invalid_patches:
-        assert patch_generator._validate_patch(patch) is False
+        # Use the response_parser to validate the patch
+        result = patch_generator.response_parser.validate_patch(patch)
+        assert result.is_valid is False
 
 
 def test_reduce_context(patch_generator):

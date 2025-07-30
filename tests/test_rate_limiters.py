@@ -112,12 +112,12 @@ class TestTokenBucketLimiter:
         """Test burst allowance functionality."""
         # Just verify burst allowance is set correctly
         limiter = TokenBucketLimiter(capacity=10, refill_rate=1.0, burst_allowance=5)
-        
+
         # Check that burst allowance is configured
         assert limiter.capacity == 10
         assert limiter.burst_allowance == 5
         assert limiter.refill_rate == 1.0
-        
+
         # Verify initial tokens don't exceed capacity
         status = limiter.get_status()
         assert status["tokens_available"] <= 10.1
@@ -655,26 +655,26 @@ class TestIntegration:
         request1 = AcquisitionRequest()
         request2 = AcquisitionRequest()
         request3 = AcquisitionRequest(timeout=0.1)  # Short timeout
-        
+
         # Acquire two permits
         result1 = await limiter.acquire(request1)
         result2 = await limiter.acquire(request2)
-        
+
         assert result1.acquired is True
         assert result2.acquired is True
-        
+
         # Third should fail immediately due to timeout
         result3 = await limiter.acquire(request3)
         assert result3.acquired is False
         assert result3.limited_by == "semaphore"
-        
+
         # Release permits
         limiter.release()
         limiter.release()
-        
+
         # Verify permits are available again by trying to acquire
         result4 = await limiter.acquire(request1)
         result5 = await limiter.acquire(request2)
-        
+
         assert result4.acquired is True
         assert result5.acquired is True

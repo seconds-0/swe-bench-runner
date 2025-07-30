@@ -366,7 +366,7 @@ class TestOpenAIIntegration:
         """Test rate limit recovery behavior."""
         # Note: This test validates handling but won't trigger actual rate limits
         # to avoid affecting API quotas
-        
+
         requests = [
             UnifiedRequest(
                 model=openai_test_model,
@@ -379,12 +379,12 @@ class TestOpenAIIntegration:
         # Execute requests rapidly
         import asyncio
         start_time = asyncio.get_event_loop().time()
-        
+
         tasks = [provider.generate_unified(req) for req in requests]
         results = await asyncio.gather(*tasks, return_exceptions=True)
-        
+
         end_time = asyncio.get_event_loop().time()
-        duration = end_time - start_time
+        _ = end_time - start_time  # duration for future rate limit testing
 
         # Check that requests were handled (with potential rate limiting)
         successful = [r for r in results if not isinstance(r, Exception)]
@@ -412,7 +412,7 @@ class TestOpenAIIntegration:
             )
 
             response = await provider.generate_unified(request)
-            
+
             # Should handle Unicode without errors
             assert response.content is not None
             assert len(response.content) > 0
@@ -441,11 +441,11 @@ class TestOpenAIIntegration:
 
         # Most requests should succeed even under load
         assert len(successful) >= 15
-        
+
         # Any errors should be connection-related, not crashes
         for error in errors:
             if error:
-                assert any(term in str(error).lower() 
+                assert any(term in str(error).lower()
                           for term in ["connection", "timeout", "rate"])
 
     @pytest.mark.asyncio

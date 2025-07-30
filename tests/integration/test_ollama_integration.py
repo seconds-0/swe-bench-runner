@@ -332,14 +332,14 @@ class TestOllamaIntegration:
     async def test_network_interruption_recovery(self, provider: OllamaProvider, ollama_test_model: str):
         """Test recovery from network interruptions."""
         # This test validates that the provider can recover from connection issues
-        
+
         # First, make a successful request
         request = UnifiedRequest(
             model=ollama_test_model,
             prompt="Test before interruption",
             max_tokens=10,
         )
-        
+
         response1 = await provider.generate_unified(request)
         assert response1.content is not None
 
@@ -355,7 +355,7 @@ class TestOllamaIntegration:
 
         import asyncio
         results = await asyncio.gather(*rapid_requests, return_exceptions=True)
-        
+
         # Should handle rapid requests without breaking
         successful = [r for r in results if not isinstance(r, Exception)]
         assert len(successful) >= 8  # Most should succeed
@@ -369,18 +369,18 @@ class TestOllamaIntegration:
         """Test embedding generation if supported."""
         # Check if any models support embeddings
         capabilities = await provider.get_capabilities()
-        
+
         # Look for embedding models (often have 'embed' in name)
-        embedding_models = [m for m in capabilities.supported_models 
+        embedding_models = [m for m in capabilities.supported_models
                           if 'embed' in m.id.lower() or m.id in ['nomic-embed-text', 'all-minilm']]
-        
+
         if not embedding_models:
             pytest.skip("No embedding models available")
 
         # Note: UnifiedRequest doesn't support embeddings directly
         # This test validates model availability for future embedding support
         assert len(embedding_models) > 0
-        
+
         # Verify embedding models have appropriate metadata
         for model in embedding_models:
             assert model.context_window > 0
@@ -403,7 +403,7 @@ class TestOllamaIntegration:
             )
 
             response = await provider.generate_unified(request)
-            
+
             # Verify parameters were respected
             assert response.content is not None
             assert response.usage.completion_tokens <= params["max_tokens"] + 5  # Small buffer

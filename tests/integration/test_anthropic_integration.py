@@ -437,11 +437,11 @@ class TestAnthropicIntegration:
         """Test basic vision capability detection."""
         # Check if provider advertises vision support
         capabilities = await provider.get_capabilities()
-        
+
         # Claude 3 models should support vision
         vision_models = [m for m in capabilities.supported_models if "claude-3" in m.id]
         assert len(vision_models) > 0
-        
+
         # Verify vision models have appropriate capabilities
         for model in vision_models:
             # Vision models should have larger context windows
@@ -451,7 +451,7 @@ class TestAnthropicIntegration:
     async def test_unicode_emoji_handling(self, provider: AnthropicProvider, anthropic_test_model: str):
         """Test handling of Unicode and emoji in prompts and responses."""
         unicode_prompt = "Translate this to emoji: happy coding rocket celebration 🎉"
-        
+
         request = UnifiedRequest(
             model=anthropic_test_model,
             prompt=unicode_prompt,
@@ -460,7 +460,7 @@ class TestAnthropicIntegration:
         )
 
         response = await provider.generate_unified(request)
-        
+
         # Should handle Unicode input and potentially output
         assert response.content is not None
         assert len(response.content) > 0

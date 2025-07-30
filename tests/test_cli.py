@@ -107,7 +107,7 @@ class TestCLI:
     @patch("swebench_runner.cli.run_evaluation")
     def test_run_with_multiline_file(self, mock_run_evaluation) -> None:
         """Test run command works with single-patch JSONL file.
-        
+
         Note: Multi-patch files now trigger batch evaluation with summary display.
         This test verifies backward compatibility with single-patch files.
         """

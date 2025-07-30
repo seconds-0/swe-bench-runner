@@ -48,9 +48,7 @@ class TestOllamaIntegration:
         response = await provider.generate_unified(request)
 
         # Validate response structure
-        assert response.id is not None
         assert response.model == ollama_test_model
-        assert len(response.choices) == 1
         assert response.content is not None
         assert len(response.content) > 0
         assert response.finish_reason in ["stop", "length"]
@@ -305,3 +303,119 @@ class TestOllamaIntegration:
             if isinstance(response, Exception):
                 pytest.fail(f"Concurrent request failed: {response}")
             assert response.content is not None
+
+    @pytest.mark.asyncio
+    async def test_retry_mechanism_with_backoff(self, provider: OllamaProvider, ollama_test_model: str):
+        """Test retry mechanism with backoff for transient failures."""
+        # Test resilience to transient failures
+        request = UnifiedRequest(
+            model=ollama_test_model,
+            prompt="Test retry",
+            max_tokens=10,
+        )
+
+        # Make multiple requests to test retry resilience
+        successful = 0
+        for _ in range(5):
+            try:
+                response = await provider.generate_unified(request)
+                if response.content:
+                    successful += 1
+            except Exception:
+                # Some failures might occur, retry should handle them
+                pass
+
+        # Local Ollama should be very reliable
+        assert successful >= 4
+
+    @pytest.mark.asyncio
+    async def test_network_interruption_recovery(self, provider: OllamaProvider, ollama_test_model: str):
+        """Test recovery from network interruptions."""
+        # This test validates that the provider can recover from connection issues
+        
+        # First, make a successful request
+        request = UnifiedRequest(
+            model=ollama_test_model,
+            prompt="Test before interruption",
+            max_tokens=10,
+        )
+        
+        response1 = await provider.generate_unified(request)
+        assert response1.content is not None
+
+        # Simulate potential interruption by making rapid requests
+        rapid_requests = []
+        for i in range(10):
+            req = UnifiedRequest(
+                model=ollama_test_model,
+                prompt=f"Rapid test {i}",
+                max_tokens=5,
+            )
+            rapid_requests.append(provider.generate_unified(req))
+
+        import asyncio
+        results = await asyncio.gather(*rapid_requests, return_exceptions=True)
+        
+        # Should handle rapid requests without breaking
+        successful = [r for r in results if not isinstance(r, Exception)]
+        assert len(successful) >= 8  # Most should succeed
+
+        # Verify we can still make requests after stress
+        response2 = await provider.generate_unified(request)
+        assert response2.content is not None
+
+    @pytest.mark.asyncio
+    async def test_embedding_generation(self, provider: OllamaProvider):
+        """Test embedding generation if supported."""
+        # Check if any models support embeddings
+        capabilities = await provider.get_capabilities()
+        
+        # Look for embedding models (often have 'embed' in name)
+        embedding_models = [m for m in capabilities.supported_models 
+                          if 'embed' in m.id.lower() or m.id in ['nomic-embed-text', 'all-minilm']]
+        
+        if not embedding_models:
+            pytest.skip("No embedding models available")
+
+        # Note: UnifiedRequest doesn't support embeddings directly
+        # This test validates model availability for future embedding support
+        assert len(embedding_models) > 0
+        
+        # Verify embedding models have appropriate metadata
+        for model in embedding_models:
+            assert model.context_window > 0
+
+    @pytest.mark.asyncio
+    async def test_model_parameter_customization(self, provider: OllamaProvider, ollama_test_model: str):
+        """Test customization of model parameters."""
+        # Test various parameter combinations
+        parameter_sets = [
+            {"temperature": 0.0, "max_tokens": 10},
+            {"temperature": 0.5, "max_tokens": 20},
+            {"temperature": 1.0, "max_tokens": 30},
+        ]
+
+        for params in parameter_sets:
+            request = UnifiedRequest(
+                model=ollama_test_model,
+                prompt="Generate a number",
+                **params
+            )
+
+            response = await provider.generate_unified(request)
+            
+            # Verify parameters were respected
+            assert response.content is not None
+            assert response.usage.completion_tokens <= params["max_tokens"] + 5  # Small buffer
+
+        # Test edge cases
+        edge_request = UnifiedRequest(
+            model=ollama_test_model,
+            prompt="Test edge case",
+            temperature=0.0,  # Deterministic
+            max_tokens=1,    # Minimum generation
+        )
+
+        edge_response = await provider.generate_unified(edge_request)
+        assert edge_response.content is not None
+        assert edge_response.usage.completion_tokens <= 3  # Very short

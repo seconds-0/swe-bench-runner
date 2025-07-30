@@ -104,14 +104,29 @@ class TestCLI:
         assert result.exit_code == 0
         assert "✅ test__repo-123: PASSED" in result.output
 
-    @patch("swebench_runner.cli.run_evaluation")
-    def test_run_with_multiline_file(self, mock_run_evaluation) -> None:
+    @patch("swebench_runner.docker_run.run_batch_evaluation")
+    @patch("swebench_runner.docker_run.load_all_patches")
+    def test_run_with_multiline_file(self, mock_load_all_patches, mock_run_batch_evaluation) -> None:
         """Test run command works with multi-patch JSONL file."""
-        mock_run_evaluation.return_value = EvaluationResult(
-            instance_id="test__repo-456",
-            passed=True,
-            error=None
-        )
+        # Mock loading multiple patches
+        mock_load_all_patches.return_value = [
+            {"instance_id": "django__django-12345", "patch": "..."},
+            {"instance_id": "flask__flask-2001", "patch": "..."}
+        ]
+        
+        # For batch evaluation, return a list of results
+        mock_run_batch_evaluation.return_value = [
+            EvaluationResult(
+                instance_id="django__django-12345",
+                passed=True,
+                error=None
+            ),
+            EvaluationResult(
+                instance_id="flask__flask-2001",
+                passed=True,
+                error=None
+            )
+        ]
 
         runner = CliRunner()
 
@@ -122,7 +137,10 @@ class TestCLI:
         result = runner.invoke(cli, ["run", "--patches", str(multi_file)])
 
         assert result.exit_code == 0
-        assert "✅ test__repo-456: PASSED" in result.output
+        # Check that batch evaluation was called
+        mock_run_batch_evaluation.assert_called_once()
+        # Check that summary is displayed (our new feature)
+        assert "EVALUATION SUMMARY" in result.output
 
     @patch("swebench_runner.cli.run_evaluation")
     def test_run_with_relative_path(self, mock_run_evaluation) -> None:

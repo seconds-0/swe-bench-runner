@@ -515,7 +515,8 @@ class TestUnifiedCostEstimator:
 
             cost = cost_estimator.estimate_batch_cost(instances, "unknown")
 
-            assert cost == 0.075  # Average of min and max
+            # Use approximate comparison for floating point values
+            assert abs(cost - 0.075) < 0.0001  # Average of min and max
             legacy_instance.estimate_batch_cost.assert_called_once()
 
     def test_estimate_instance_tokens(self, cost_estimator):

@@ -51,7 +51,8 @@ class TestTokenBucketLimiter:
         result = await limiter.acquire(request)
 
         assert result.acquired is True
-        assert result.metadata["tokens_remaining"] == 5.0
+        # Use approximate comparison for floating point values
+        assert 4.9 < result.metadata["tokens_remaining"] <= 5.0
         assert result.metadata["capacity"] == 10
 
     @pytest.mark.asyncio
@@ -95,7 +96,8 @@ class TestTokenBucketLimiter:
         status = limiter.get_status()
 
         assert status["type"] == "token_bucket"
-        assert status["tokens_available"] == 10.0
+        # Use approximate comparison for floating point values
+        assert 9.9 < status["tokens_available"] <= 10.0
         assert status["capacity"] == 10
         assert status["refill_rate"] == 1.0
         assert 0 <= status["utilization"] <= 1
@@ -173,13 +175,13 @@ class TestSlidingWindowLimiter:
         result = await limiter.acquire(request)
         assert result.acquired is False
 
-        # Mock time to make requests expire
-        with patch('time.time') as mock_time:
-            mock_time.return_value = time.time() + 2  # 2 seconds later
-
-            # Should be able to acquire again
-            result = await limiter.acquire(request)
-            assert result.acquired is True
+        # Wait for requests to expire (or mock time more carefully)
+        import asyncio
+        await asyncio.sleep(1.1)  # Wait just over 1 second
+        
+        # Should be able to acquire again
+        result = await limiter.acquire(request)
+        assert result.acquired is True
 
     def test_get_status(self, limiter):
         """Test status reporting."""

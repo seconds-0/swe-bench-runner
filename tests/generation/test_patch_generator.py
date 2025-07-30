@@ -326,7 +326,9 @@ def test_extract_basic_patch_diff_block(patch_generator):
 
 This should resolve the issue."""
 
-    patch = patch_generator._extract_basic_patch(response)
+    # Use the response_parser to extract the patch
+    result = patch_generator.response_parser.extract_patch(response)
+    patch = result.patch
 
     assert patch is not None
     assert "--- a/src/main.py" in patch
@@ -348,7 +350,9 @@ index 123..456 100644
 
 That's the patch you need."""
 
-    patch = patch_generator._extract_basic_patch(response)
+    # Use the response_parser to extract the patch
+    result = patch_generator.response_parser.extract_patch(response)
+    patch = result.patch
 
     assert patch is not None
     # When patch starts with ---, diff --git line might not be included
@@ -369,7 +373,9 @@ def test_validate_patch_valid(patch_generator):
     ]
 
     for patch in valid_patches:
-        assert patch_generator._validate_patch(patch) is True
+        # Use the response_parser to validate the patch
+        result = patch_generator.response_parser.validate_patch(patch)
+        assert result.is_valid is True
 
 
 def test_validate_patch_invalid(patch_generator):
@@ -383,7 +389,9 @@ def test_validate_patch_invalid(patch_generator):
     ]
 
     for patch in invalid_patches:
-        assert patch_generator._validate_patch(patch) is False
+        # Use the response_parser to validate the patch
+        result = patch_generator.response_parser.validate_patch(patch)
+        assert result.is_valid is False
 
 
 def test_reduce_context(patch_generator):

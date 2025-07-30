@@ -468,3 +468,13 @@ The highest compliment we can receive: "It just works."
 - **Document configs**: Keep all config files in sync or clearly document differences
 
 **Lesson learned**: When fixing mypy CI failures for Dataset Auto-Fetch, we updated `pyproject.toml` but CI was using `mypy.ini`. Always check for multiple config files.
+
+### 18. Development Environment Setup (MANDATORY)
+**Rule**: Match CI environment to prevent version-specific issues
+- **Python Version**: Python 3.11.x (CI uses 3.11.13)
+- **Ruff Version**: ruff==0.12.5
+- **Mypy Version**: mypy==1.17.0
+- **Why this matters**: Different Python/tool versions catch different issues
+- **Version mismatch example**: Python 3.9 allows `typing.List`, but Python 3.11 + ruff 0.12.5 flags it as deprecated (UP035)
+- **Verification**: Run `python --version` and `ruff --version` to confirm correct versions
+- **Lint locally**: Always run `ruff check src/swebench_runner tests` before pushing to catch issues early

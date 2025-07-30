@@ -1,5 +1,7 @@
 """Tracks statistics and progress for SWE-bench evaluations."""
 
+from __future__ import annotations
+
 import json
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -82,7 +84,12 @@ class EvaluationStats:
 
     def save(self, path: Path) -> None:
         """Save statistics to JSON file."""
-        path.write_text(json.dumps(self.to_dict(), indent=2))
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(self.to_dict(), indent=2))
+        except (OSError, TypeError) as e:
+            # OSError for file I/O issues, TypeError for JSON serialization
+            print(f"Warning: Failed to save statistics to {path}: {e}")
 
 
 class EvaluationTracker:

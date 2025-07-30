@@ -3,6 +3,7 @@
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -654,14 +655,17 @@ def run_batch_evaluation(
     # Initialize tracker
     tracker = EvaluationTracker()
 
-    # Determine test set type from source name
+    # Determine test set type from source name with priority
     source_name = Path(patch_source).stem.lower()
-    if 'lite' in source_name:
-        test_set_type = 'lite'
-    elif 'verified' in source_name:
+    # Priority order: verified > lite > full
+    if 'verified' in source_name:
         test_set_type = 'verified'
-    else:
+    elif 'lite' in source_name:
+        test_set_type = 'lite'
+    elif 'full' in source_name:
         test_set_type = 'full'
+    else:
+        test_set_type = 'custom'  # More accurate than assuming 'full'
 
     tracker.set_test_set_info(test_set_type, len(patches))
     tracker.start_evaluation(len(patches))
@@ -711,7 +715,9 @@ def run_batch_evaluation(
         else:
             from datetime import datetime
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        results_file = output_dir / f"results_{test_set_type}_{timestamp}.json"
+        # Sanitize test_set_type for safe filename
+        safe_test_set = re.sub(r'[^\w\-]', '_', test_set_type)
+        results_file = output_dir / f"results_{safe_test_set}_{timestamp}.json"
         with results_file.open('w') as f:
             json.dump([{
                 "instance_id": r.instance_id,
@@ -720,7 +726,7 @@ def run_batch_evaluation(
             } for r in results], f, indent=2)
 
         # Save statistics
-        stats_file = output_dir / f"stats_{test_set_type}_{timestamp}.json"
+        stats_file = output_dir / f"stats_{safe_test_set}_{timestamp}.json"
         tracker.stats.save(stats_file)
 
         # Display summary using existing function

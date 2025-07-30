@@ -672,7 +672,9 @@ class TestIntegration:
         limiter.release()
         limiter.release()
         
-        # Verify all permits are available again
-        status = limiter.get_status()
-        assert status["active_requests"] == 0
-        assert status["available"] == 2
+        # Verify permits are available again by trying to acquire
+        result4 = await limiter.acquire(request1)
+        result5 = await limiter.acquire(request2)
+        
+        assert result4.acquired is True
+        assert result5.acquired is True

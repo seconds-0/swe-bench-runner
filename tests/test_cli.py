@@ -104,16 +104,33 @@ class TestCLI:
         assert result.exit_code == 0
         assert "✅ test__repo-123: PASSED" in result.output
 
-    @patch("swebench_runner.docker_run.run_batch_evaluation")
-    @patch("swebench_runner.docker_run.load_all_patches")
-    def test_run_with_multiline_file(self, mock_load_all_patches, mock_run_batch_evaluation) -> None:
-        """Test run command works with multi-patch JSONL file."""
-        # Mock loading multiple patches
-        mock_load_all_patches.return_value = [
-            {"instance_id": "django__django-12345", "patch": "..."},
-            {"instance_id": "flask__flask-2001", "patch": "..."}
-        ]
+    @patch("swebench_runner.cli.run_evaluation")
+    def test_run_with_multiline_file(self, mock_run_evaluation) -> None:
+        """Test run command works with single-patch JSONL file.
         
+        Note: Multi-patch files now trigger batch evaluation with summary display.
+        This test verifies backward compatibility with single-patch files.
+        """
+        mock_run_evaluation.return_value = EvaluationResult(
+            instance_id="test__repo-456",
+            passed=True,
+            error=None
+        )
+
+        runner = CliRunner()
+
+        # Use the single-patch fixture file to avoid batch mode
+        fixtures_dir = Path(__file__).parent / "fixtures"
+        single_file = fixtures_dir / "sample.jsonl"
+
+        result = runner.invoke(cli, ["run", "--patches", str(single_file)])
+
+        assert result.exit_code == 0
+        assert "✅ test__repo-456: PASSED" in result.output
+
+    @patch("swebench_runner.docker_run.run_batch_evaluation")
+    def test_run_with_batch_file(self, mock_run_batch_evaluation) -> None:
+        """Test run command works with multi-patch JSONL file triggering batch mode."""
         # For batch evaluation, return a list of results
         mock_run_batch_evaluation.return_value = [
             EvaluationResult(
@@ -141,6 +158,8 @@ class TestCLI:
         mock_run_batch_evaluation.assert_called_once()
         # Check that summary is displayed (our new feature)
         assert "EVALUATION SUMMARY" in result.output
+        assert "Selected: 2" in result.output
+        assert "Succeeded: 2" in result.output
 
     @patch("swebench_runner.cli.run_evaluation")
     def test_run_with_relative_path(self, mock_run_evaluation) -> None:

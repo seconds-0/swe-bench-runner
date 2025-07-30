@@ -107,7 +107,8 @@ class TestTokenBucketLimiter:
         # Should not raise an error
         limiter.release(5)
 
-    def test_burst_allowance(self):
+    @pytest.mark.asyncio
+    async def test_burst_allowance(self):
         """Test burst allowance functionality."""
         limiter = TokenBucketLimiter(capacity=10, refill_rate=1.0, burst_allowance=5)
 

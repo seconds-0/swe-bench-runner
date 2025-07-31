@@ -5,9 +5,13 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from . import __version__
 from .models import EvaluationResult
+
+if TYPE_CHECKING:
+    from .evaluation_tracker import EvaluationStats
 
 
 def detect_patches_file() -> Path | None:
@@ -66,3 +70,39 @@ def display_result(result: EvaluationResult, output_dir: Path | None = None) -> 
         # Also create a simple pass/fail indicator file for easy checking
         status_file = output_dir / ("PASSED" if result.passed else "FAILED")
         status_file.touch()
+
+
+def display_evaluation_summary(stats: EvaluationStats) -> None:
+    """Display a formatted summary of evaluation results.
+
+    Args:
+        stats: Evaluation statistics to display
+    """
+    print("\n" + "=" * 60)
+    print("🎯 EVALUATION SUMMARY")
+    print("=" * 60)
+
+    # Test set information
+    if stats.test_set_type and stats.test_set_size:
+        print(f"📊 Test Set: SWE-bench {stats.test_set_type} "
+              f"({stats.test_set_size} instances)")
+
+    # Statistics
+    print("\n📈 Statistics:")
+    print(f"   • Selected: {stats.selected_count}")
+    print(f"   • Evaluated: {stats.evaluated_count}")
+    print(f"   • Failed: {stats.failed_count}")
+    print(f"   • Passed: {stats.passed_count}")
+
+    # SWE-bench score
+    print(f"\n🏆 SWE-bench Score: {stats.swe_bench_score:.1f}%")
+    print(f"   ({stats.passed_count}/{stats.selected_count} instances resolved)")
+
+    # Timing
+    if stats.start_time and stats.end_time:
+        print("\n⏱️  Timing:")
+        print(f"   Start: {stats.start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"   End:   {stats.end_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"   Duration: {stats.duration_str}")
+
+    print("=" * 60)

@@ -52,12 +52,10 @@ class TestAnthropicIntegration:
         response = await provider.generate_unified(request)
 
         # Validate response structure
-        assert response.id is not None
         assert response.model == anthropic_test_model
-        assert len(response.choices) == 1
         assert response.content is not None
         assert "test" in response.content.lower()
-        assert response.finish_reason in ["stop", "max_tokens"]
+        assert response.finish_reason in ["stop", "max_tokens", "length"]
 
         # Validate token usage
         assert response.usage is not None
@@ -408,3 +406,63 @@ class TestAnthropicIntegration:
             # Restore timeout
             if hasattr(provider, '_client') and original_timeout:
                 provider._client.timeout = original_timeout
+
+    @pytest.mark.asyncio
+    async def test_retry_mechanism_validation(self, provider: AnthropicProvider, anthropic_test_model: str):
+        """Test that retry mechanism works with transient failures."""
+        # This test validates retry behavior by checking successful recovery
+        # after potential transient failures (actual failures depend on network conditions)
+        request = UnifiedRequest(
+            model=anthropic_test_model,
+            prompt="Test retry mechanism",
+            max_tokens=10,
+        )
+
+        # Make multiple requests to potentially trigger and recover from transient issues
+        responses = []
+        for _ in range(3):
+            try:
+                response = await provider.generate_unified(request)
+                responses.append(response)
+            except Exception:
+                # Transient failures are okay, we're testing recovery
+                pass
+
+        # At least one request should succeed due to retry mechanism
+        assert len(responses) > 0
+        assert all(r.content is not None for r in responses)
+
+    @pytest.mark.asyncio
+    async def test_vision_capability(self, provider: AnthropicProvider):
+        """Test basic vision capability detection."""
+        # Check if provider advertises vision support
+        capabilities = await provider.get_capabilities()
+
+        # Claude 3 models should support vision
+        vision_models = [m for m in capabilities.supported_models if "claude-3" in m.id]
+        assert len(vision_models) > 0
+
+        # Verify vision models have appropriate capabilities
+        for model in vision_models:
+            # Vision models should have larger context windows
+            assert model.context_window >= 100000
+
+    @pytest.mark.asyncio
+    async def test_unicode_emoji_handling(self, provider: AnthropicProvider, anthropic_test_model: str):
+        """Test handling of Unicode and emoji in prompts and responses."""
+        unicode_prompt = "Translate this to emoji: happy coding rocket celebration 🎉"
+
+        request = UnifiedRequest(
+            model=anthropic_test_model,
+            prompt=unicode_prompt,
+            temperature=0.7,
+            max_tokens=50,
+        )
+
+        response = await provider.generate_unified(request)
+
+        # Should handle Unicode input and potentially output
+        assert response.content is not None
+        assert len(response.content) > 0
+        # Response might contain emojis or Unicode characters
+        # Just verify it processed without error

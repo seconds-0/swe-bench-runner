@@ -3,6 +3,7 @@
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -472,6 +473,283 @@ def run_evaluation(
     get_cache_dir()
     get_logs_dir()
 
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+
+        try:
+            # Create predictions file
+            predictions_file = create_predictions_file(patch, temp_path)
+
+            # Run harness
+            result = run_swebench_harness(predictions_file, temp_path, patch)
+
+            # Check for subprocess errors
+            if result.returncode != 0:
+                stderr = result.stderr.lower()
+                # Check for network-related errors
+                if any(term in stderr for term in [
+                    "network", "connection", "timeout", "unreachable",
+                    "resolve", "dns", "timed out", "connection refused",
+                    "failed to pull", "registry", "pull access denied"
+                ]):
+                    return EvaluationResult(
+                        instance_id=patch.instance_id,
+                        passed=False,
+                        error=f"Network error during harness execution: {result.stderr}"
+                    )
+                else:
+                    return EvaluationResult(
+                        instance_id=patch.instance_id,
+                        passed=False,
+                        error=f"Harness failed with code {result.returncode}: "
+                              f"{result.stderr}"
+                    )
+
+            # Parse results
+            return parse_harness_results(temp_path, patch)
+
+        except subprocess.TimeoutExpired:
+            return EvaluationResult(
+                instance_id=patch.instance_id,
+                passed=False,
+                error="Evaluation timed out after 70 minutes"
+            )
+        except Exception as e:
+            return EvaluationResult(
+                instance_id=patch.instance_id,
+                passed=False,
+                error=f"Evaluation failed: {e}"
+            )
+
+
+def load_all_patches(patch_source: str, max_size_mb: int = 5) -> list[Patch]:
+    """Load all patches from a JSONL file or directory.
+
+    Args:
+        patch_source: Path to JSONL file or directory containing patches
+        max_size_mb: Maximum allowed patch size in MB
+
+    Returns:
+        List of Patch objects
+    """
+    patches = []
+
+    try:
+        patch_path = Path(patch_source)
+
+        if patch_path.is_file():
+            # JSONL file
+            with patch_path.open('r', encoding='utf-8') as f:
+                for line_num, line in enumerate(f, 1):
+                    line = line.strip()
+                    if not line:
+                        continue
+
+                    try:
+                        data = json.loads(line)
+                        patch = Patch(
+                            instance_id=data['instance_id'],
+                            patch=data['patch']
+                        )
+                        # Validate using the configurable limit
+                        patch.validate(max_size_mb=max_size_mb)
+                        patches.append(patch)
+
+                    except (json.JSONDecodeError, KeyError) as e:
+                        print(f"⚠️  Skipping invalid patch on line {line_num}: {e}")
+                        continue
+                    except ValueError as e:
+                        # Handle validation errors
+                        error_msg = str(e)
+                        if error_msg.startswith("PATCH_TOO_LARGE:"):
+                            print(f"⚠️  Skipping patch on line {line_num}: {error_msg}")
+                        else:
+                            print(f"⚠️  Skipping invalid patch on line {line_num}: {e}")
+                        continue
+
+        elif patch_path.is_dir():
+            # Patch directory
+            patch_files = sorted(patch_path.glob("*.patch"))
+
+            for patch_file in patch_files:
+                try:
+                    instance_id = patch_file.stem  # Remove .patch extension
+
+                    with patch_file.open('r', encoding='utf-8') as f:
+                        patch_content = f.read()
+
+                    patch = Patch(
+                        instance_id=instance_id,
+                        patch=patch_content
+                    )
+                    # Validate using the configurable limit
+                    patch.validate(max_size_mb=max_size_mb)
+                    patches.append(patch)
+
+                except ValueError as e:
+                    # Handle validation errors
+                    error_msg = str(e)
+                    if error_msg.startswith("PATCH_TOO_LARGE:"):
+                        print(f"⚠️  Skipping {patch_file.name}: {error_msg}")
+                    else:
+                        print(f"⚠️  Skipping {patch_file.name}: {e}")
+                    continue
+                except Exception as e:
+                    print(f"⚠️  Skipping {patch_file.name}: {e}")
+                    continue
+
+        else:
+            raise ValueError(f"Path {patch_source} is neither a file nor a directory")
+
+    except FileNotFoundError:
+        print(f"Error: Patch source not found: {patch_source}")
+        sys.exit(exit_codes.GENERAL_ERROR)
+    except Exception as e:
+        print(f"Error loading patches: {e}")
+        sys.exit(exit_codes.GENERAL_ERROR)
+
+    return patches
+
+
+def run_batch_evaluation(
+    patch_source: str,
+    no_input: bool = False,
+    max_patch_size_mb: int = 5,
+    generate_only: bool = False,
+    json_output: bool = False
+) -> list[EvaluationResult]:
+    """Run evaluations for all patches in a source.
+
+    Args:
+        patch_source: Path to JSONL file or directory containing patches
+        no_input: If True, fail on prompts instead of waiting for user input
+        max_patch_size_mb: Maximum allowed patch size in MB
+        generate_only: If True, skip pre-flight checks and resource verification
+        json_output: If True, suppress progress output for JSON mode
+
+    Returns:
+        List of EvaluationResult objects
+    """
+    from .evaluation_tracker import EvaluationTracker
+    from .output import display_evaluation_summary
+
+    # Pre-flight checks (unless in generate-only mode)
+    if not generate_only:
+        check_docker_running()
+        check_resources()
+
+        # Ensure SWE-bench is installed
+        if not check_swebench_installed():
+            install_swebench()
+
+    # Load all patches
+    print("Loading patches...")
+    patches = load_all_patches(patch_source, max_size_mb=max_patch_size_mb)
+
+    if not patches:
+        print("❌ No valid patches found!")
+        sys.exit(exit_codes.GENERAL_ERROR)
+
+    print(f"✅ Loaded {len(patches)} patches")
+
+    # Initialize tracker
+    tracker = EvaluationTracker()
+
+    # Determine test set type from source name with priority
+    source_name = Path(patch_source).stem.lower()
+    # Priority order: verified > lite > full
+    if 'verified' in source_name:
+        test_set_type = 'verified'
+    elif 'lite' in source_name:
+        test_set_type = 'lite'
+    elif 'full' in source_name:
+        test_set_type = 'full'
+    else:
+        test_set_type = 'custom'  # More accurate than assuming 'full'
+
+    tracker.set_test_set_info(test_set_type, len(patches))
+    tracker.start_evaluation(len(patches))
+
+    # Process each patch
+    results = []
+
+    try:
+        for i, patch in enumerate(patches, 1):
+            # Display progress
+            print(f"\n[{i}/{len(patches)}] Evaluating {patch.instance_id}...")
+
+            # Run evaluation
+            result = run_single_evaluation(patch, no_input)
+            results.append(result)
+
+            # Record result
+            tracker.record_result(
+                instance_id=result.instance_id,
+                passed=result.passed,
+                details={"error": result.error} if result.error else None
+            )
+
+            # Display result
+            if result.passed:
+                print(f"✅ {result.instance_id}: PASSED")
+            else:
+                print(f"❌ {result.instance_id}: FAILED")
+                if result.error:
+                    print(f"   Error: {result.error}")
+
+    except KeyboardInterrupt:
+        print("\n⚠️  Evaluation interrupted by user")
+        # Still save partial results
+
+    finally:
+        # Finish tracking
+        tracker.finish_evaluation()
+
+        # Save results
+        output_dir = Path("evaluation_results")
+        output_dir.mkdir(exist_ok=True)
+
+        # Save detailed results
+        if tracker.stats.start_time:
+            timestamp = tracker.stats.start_time.strftime('%Y%m%d_%H%M%S')
+        else:
+            from datetime import datetime
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        # Sanitize test_set_type for safe filename
+        safe_test_set = re.sub(r'[^\w\-]', '_', test_set_type)
+        results_file = output_dir / f"results_{safe_test_set}_{timestamp}.json"
+        with results_file.open('w') as f:
+            json.dump([{
+                "instance_id": r.instance_id,
+                "passed": r.passed,
+                "error": r.error
+            } for r in results], f, indent=2)
+
+        # Save statistics
+        stats_file = output_dir / f"stats_{safe_test_set}_{timestamp}.json"
+        tracker.stats.save(stats_file)
+
+        # Display summary using existing function
+        display_evaluation_summary(tracker.stats)
+
+        # Save output locations
+        print(f"\n📊 Results saved to: {results_file}")
+        print(f"📈 Statistics saved to: {stats_file}")
+
+    return results
+
+
+def run_single_evaluation(patch: Patch, no_input: bool = False) -> EvaluationResult:
+    """Run a single SWE-bench evaluation.
+
+    Args:
+        patch: Patch object to evaluate
+        no_input: If True, fail on prompts instead of waiting for user input
+
+    Returns:
+        EvaluationResult object
+    """
+    # Create temporary directory for evaluation
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
 

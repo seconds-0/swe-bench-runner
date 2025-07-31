@@ -21,7 +21,7 @@ from .bootstrap import (
 )
 from .cache import clean_cache, get_cache_dir, get_cache_usage
 from .cli_provider import provider_cli
-from .docker_run import run_evaluation
+from .docker_run import run_batch_evaluation, run_evaluation
 from .error_utils import classify_error
 from .output import detect_patches_file, display_result
 
@@ -438,35 +438,109 @@ def run(
     # Check for first-time setup after argument validation
     is_first_run = check_and_prompt_first_run(no_input=no_input)
 
+    # Determine if we should use batch evaluation
+    should_batch = False
+    patch_count = 1
+
+    if patches:
+        # Count lines in JSONL file
+        try:
+            with open(patches) as f:
+                patch_count = sum(1 for line in f if line.strip())
+            should_batch = patch_count > 1
+        except Exception:  # noqa: S110
+            # If we can't read, assume single patch
+            pass
+    elif patches_dir:
+        # Count .patch files in directory
+        try:
+            patch_files = list(Path(patches_dir).glob("*.patch"))
+            patch_count = len(patch_files)
+            should_batch = patch_count > 1
+        except Exception:  # noqa: S110
+            # If we can't read, assume single patch
+            pass
+
     # Run the evaluation
     try:
-        result = run_evaluation(
-            patch_source, no_input=no_input, max_patch_size_mb=max_patch_size
-        )
+        if should_batch:
+            # Use batch evaluation for multiple patches
+            results = run_batch_evaluation(
+                patch_source,
+                no_input=no_input,
+                max_patch_size_mb=max_patch_size,
+                generate_only=generate_only,
+                json_output=json_output
+            )
 
-        if json_output:
-            # Output JSON to stdout
-            output = {
-                "instance_id": result.instance_id,
-                "passed": result.passed,
-                "error": result.error
-            }
-            click.echo(json.dumps(output))
+            if json_output:
+                # Output batch summary JSON
+                total = len(results)
+                passed = sum(1 for r in results if r.passed)
+                failed = total - passed
+
+                output = {
+                    "total": total,
+                    "passed": passed,
+                    "failed": failed,
+                    "success_rate": f"{(passed/total)*100:.1f}%" if total > 0 else "0%",
+                    "results": [
+                        {
+                            "instance_id": r.instance_id,
+                            "passed": r.passed,
+                            "error": r.error
+                        }
+                        for r in results
+                    ]
+                }
+                click.echo(json.dumps(output, indent=2))
+            else:
+                # Display results using existing display logic
+                for result in results:
+                    output_dir = Path(f"results/{result.instance_id}")
+                    display_result(result, output_dir)
+
+                # Show summary
+                total = len(results)
+                passed = sum(1 for r in results if r.passed)
+                click.echo(f"\nBatch evaluation complete: {passed}/{total} passed")
+
+            # Exit with success if any passed, otherwise general error
+            sys.exit(
+                exit_codes.SUCCESS if any(r.passed for r in results)
+                else exit_codes.GENERAL_ERROR
+            )
         else:
-            # Use our enhanced display function
-            output_dir = Path(f"results/{result.instance_id}")
-            display_result(result, output_dir)
+            # Single patch evaluation (backward compatibility)
+            result = run_evaluation(
+                patch_source, no_input=no_input, max_patch_size_mb=max_patch_size
+            )
 
-            # Show success celebration if it passed
-            if result.passed and is_first_run:
-                show_success_message(result.instance_id, is_first_success=True)
+            if json_output:
+                # Output JSON to stdout
+                output = {
+                    "instance_id": result.instance_id,
+                    "passed": result.passed,
+                    "error": result.error
+                }
+                click.echo(json.dumps(output))
+            else:
+                # Use our enhanced display function
+                output_dir = Path(f"results/{result.instance_id}")
+                display_result(result, output_dir)
 
-        # Map errors to appropriate exit codes using shared utility
-        if result.error:
-            exit_code = classify_error(result.error)
-            sys.exit(exit_code)
-        else:
-            sys.exit(exit_codes.SUCCESS if result.passed else exit_codes.GENERAL_ERROR)
+                # Show success celebration if it passed
+                if result.passed and is_first_run:
+                    show_success_message(result.instance_id, is_first_success=True)
+
+            # Map errors to appropriate exit codes using shared utility
+            if result.error:
+                exit_code = classify_error(result.error)
+                sys.exit(exit_code)
+            else:
+                sys.exit(
+                    exit_codes.SUCCESS if result.passed else exit_codes.GENERAL_ERROR
+                )
     except Exception as e:
         if json_output:
             error_output = {

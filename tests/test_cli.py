@@ -106,12 +106,44 @@ class TestCLI:
 
     @patch("swebench_runner.cli.run_evaluation")
     def test_run_with_multiline_file(self, mock_run_evaluation) -> None:
-        """Test run command works with multi-patch JSONL file."""
+        """Test run command works with single-patch JSONL file.
+
+        Note: Multi-patch files now trigger batch evaluation with summary display.
+        This test verifies backward compatibility with single-patch files.
+        """
         mock_run_evaluation.return_value = EvaluationResult(
             instance_id="test__repo-456",
             passed=True,
             error=None
         )
+
+        runner = CliRunner()
+
+        # Use the single-patch fixture file to avoid batch mode
+        fixtures_dir = Path(__file__).parent / "fixtures"
+        single_file = fixtures_dir / "sample.jsonl"
+
+        result = runner.invoke(cli, ["run", "--patches", str(single_file)])
+
+        assert result.exit_code == 0
+        assert "✅ test__repo-456: PASSED" in result.output
+
+    @patch("swebench_runner.cli.run_batch_evaluation")
+    def test_run_with_batch_file(self, mock_run_batch_evaluation) -> None:
+        """Test run command works with multi-patch JSONL file triggering batch mode."""
+        # For batch evaluation, return a list of results
+        mock_run_batch_evaluation.return_value = [
+            EvaluationResult(
+                instance_id="django__django-12345",
+                passed=True,
+                error=None
+            ),
+            EvaluationResult(
+                instance_id="flask__flask-2001",
+                passed=True,
+                error=None
+            )
+        ]
 
         runner = CliRunner()
 
@@ -122,7 +154,12 @@ class TestCLI:
         result = runner.invoke(cli, ["run", "--patches", str(multi_file)])
 
         assert result.exit_code == 0
-        assert "✅ test__repo-456: PASSED" in result.output
+        # Check that batch evaluation was called
+        mock_run_batch_evaluation.assert_called_once()
+        # The output shows individual results since we're mocking the batch function
+        assert "django__django-12345: PASSED" in result.output
+        assert "flask__flask-2001: PASSED" in result.output
+        assert "Batch evaluation complete: 2/2 passed" in result.output
 
     @patch("swebench_runner.cli.run_evaluation")
     def test_run_with_relative_path(self, mock_run_evaluation) -> None:

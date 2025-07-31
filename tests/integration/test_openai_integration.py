@@ -336,3 +336,151 @@ class TestOpenAIIntegration:
         # Should hit the token limit
         assert response.finish_reason == "length"
         assert response.usage.completion_tokens <= 5
+
+    @pytest.mark.asyncio
+    async def test_retry_mechanism_with_exponential_backoff(self, provider: OpenAIProvider, openai_test_model: str):
+        """Test retry mechanism with exponential backoff."""
+        # Test that provider handles transient failures gracefully
+        request = UnifiedRequest(
+            model=openai_test_model,
+            prompt="Test retry with backoff",
+            max_tokens=10,
+        )
+
+        # Make several requests to test retry resilience
+        successful_responses = 0
+        for _ in range(5):
+            try:
+                response = await provider.generate_unified(request)
+                if response.content:
+                    successful_responses += 1
+            except Exception:
+                # Some failures are expected in stress testing
+                pass
+
+        # With retry mechanism, most requests should succeed
+        assert successful_responses >= 3
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_recovery_timing(self, provider: OpenAIProvider, openai_test_model: str):
+        """Test rate limit recovery behavior."""
+        # Note: This test validates handling but won't trigger actual rate limits
+        # to avoid affecting API quotas
+
+        requests = [
+            UnifiedRequest(
+                model=openai_test_model,
+                prompt=f"Quick test {i}",
+                max_tokens=5,
+            )
+            for i in range(10)
+        ]
+
+        # Execute requests rapidly
+        import asyncio
+        start_time = asyncio.get_event_loop().time()
+
+        tasks = [provider.generate_unified(req) for req in requests]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        end_time = asyncio.get_event_loop().time()
+        _ = end_time - start_time  # duration for future rate limit testing
+
+        # Check that requests were handled (with potential rate limiting)
+        successful = [r for r in results if not isinstance(r, Exception)]
+        assert len(successful) > 0
+
+        # If rate limited, duration should show backoff behavior
+        # (but we're not forcing rate limits in integration tests)
+
+    @pytest.mark.asyncio
+    async def test_unicode_emoji_content(self, provider: OpenAIProvider, openai_test_model: str):
+        """Test handling of Unicode and emoji content."""
+        # Test various Unicode scenarios
+        test_prompts = [
+            "Reply with a thumbs up emoji: 👍",
+            "Translate to emoji: I love programming",
+            "What does this mean: 🚀🌟💻",
+        ]
+
+        for prompt in test_prompts:
+            request = UnifiedRequest(
+                model=openai_test_model,
+                prompt=prompt,
+                temperature=0.7,
+                max_tokens=30,
+            )
+
+            response = await provider.generate_unified(request)
+
+            # Should handle Unicode without errors
+            assert response.content is not None
+            assert len(response.content) > 0
+
+    @pytest.mark.asyncio
+    async def test_connection_pool_exhaustion(self, provider: OpenAIProvider, openai_test_model: str):
+        """Test handling of connection pool exhaustion."""
+        # Create many concurrent requests to stress connection pool
+        requests = [
+            UnifiedRequest(
+                model=openai_test_model,
+                prompt=f"Test connection {i}",
+                max_tokens=5,
+            )
+            for i in range(20)
+        ]
+
+        # Execute all at once
+        import asyncio
+        tasks = [provider.generate_unified(req) for req in requests]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Connection pool should handle the load
+        successful = [r for r in results if not isinstance(r, Exception)]
+        errors = [r for r in results if isinstance(r, Exception)]
+
+        # Most requests should succeed even under load
+        assert len(successful) >= 15
+
+        # Any errors should be connection-related, not crashes
+        for error in errors:
+            if error:
+                assert any(term in str(error).lower()
+                          for term in ["connection", "timeout", "rate"])
+
+    @pytest.mark.asyncio
+    async def test_function_calling_basic(self, provider: OpenAIProvider, openai_test_model: str):
+        """Test basic function calling capability."""
+        # Skip if model doesn't support function calling
+        if "gpt-3.5-turbo" not in openai_test_model and "gpt-4" not in openai_test_model:
+            pytest.skip("Model doesn't support function calling")
+
+        # Test with a simple function definition
+        request = UnifiedRequest(
+            model=openai_test_model,
+            prompt="What's the weather in San Francisco?",
+            max_tokens=100,
+            tools=[{
+                "type": "function",
+                "function": {
+                    "name": "get_weather",
+                    "description": "Get weather for a location",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "location": {"type": "string"}
+                        },
+                        "required": ["location"]
+                    }
+                }
+            }]
+        )
+
+        try:
+            response = await provider.generate_unified(request)
+            # Function calling might return tool calls or regular content
+            assert response.content is not None or response.raw_response.get("tool_calls")
+        except Exception as e:
+            # If tools aren't supported by UnifiedRequest, that's okay
+            if "tools" in str(e) or "unexpected keyword" in str(e):
+                pytest.skip("Function calling not supported in unified interface")

@@ -6,6 +6,7 @@
 We're building the tool that makes SWE-bench evaluation so simple that users think "Holy shit, this is what I wanted the whole time!"
 
 ## Core Documents
+- **OVERVIEW**: `Documentation/Plans/OVERVIEW-START-HERE.md` - 🚨 **CHECK THIS FIRST** - Current project state
 - **PRD**: `Documentation/PRD.md` - Product requirements and success metrics
 - **UX Plan**: `Documentation/UX_Plan.md` - User flows and error handling
 - **Architecture**: `Documentation/Architecture.md` - Technical design (simplified)
@@ -42,10 +43,43 @@ For external systems/libraries: Search official docs, check GitHub/APIs, verify 
 
 ## Workplan Methodology
 
+### Documentation Organization & Creation Guidelines
+
+#### Where to Create Documentation:
+1. **Workplans** → `Documentation/Plans/active/`
+   - Use template: `Documentation/Plans/templates/PLAN-TEMPLATE.md`
+   - Naming: `TaskID-Description.md` (e.g., `FEAT-NewProvider.md`, `BUG-TestFix.md`)
+   - Move to `completed/` when done, `archive/` if superseded
+
+2. **User Documentation** → `docs/` (create if doesn't exist)
+   - Getting started guides
+   - CLI reference
+   - Provider setup guides
+   - Troubleshooting
+
+3. **API Documentation** → Generate from docstrings
+   - Use Google-style docstrings in code
+   - Auto-generate with sphinx or similar
+
+4. **Examples** → `examples/`
+   - Working code examples
+   - Common use cases
+   - Integration patterns
+
+#### When to Create Documentation:
+- **BEFORE implementation**: Create workplan in `Plans/active/`
+- **DURING implementation**: Update workplan status and notes
+- **AFTER implementation**: 
+  - Move workplan to `completed/`
+  - Create/update user docs if user-facing feature
+  - Add examples if new patterns introduced
+- **NEVER create ad-hoc documents**: Use the organized structure
+
 ### Workplan Creation
 Before implementing any feature or bugfix:
-1. Create a dedicated workplan file in the `Documentation/Plans/` directory with naming format: `TaskID-Description.md` (e.g., `BUG-AuthFlow.md`, `FEAT-Abilities.md`)
-2. Workplan structure must include:
+1. Check `Documentation/Plans/OVERVIEW-START-HERE.md` for current state
+2. Create workplan in `Documentation/Plans/active/` using the template
+3. Workplan structure must include:
    - **Task ID**: Simple identifier for reference (e.g., "FEAT-Abilities", "BUG-AuthFlow")
    - **Problem Statement**: Clear definition of what needs to be solved or implemented
    - **Proposed Solution**: A comprehensive proposal of what needs to be changed or built, including patterns, techniques, interfaces, APIs, etc to use
@@ -75,6 +109,7 @@ Before implementing any feature or bugfix:
    - Update status to "Blocked" if you cannot proceed
    - Once resolved, document the resolution and continue
 6. Update the Status to "Completed" once all steps are finished and verified
+7. Move completed workplan from `active/` to `completed/` directory
 
 ### Workplan Quality Checklist
 When creating work plans, ensure:

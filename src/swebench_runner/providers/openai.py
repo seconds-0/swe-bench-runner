@@ -5,7 +5,7 @@ import json
 import logging
 import os
 import time
-from typing import Any
+from typing import Any, Optional
 
 import aiohttp
 
@@ -110,8 +110,8 @@ class OpenAIProvider(ModelProvider):
         }
 
         # Available models cache
-        self._available_models: list[str] | None = None
-        self._models_last_fetched: float | None = None
+        self._available_models: Optional[list] = None
+        self._models_last_fetched: Optional[float] = None
         self._models_cache_duration = 3600  # 1 hour
 
     def _init_capabilities(self) -> ProviderCapabilities:
@@ -218,7 +218,7 @@ class OpenAIProvider(ModelProvider):
     async def _make_request(
         self,
         endpoint: str,
-        data: dict[str, Any] | None = None,
+        data: Optional[dict] = None,
         method: str = "POST"
     ) -> Any:
         """Make an HTTP request to the OpenAI API with retry logic.
@@ -383,7 +383,7 @@ class OpenAIProvider(ModelProvider):
 
         return "".join(content_parts)
 
-    async def _safe_json(self, response: aiohttp.ClientResponse) -> dict[str, Any]:
+    async def _safe_json(self, response: aiohttp.ClientResponse) -> dict:
         """Safely parse JSON from response.
 
         Args:
@@ -398,7 +398,7 @@ class OpenAIProvider(ModelProvider):
             text = await response.text()
             return {"error": {"message": text or "Unknown error"}}
 
-    def _extract_rate_limit_info(self, headers: dict[str, str]):
+    def _extract_rate_limit_info(self, headers: dict):
         """Extract rate limit information from response headers.
 
         Args:
@@ -459,7 +459,7 @@ class OpenAIProvider(ModelProvider):
             self._health_status = "unhealthy"
             return False
 
-    async def get_available_models(self) -> list[str]:
+    async def get_available_models(self) -> list:
         """Get list of available models from the API.
 
         Returns:
@@ -501,13 +501,13 @@ class OpenAIProvider(ModelProvider):
         return self._calculate_cost(model, prompt_tokens, max_tokens)
 
     @classmethod
-    def get_required_env_vars(cls) -> list[str]:
+    def get_required_env_vars(cls) -> list:
         """Get required environment variables."""
         return ["OPENAI_API_KEY"]
 
     @classmethod
     def _config_from_env(
-        cls, env_vars: dict[str, str], model: str | None = None
+        cls, env_vars: dict, model: Optional[str] = None
     ) -> ProviderConfig:
         """Create config from environment variables.
 
@@ -534,7 +534,7 @@ class OpenAIProvider(ModelProvider):
 
         return config
 
-    def get_rate_limit_info(self) -> dict[str, Any]:
+    def get_rate_limit_info(self) -> dict:
         """Get current rate limit information.
 
         Returns:

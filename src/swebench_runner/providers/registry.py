@@ -4,7 +4,7 @@ import importlib
 import logging
 from pathlib import Path
 from threading import Lock
-from typing import Any
+from typing import Optional
 
 from .base import ModelProvider, ProviderConfig
 from .exceptions import ProviderConfigurationError, ProviderNotFoundError
@@ -17,8 +17,8 @@ class ProviderRegistry:
 
     def __init__(self):
         self._providers: dict[str, type[ModelProvider]] = {}
-        self._instances: dict[str, ModelProvider] = {}  # Cached instances
-        self._configs: dict[str, ProviderConfig] = {}
+        self._instances: dict = {}  # Cached instances
+        self._configs: dict = {}
         self._initialized = False
         self._lock = Lock()  # Thread safety
 
@@ -88,7 +88,7 @@ class ProviderRegistry:
             return self._providers[name]
 
     def get_provider(
-        self, name: str, config: ProviderConfig | None = None, cache: bool = True
+        self, name: str, config: Optional[ProviderConfig] = None, cache: bool = True
     ) -> ModelProvider:
         """Get an initialized provider instance with caching.
 
@@ -133,7 +133,7 @@ class ProviderRegistry:
 
         return provider
 
-    def list_providers(self) -> list[dict[str, Any]]:
+    def list_providers(self) -> list:
         """List all available providers.
 
         Returns:
@@ -157,7 +157,7 @@ class ProviderRegistry:
                 for cls in self._providers.values()
             ]
 
-    def list_provider_names(self) -> list[str]:
+    def list_provider_names(self) -> list:
         """List all available provider names.
 
         Returns:
@@ -226,7 +226,7 @@ class ProviderRegistry:
             self._instances.clear()
             self._initialized = False
 
-    def clear_cache(self, name: str | None = None):
+    def clear_cache(self, name: Optional[str] = None):
         """Clear cached provider instances.
 
         Args:

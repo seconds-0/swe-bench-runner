@@ -4,6 +4,7 @@ import json
 import logging
 import os
 from pathlib import Path
+from typing import Optional
 
 try:
     import keyring
@@ -73,7 +74,7 @@ class ProviderConfigManager:
 
     SERVICE_NAME = "swebench-runner"
 
-    def __init__(self, config_dir: Path | None = None):
+    def __init__(self, config_dir: Optional[Path] = None):
         """Initialize config manager.
 
         Args:
@@ -81,7 +82,7 @@ class ProviderConfigManager:
         """
         self.config_dir = config_dir or (Path.home() / ".swebench")
         self.config_file = self.config_dir / "providers.json"
-        self._cache: dict[str, ProviderConfig] = {}
+        self._cache: dict = {}
 
     def load_config(self, provider_name: str) -> ProviderConfig:
         """Load configuration for a provider.
@@ -131,7 +132,7 @@ class ProviderConfigManager:
         self._cache[provider_name] = config
         return config
 
-    def _load_from_env(self, provider_name: str) -> ProviderConfig | None:
+    def _load_from_env(self, provider_name: str) -> Optional[ProviderConfig]:
         """Load configuration from environment variables.
 
         Args:
@@ -180,7 +181,7 @@ class ProviderConfigManager:
         logger.debug(f"Loaded {provider_name} config from environment")
         return config
 
-    def _load_from_keyring(self, provider_name: str) -> ProviderConfig | None:
+    def _load_from_keyring(self, provider_name: str) -> Optional[ProviderConfig]:
         """Load configuration from system keyring.
 
         Args:
@@ -220,7 +221,7 @@ class ProviderConfigManager:
             logger.warning(f"Failed to load from keyring: {e}")
             return None
 
-    def _load_from_file(self, provider_name: str) -> ProviderConfig | None:
+    def _load_from_file(self, provider_name: str) -> Optional[ProviderConfig]:
         """Load configuration from file.
 
         Args:
@@ -335,7 +336,7 @@ class ProviderConfigManager:
 
         logger.info(f"Saved {config.name} config to {self.config_file}")
 
-    def list_configured_providers(self) -> list[str]:
+    def list_configured_providers(self) -> list:
         """List all configured providers.
 
         Returns:

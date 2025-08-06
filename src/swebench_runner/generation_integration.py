@@ -3,7 +3,7 @@
 import asyncio
 import json
 from pathlib import Path
-from typing import Any
+from typing import Optional
 
 import click
 from rich.console import Console
@@ -34,11 +34,11 @@ class GenerationIntegration:
 
     async def generate_patches_for_evaluation(
         self,
-        instances: list[dict[str, Any]],
+        instances: list,
         provider_name: str,
-        model: str | None = None,
-        output_path: Path | None = None,
-        checkpoint_path: Path | None = None,
+        model: Optional[str] = None,
+        output_path: Optional[Path] = None,
+        checkpoint_path: Optional[Path] = None,
         max_workers: int = 5,
         show_progress: bool = True,
         template_style: TemplateStyle = TemplateStyle.DETAILED,
@@ -83,7 +83,8 @@ class GenerationIntegration:
             min_confidence=0.3
         )
 
-        token_manager = TokenManager(
+        # Components are created but not used directly - they're used by BatchProcessor
+        TokenManager(
             cache_enabled=True,
             cache_size=10000,
             fallback_estimation=True
@@ -91,7 +92,7 @@ class GenerationIntegration:
 
         patch_validator = PatchValidator()
 
-        prompt_builder = PromptBuilder(
+        PromptBuilder(
             template_style=template_style,
             include_test_info=True
         )
@@ -105,7 +106,7 @@ class GenerationIntegration:
         # Create batch processor
         batch_processor = BatchProcessor(
             generator=patch_generator,
-            checkpoint_dir=checkpoint_path,  # Note: checkpoint_dir not checkpoint_path
+            checkpoint_dir=checkpoint_path or self.cache_dir / "checkpoints",
             max_concurrent=max_workers,
             progress_bar=show_progress
         )
@@ -232,9 +233,9 @@ class CostEstimator:
 
     def estimate_batch_cost(
         self,
-        instances: list[dict[str, Any]],
+        instances: list,
         provider_name: str,
-        model: str | None = None
+        model: Optional[str] = None
     ) -> tuple[float, float]:
         """Estimate min/max cost for batch generation.
 
@@ -287,7 +288,7 @@ class GenerationFailureHandler:
             )
 
             # Show common failure reasons
-            failure_reasons: dict[str, int] = {}
+            failure_reasons: dict = {}
             for failure in results.failed:
                 reason = failure.get("error", "Unknown error")
                 failure_reasons[reason] = failure_reasons.get(reason, 0) + 1

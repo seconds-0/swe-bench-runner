@@ -4,7 +4,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -24,14 +24,14 @@ class PromptContext:
 
     system_prompt: str = ""
     user_prompt: str = ""
-    code_context: dict[str, str] = field(default_factory=dict)  # filename -> content
-    test_context: dict[str, str] = field(default_factory=dict)  # test_name -> content
+    code_context: dict = field(default_factory=dict)  # filename -> content
+    test_context: dict = field(default_factory=dict)  # test_name -> content
     problem_statement: str = ""
     instance_id: str = ""
     repo_name: str = ""
     base_commit: str = ""
-    hints: list[str] = field(default_factory=list)
-    metadata: dict[str, Any] = field(default_factory=dict)
+    hints: list = field(default_factory=list)
+    metadata: dict = field(default_factory=dict)
 
     def total_length(self) -> int:
         """Calculate total prompt length."""
@@ -54,7 +54,7 @@ class PromptBuilder:
         max_test_lines: int = 200,
         prioritize_recent_changes: bool = True,
         include_hints: bool = True,
-        system_prompt_override: str | None = None
+        system_prompt_override: Optional[str] = None
     ):
         """Initialize the prompt builder.
 
@@ -92,7 +92,7 @@ class PromptBuilder:
             TemplateStyle.MINIMAL: "Fix bugs. Return patches only."
         }
 
-    def build_context(self, instance: dict[str, Any]) -> PromptContext:
+    def build_context(self, instance: dict) -> PromptContext:
         """Extract and organize information from SWE-bench instance.
 
         Args:
@@ -172,7 +172,7 @@ class PromptBuilder:
         return context
 
     def build_prompt(
-        self, context: PromptContext, template: TemplateStyle | None = None
+        self, context: PromptContext, template: Optional[TemplateStyle] = None
     ) -> str:
         """Convert context to formatted prompt string.
 
@@ -464,7 +464,7 @@ class PromptBuilder:
 Repo: {context.repo_name}
 Fix with unified diff patch."""
 
-    def _format_code_context(self, code_files: dict[str, str]) -> str:
+    def _format_code_context(self, code_files: dict) -> str:
         """Format code files for inclusion in prompt."""
         if not code_files:
             return "No code context available."
@@ -481,7 +481,7 @@ Fix with unified diff patch."""
 
         return "\n".join(formatted_parts)
 
-    def _format_test_context(self, test_files: dict[str, str]) -> str:
+    def _format_test_context(self, test_files: dict) -> str:
         """Format test files for inclusion in prompt."""
         if not test_files:
             return "No test context available."
@@ -511,7 +511,7 @@ Fix with unified diff patch."""
 
         return "\n".join(formatted_parts)
 
-    def _summarize_test_failures(self, test_context: dict[str, str]) -> str:
+    def _summarize_test_failures(self, test_context: dict) -> str:
         """Create concise summary of test failures."""
         summaries = []
 
@@ -536,7 +536,7 @@ Fix with unified diff patch."""
 
         return "\n".join(summaries[:5])  # Limit to 5 test summaries
 
-    def _summarize_code_context(self, code_files: dict[str, str]) -> str:
+    def _summarize_code_context(self, code_files: dict) -> str:
         """Create concise summary of code context."""
         summaries = []
 

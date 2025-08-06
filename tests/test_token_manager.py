@@ -509,11 +509,11 @@ class MyClass:
         model = "gpt-4"
 
         # Count tokens twice
-        count1 = manager.count_tokens(text, model)
+        manager.count_tokens(text, model)
 
         # Mock the uncached method to ensure it IS called each time
         with patch.object(manager, '_estimate_tokens', return_value=10) as mock_estimate:
-            count2 = manager.count_tokens(text, model)
+            manager.count_tokens(text, model)
 
             # Should call estimate since no cache
             mock_estimate.assert_called()

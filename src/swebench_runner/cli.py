@@ -8,7 +8,7 @@ import os
 import sys
 import uuid
 from pathlib import Path
-from typing import NoReturn
+from typing import NoReturn, Optional
 
 import click
 
@@ -26,7 +26,7 @@ from .error_utils import classify_error
 from .output import detect_patches_file, display_result
 
 
-def load_failed_instances(results_dir: Path) -> list[str]:
+def load_failed_instances(results_dir: Path) -> list:
     """Load instance IDs that failed from a previous run."""
     failed_instances = []
 
@@ -158,20 +158,20 @@ cli.add_command(provider_cli)
     help="📋 Output results as JSON to stdout (for scripting)",
 )
 def run(
-    patches: Path | None,
-    patches_dir: Path | None,
-    dataset: str | None,
-    provider: str | None,
-    model: str | None,
+    patches: Optional[Path],
+    patches_dir: Optional[Path],
+    dataset: Optional[str],
+    provider: Optional[str],
+    model: Optional[str],
     generate_only: bool,
-    generation_output: Path | None,
+    generation_output: Optional[Path],
     max_workers: int,
-    instances: str | None,
-    count: int | None,
-    sample: str | None,
-    subset: str | None,
+    instances: Optional[str],
+    count: Optional[int],
+    sample: Optional[str],
+    subset: Optional[str],
     regex: bool,
-    rerun_failed: Path | None,
+    rerun_failed: Optional[Path],
     no_input: bool,
     json_output: bool,
     max_patch_size: int,
@@ -410,6 +410,14 @@ def run(
                 "Error: --provider requires --dataset to specify instances", err=True
             )
             sys.exit(exit_codes.GENERAL_ERROR)
+
+    # If generate-only was specified and we've generated patches, exit here
+    # This handles the case where patches were generated but the exit inside
+    # the generation block wasn't reached due to exception handling
+    if generate_only and patches:
+        # This shouldn't normally be reached as the exit should happen above,
+        # but it's here as a safety net
+        sys.exit(exit_codes.SUCCESS)
 
     # Validate patches file if provided
     if patches is not None:
@@ -683,11 +691,11 @@ def info(dataset: str) -> None:
     help='Output file for generated patch (default: patches/<instance_id>.patch)'
 )
 def generate(
-    provider: str | None,
-    model: str | None,
+    provider: Optional[str],
+    model: Optional[str],
     instance: str,
     dataset: str,
-    output: Path | None
+    output: Optional[Path]
 ) -> None:
     r"""Generate a patch for a SWE-bench instance using AI.
 

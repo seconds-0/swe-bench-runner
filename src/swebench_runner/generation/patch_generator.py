@@ -4,7 +4,7 @@ import asyncio
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Optional
 
 from swebench_runner.generation.response_parser import ResponseParser
 from swebench_runner.providers import ModelProvider
@@ -21,15 +21,15 @@ logger = logging.getLogger(__name__)
 class GenerationResult:
     """Result from patch generation."""
 
-    patch: str | None
+    patch: Optional[str]
     instance_id: str
     model: str
     attempts: int
     truncated: bool
     cost: float
     success: bool
-    error: str | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
+    error: Optional[str] = None
+    metadata: dict = field(default_factory=dict)
 
 
 class PatchGenerator:
@@ -43,7 +43,7 @@ class PatchGenerator:
         temperature_increment: float = 0.1,
         context_reduction_factor: float = 0.8,
         rate_limit_wait_seconds: int = 60,
-        response_parser: ResponseParser | None = None,
+        response_parser: Optional[ResponseParser] = None,
     ):
         """Initialize the patch generator.
 
@@ -67,7 +67,7 @@ class PatchGenerator:
             min_confidence=0.3
         )
 
-    async def generate_patch(self, instance: dict[str, Any]) -> GenerationResult:
+    async def generate_patch(self, instance: dict) -> GenerationResult:
         """Generate a patch for a SWE-bench instance.
 
         Args:
@@ -209,10 +209,10 @@ class PatchGenerator:
 
     async def generate_batch(
         self,
-        instances: list[dict[str, Any]],
+        instances: list,
         concurrency: int = 5,
-        progress_callback: Callable[[str, int, int], None] | None = None,
-    ) -> list[GenerationResult]:
+        progress_callback: Optional[Callable[[str, int, int], None]] = None,
+    ) -> list:
         """Generate patches for multiple instances.
 
         Args:
@@ -233,7 +233,7 @@ class PatchGenerator:
         semaphore = asyncio.Semaphore(concurrency)
 
         async def generate_with_semaphore(
-            instance: dict[str, Any], index: int
+            instance: dict, index: int
         ) -> GenerationResult:
             """Generate patch with semaphore control."""
             async with semaphore:
@@ -259,7 +259,7 @@ class PatchGenerator:
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Convert exceptions to GenerationResult objects
-        final_results: list[GenerationResult] = []
+        final_results: list = []
         for i, result in enumerate(results):
             if isinstance(result, Exception):
                 instance_id = instances[i].get("instance_id", f"unknown_{i}")
@@ -293,7 +293,7 @@ class PatchGenerator:
 
         return final_results
 
-    def _build_basic_prompt(self, instance: dict[str, Any]) -> str:
+    def _build_basic_prompt(self, instance: dict) -> str:
         """Build a basic prompt until PromptBuilder is available.
 
         Args:
@@ -345,7 +345,7 @@ class PatchGenerator:
         return "\n".join(prompt_parts)
 
 
-    def _reduce_context(self, prompt: str, instance: dict[str, Any]) -> str:
+    def _reduce_context(self, prompt: str, instance: dict) -> str:
         """Reduce prompt context when hitting token limits.
 
         Args:

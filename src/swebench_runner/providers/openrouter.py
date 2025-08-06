@@ -5,7 +5,7 @@ import json
 import logging
 import os
 import time
-from typing import Any
+from typing import Any, Optional
 
 import aiohttp
 
@@ -99,8 +99,8 @@ class OpenRouterProvider(ModelProvider):
         self.timeout = aiohttp.ClientTimeout(total=config.timeout)
 
         # Model information cache
-        self._models_cache: list[dict[str, Any]] | None = None
-        self._models_last_fetched: float | None = None
+        self._models_cache: Optional[list] = None
+        self._models_last_fetched: Optional[float] = None
         self._models_cache_duration = 3600  # 1 hour
 
         # Model pricing cache
@@ -209,7 +209,7 @@ class OpenRouterProvider(ModelProvider):
     async def _make_request(
         self,
         endpoint: str,
-        data: dict[str, Any] | None = None,
+        data: Optional[dict] = None,
         method: str = "POST"
     ) -> Any:
         """Make an HTTP request to OpenRouter API.
@@ -368,7 +368,7 @@ class OpenRouterProvider(ModelProvider):
 
         return "".join(content_parts)
 
-    async def _safe_json(self, response: aiohttp.ClientResponse) -> dict[str, Any]:
+    async def _safe_json(self, response: aiohttp.ClientResponse) -> dict:
         """Safely parse JSON from response.
 
         Args:
@@ -383,7 +383,7 @@ class OpenRouterProvider(ModelProvider):
             text = await response.text()
             return {"error": {"message": text or "Unknown error"}}
 
-    async def _fetch_available_models(self) -> list[dict[str, Any]]:
+    async def _fetch_available_models(self) -> list:
         """Fetch available models from OpenRouter API.
 
         Returns:
@@ -422,7 +422,7 @@ class OpenRouterProvider(ModelProvider):
             logger.warning(f"Failed to fetch available models: {e}")
             return []
 
-    async def get_available_models(self) -> list[str]:
+    async def get_available_models(self) -> list:
         """Get list of available model IDs.
 
         Returns:
@@ -431,7 +431,7 @@ class OpenRouterProvider(ModelProvider):
         models = await self._fetch_available_models()
         return [model["id"] for model in models]
 
-    async def _filter_code_models(self) -> list[dict[str, Any]]:
+    async def _filter_code_models(self) -> list:
         """Filter models that are suitable for code generation.
 
         Returns:
@@ -454,7 +454,7 @@ class OpenRouterProvider(ModelProvider):
 
         return code_models
 
-    async def select_model_by_cost(self, max_context_length: int | None = None) -> str:
+    async def select_model_by_cost(self, max_context_length: Optional[int] = None) -> str:
         """Select the cheapest suitable model.
 
         Args:
@@ -476,7 +476,7 @@ class OpenRouterProvider(ModelProvider):
             return self.default_model
 
         # Sort by total cost (prompt + completion)
-        def get_total_cost(model: dict[str, Any]) -> float:
+        def get_total_cost(model: dict) -> float:
             pricing = model.get("pricing", {})
             prompt_cost = float(pricing.get("prompt", 1.0))
             completion_cost = float(pricing.get("completion", 1.0))
@@ -530,7 +530,7 @@ class OpenRouterProvider(ModelProvider):
             self._health_status = "unhealthy"
             return False
 
-    async def get_model_pricing(self, model: str | None = None) -> dict[str, tuple[float, float]]:
+    async def get_model_pricing(self, model: Optional[str] = None) -> dict[str, tuple[float, float]]:
         """Get pricing information for models.
 
         Args:
@@ -567,13 +567,13 @@ class OpenRouterProvider(ModelProvider):
         return prompt_cost + completion_cost
 
     @classmethod
-    def get_required_env_vars(cls) -> list[str]:
+    def get_required_env_vars(cls) -> list:
         """Get required environment variables."""
         return ["OPENROUTER_API_KEY"]
 
     @classmethod
     def _config_from_env(
-        cls, env_vars: dict[str, str], model: str | None = None
+        cls, env_vars: dict, model: Optional[str] = None
     ) -> ProviderConfig:
         """Create config from environment variables.
 
@@ -590,7 +590,7 @@ class OpenRouterProvider(ModelProvider):
             model=model or os.getenv("OPENROUTER_MODEL") or cls.default_model,
         )
 
-    async def get_model_info(self, model_id: str) -> dict[str, Any] | None:
+    async def get_model_info(self, model_id: str) -> Optional[dict]:
         """Get detailed information about a specific model.
 
         Args:

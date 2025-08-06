@@ -5,6 +5,7 @@ from __future__ import annotations
 import platform
 import sys
 from pathlib import Path
+from typing import Optional
 
 import click
 
@@ -106,7 +107,7 @@ def check_and_prompt_first_run(no_input: bool = False) -> bool:
         sys.exit(exit_codes.SUCCESS)
 
 
-def suggest_patches_file() -> Path | None:
+def suggest_patches_file() -> Optional[Path]:
     """Suggest patches file if none provided and one is auto-detected."""
     detected_file = auto_detect_patches_file()
     if detected_file:

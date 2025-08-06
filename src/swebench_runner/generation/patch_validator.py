@@ -4,7 +4,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +23,8 @@ class Issue:
 
     level: IssueLevel
     message: str
-    line_number: int | None = None
-    suggestion: str | None = None
+    line_number: Optional[int] = None
+    suggestion: Optional[str] = None
 
 
 @dataclass
@@ -32,7 +32,7 @@ class SyntaxCheckResult:
     """Result of syntax checking."""
 
     is_valid: bool
-    issues: list[Issue] = field(default_factory=list)
+    issues: list = field(default_factory=list)
 
 
 @dataclass
@@ -40,7 +40,7 @@ class SemanticCheckResult:
     """Result of semantic checking."""
 
     is_valid: bool
-    issues: list[Issue] = field(default_factory=list)
+    issues: list = field(default_factory=list)
 
 
 @dataclass
@@ -50,10 +50,10 @@ class ValidationResult:
     is_valid: bool
     syntax_valid: bool
     semantic_valid: bool
-    issues: list[Issue] = field(default_factory=list)
-    warnings: list[Issue] = field(default_factory=list)
+    issues: list = field(default_factory=list)
+    warnings: list = field(default_factory=list)
     score: float = 1.0  # 0-1 confidence score
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: dict = field(default_factory=dict)
 
 
 class PatchValidator:
@@ -92,7 +92,7 @@ class PatchValidator:
         self.max_patch_size = max_patch_size
         self.max_files_changed = max_files_changed
 
-    def validate(self, patch: str, instance: dict | None = None) -> ValidationResult:
+    def validate(self, patch: str, instance: Optional[dict] = None) -> ValidationResult:
         """Validate a patch comprehensively.
 
         Performs:
@@ -339,8 +339,8 @@ class PatchValidator:
         )
 
     def _validate_diff_header(
-        self, lines: list[str], start_idx: int
-    ) -> tuple[bool, list[Issue]]:
+        self, lines: list, start_idx: int
+    ) -> tuple[bool, list]:
         """Validate diff header format.
 
         Args:
@@ -424,7 +424,7 @@ class PatchValidator:
 
         return len([i for i in issues if i.level == IssueLevel.ERROR]) == 0, issues
 
-    def _validate_hunk_header(self, line: str) -> tuple[bool, Issue | None]:
+    def _validate_hunk_header(self, line: str) -> tuple[bool, Optional[Issue]]:
         """Validate hunk header format (@@ -X,Y +A,B @@).
 
         Args:
@@ -474,8 +474,8 @@ class PatchValidator:
         return True, None
 
     def _validate_hunk_content(
-        self, lines: list[str], hunk_start: int, old_count: int, new_count: int
-    ) -> list[Issue]:
+        self, lines: list, hunk_start: int, old_count: int, new_count: int
+    ) -> list:
         """Validate that hunk content matches declared counts.
 
         Args:
@@ -626,7 +626,7 @@ class PatchValidator:
             issues=issues
         )
 
-    def _check_duplicate_files(self, patch: str) -> list[Issue]:
+    def _check_duplicate_files(self, patch: str) -> list:
         """Check for duplicate file modifications.
 
         Args:
@@ -655,7 +655,7 @@ class PatchValidator:
 
         return issues
 
-    def _check_change_size(self, patch: str) -> list[Issue]:
+    def _check_change_size(self, patch: str) -> list:
         """Check if changes are reasonable size.
 
         Args:
@@ -688,7 +688,7 @@ class PatchValidator:
 
         return issues
 
-    def _check_binary_content(self, patch: str) -> list[Issue]:
+    def _check_binary_content(self, patch: str) -> list:
         """Check for binary content in patch.
 
         Args:
@@ -715,7 +715,7 @@ class PatchValidator:
 
         return issues
 
-    def check_common_issues(self, patch: str) -> list[Issue]:
+    def check_common_issues(self, patch: str) -> list:
         """Check for common problems.
 
         Detects:
@@ -761,7 +761,7 @@ class PatchValidator:
 
         return issues
 
-    def _check_line_endings(self, patch: str) -> list[Issue]:
+    def _check_line_endings(self, patch: str) -> list:
         """Check for consistent line endings.
 
         Args:
@@ -791,7 +791,7 @@ class PatchValidator:
 
         return issues
 
-    def _check_truncation(self, patch: str) -> list[Issue]:
+    def _check_truncation(self, patch: str) -> list:
         """Check if patch appears truncated.
 
         Args:
@@ -855,7 +855,7 @@ class PatchValidator:
 
         return issues
 
-    def _check_empty_hunks(self, patch: str) -> list[Issue]:
+    def _check_empty_hunks(self, patch: str) -> list:
         """Check for empty or meaningless hunks.
 
         Args:
@@ -895,7 +895,7 @@ class PatchValidator:
 
         return issues
 
-    def _parse_patch_structure(self, patch: str) -> dict[str, Any]:
+    def _parse_patch_structure(self, patch: str) -> dict:
         """Parse patch into structured format for analysis.
 
         Args:
@@ -950,7 +950,7 @@ class PatchValidator:
 
         return structure
 
-    def _extract_file_changes(self, patch: str) -> dict[str, dict[str, int]]:
+    def _extract_file_changes(self, patch: str) -> dict[str, dict]:
         """Extract summary of changes per file.
 
         Args:
@@ -983,7 +983,7 @@ class PatchValidator:
         return changes
 
     def _calculate_confidence_score(
-        self, issues: list[Issue], warnings: list[Issue]
+        self, issues: list, warnings: list
     ) -> float:
         """Calculate overall confidence score.
 
@@ -1009,7 +1009,7 @@ class PatchValidator:
         # Ensure score stays in valid range
         return max(0.0, min(1.0, score))
 
-    def suggest_fixes(self, patch: str, issues: list[Issue]) -> list[str]:
+    def suggest_fixes(self, patch: str, issues: list) -> list:
         """Suggest fixes for common issues.
 
         Provides actionable suggestions like:
@@ -1116,7 +1116,7 @@ class PatchValidator:
 
         return patch
 
-    def _fix_hunk_header(self, lines: list[str], hunk_idx: int) -> str:
+    def _fix_hunk_header(self, lines: list, hunk_idx: int) -> str:
         """Fix a hunk header with correct line counts.
 
         Args:
@@ -1173,7 +1173,7 @@ class PatchValidator:
 
         return f"@@ -{old_start}{old_count_str} +{new_start}{new_count_str} @@{context}"
 
-    def get_patch_summary(self, patch: str) -> dict[str, Any]:
+    def get_patch_summary(self, patch: str) -> dict:
         """Get summary statistics about a patch.
 
         Returns:
@@ -1225,7 +1225,7 @@ class PatchValidator:
 
         return True
 
-    def extract_affected_files(self, patch: str) -> list[str]:
+    def extract_affected_files(self, patch: str) -> list:
         """Extract list of files affected by patch.
 
         Args:

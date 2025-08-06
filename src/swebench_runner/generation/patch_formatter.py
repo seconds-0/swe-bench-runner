@@ -1,5 +1,4 @@
 """Format patches for evaluation compatibility."""
-from typing import Any
 
 
 class PatchFormatter:
@@ -7,8 +6,8 @@ class PatchFormatter:
 
     @staticmethod
     def format_for_evaluation(
-        generation_results: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
+        generation_results: list
+    ) -> list:
         """Convert generation format to evaluation format.
 
         The evaluation expects:

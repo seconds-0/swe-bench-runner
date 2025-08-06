@@ -5,7 +5,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -27,12 +27,12 @@ class PatchFormat(Enum):
 class ParseResult:
     """Result from parsing a model response."""
 
-    patch: str | None = None
+    patch: Optional[str] = None
     format_detected: PatchFormat = PatchFormat.UNKNOWN
     confidence: float = 0.0  # 0-1 confidence score
-    issues: list[str] = field(default_factory=list)
-    suggestions: list[str] = field(default_factory=list)
-    metadata: dict[str, Any] = field(default_factory=dict)
+    issues: list = field(default_factory=list)
+    suggestions: list = field(default_factory=list)
+    metadata: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -40,8 +40,8 @@ class ValidationResult:
     """Result from patch validation."""
 
     is_valid: bool
-    issues: list[str] = field(default_factory=list)
-    warnings: list[str] = field(default_factory=list)
+    issues: list = field(default_factory=list)
+    warnings: list = field(default_factory=list)
 
 
 class ResponseParser:
@@ -85,7 +85,7 @@ class ResponseParser:
         strict_mode: bool = False,
         auto_fix_common_issues: bool = True,
         min_confidence: float = 0.3,
-        preferred_formats: list[PatchFormat] | None = None
+        preferred_formats: Optional[list] = None
     ):
         """Initialize the response parser.
 
@@ -105,7 +105,7 @@ class ResponseParser:
             PatchFormat.UNIFIED_DIFF,
         ]
 
-    def extract_patch(self, response: str, instance: dict | None = None) -> ParseResult:
+    def extract_patch(self, response: str, instance: Optional[dict] = None) -> ParseResult:
         """Extract patch using multiple strategies.
 
         Args:
@@ -239,7 +239,7 @@ class ResponseParser:
             }
         )
 
-    def _extract_unified_diff(self, response: str) -> tuple[str | None, float]:
+    def _extract_unified_diff(self, response: str) -> tuple[Optional[str], float]:
         """Extract standard unified diff format.
 
         Pattern:
@@ -290,7 +290,7 @@ class ResponseParser:
 
         return patch, confidence
 
-    def _extract_git_diff(self, response: str) -> tuple[str | None, float]:
+    def _extract_git_diff(self, response: str) -> tuple[Optional[str], float]:
         """Extract git-style diff format.
 
         Pattern:
@@ -338,7 +338,7 @@ class ResponseParser:
 
         return patch, confidence
 
-    def _extract_fenced_blocks(self, response: str) -> tuple[str | None, float]:
+    def _extract_fenced_blocks(self, response: str) -> tuple[Optional[str], float]:
         """Extract from fenced code blocks.
 
         Patterns:
@@ -382,7 +382,7 @@ class ResponseParser:
 
         return None, 0.0
 
-    def _extract_file_blocks(self, response: str) -> tuple[str | None, float]:
+    def _extract_file_blocks(self, response: str) -> tuple[Optional[str], float]:
         """Extract from file modification blocks.
 
         Pattern:
@@ -422,7 +422,7 @@ class ResponseParser:
 
         return patch, confidence
 
-    def _extract_search_replace(self, response: str) -> tuple[str | None, float]:
+    def _extract_search_replace(self, response: str) -> tuple[Optional[str], float]:
         """Extract from search/replace patterns.
 
         Patterns:
@@ -483,7 +483,7 @@ class ResponseParser:
 
         return patch, confidence
 
-    def _extract_edit_instructions(self, response: str) -> tuple[str | None, float]:
+    def _extract_edit_instructions(self, response: str) -> tuple[Optional[str], float]:
         """Convert natural language edit instructions to patch.
 
         Patterns:
@@ -565,8 +565,8 @@ class ResponseParser:
     def _construct_simple_patch(
         self,
         file_path: str,
-        old_lines: list[str],
-        new_lines: list[str],
+        old_lines: list,
+        new_lines: list,
         line_start: int = 1
     ) -> str:
         """Construct a simple patch for single-hunk changes."""

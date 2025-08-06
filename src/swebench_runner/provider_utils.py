@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import sys
+from typing import Optional
 
 import click
 
@@ -19,8 +20,8 @@ from .providers import (
 
 
 def get_provider_for_cli(
-    provider_name: str | None = None,
-    model: str | None = None
+    provider_name: Optional[str] = None,
+    model: Optional[str] = None
 ) -> SyncProviderWrapper:
     """Get a sync-wrapped provider for CLI usage.
 
@@ -151,7 +152,7 @@ def validate_provider_setup() -> bool:
     return False
 
 
-def get_default_provider_name() -> str | None:
+def get_default_provider_name() -> Optional[str]:
     """Get the default provider name.
 
     Returns the first configured provider, or the SWEBENCH_PROVIDER

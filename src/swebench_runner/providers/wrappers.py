@@ -1,7 +1,7 @@
 """Provider wrappers for additional functionality."""
 
 import logging
-from typing import Any
+from typing import Any, Optional
 
 from .async_bridge import AsyncBridge
 from .base import ModelProvider, ModelResponse, ProviderCapabilities, ProviderConfig
@@ -22,8 +22,8 @@ class CircuitBreakerProvider(ModelProvider):
     def __init__(
         self,
         provider: ModelProvider,
-        circuit_config: CircuitBreakerConfig | None = None,
-        on_state_change: callable | None = None
+        circuit_config: Optional[CircuitBreakerConfig] = None,
+        on_state_change: Optional[callable] = None
     ):
         """Initialize circuit breaker wrapper.
 
@@ -117,14 +117,14 @@ class CircuitBreakerProvider(ModelProvider):
         return self._wrapped_provider.estimate_cost(prompt_tokens, max_tokens)
 
     @classmethod
-    def get_required_env_vars(cls) -> list[str]:
+    def get_required_env_vars(cls) -> list:
         """Circuit breaker doesn't add env var requirements."""
         # This is a wrapper, so we can't determine this at class level
         return []
 
     @classmethod
     def _config_from_env(
-        cls, env_vars: dict[str, str], model: str | None = None
+        cls, env_vars: dict, model: Optional[str] = None
     ) -> ProviderConfig:
         """Circuit breaker wrapper doesn't have its own env config."""
         # This method shouldn't be called on the wrapper
@@ -136,11 +136,11 @@ class CircuitBreakerProvider(ModelProvider):
         """Get token limit from wrapped provider."""
         return self._wrapped_provider.get_token_limit()
 
-    def get_generation_params(self) -> dict[str, Any]:
+    def get_generation_params(self) -> dict:
         """Get generation parameters from wrapped provider."""
         return self._wrapped_provider.get_generation_params()
 
-    async def health_check(self) -> dict[str, Any]:
+    async def health_check(self) -> dict:
         """Get health status including circuit breaker state."""
         base_health = await self._wrapped_provider.health_check()
 
@@ -159,7 +159,7 @@ class CircuitBreakerProvider(ModelProvider):
 
         return base_health
 
-    def get_circuit_stats(self) -> dict[str, Any]:
+    def get_circuit_stats(self) -> dict:
         """Get detailed circuit breaker statistics.
 
         Returns:
@@ -270,14 +270,14 @@ class SyncProviderWrapper(ModelProvider):
         """Async connection validation (delegates to wrapped provider)."""
         return await self._async_provider.validate_connection()
 
-    def health_check_sync(self) -> dict[str, Any]:
+    def health_check_sync(self) -> dict:
         """Synchronous health check."""
         return self._bridge.run(
             self._async_provider.health_check(),
             timeout=5.0  # Short timeout for health check
         )
 
-    async def health_check(self) -> dict[str, Any]:
+    async def health_check(self) -> dict:
         """Async health check (delegates to wrapped provider)."""
         return await self._async_provider.health_check()
 
@@ -286,14 +286,14 @@ class SyncProviderWrapper(ModelProvider):
         return self._async_provider.estimate_cost(prompt_tokens, max_tokens)
 
     @classmethod
-    def get_required_env_vars(cls) -> list[str]:
+    def get_required_env_vars(cls) -> list:
         """Sync wrapper doesn't add env var requirements."""
         # This is a wrapper, so we can't determine this at class level
         return []
 
     @classmethod
     def _config_from_env(
-        cls, env_vars: dict[str, str], model: str | None = None
+        cls, env_vars: dict, model: Optional[str] = None
     ) -> ProviderConfig:
         """Sync wrapper doesn't have its own env config."""
         # This method shouldn't be called on the wrapper
@@ -305,11 +305,11 @@ class SyncProviderWrapper(ModelProvider):
         """Get token limit from wrapped provider."""
         return self._async_provider.get_token_limit()
 
-    def get_generation_params(self) -> dict[str, Any]:
+    def get_generation_params(self) -> dict:
         """Get generation parameters from wrapped provider."""
         return self._async_provider.get_generation_params()
 
-    def get_bridge_stats(self) -> dict[str, Any]:
+    def get_bridge_stats(self) -> dict:
         """Get async bridge statistics.
 
         Returns:

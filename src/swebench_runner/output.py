@@ -5,12 +5,13 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 from . import __version__
 from .models import EvaluationResult
 
 
-def detect_patches_file() -> Path | None:
+def detect_patches_file() -> Optional[Path]:
     """Auto-detect patches file in priority order.
 
     Looks for predictions.jsonl first, then patches.jsonl.
@@ -26,7 +27,7 @@ def detect_patches_file() -> Path | None:
     return None
 
 
-def display_result(result: EvaluationResult, output_dir: Path | None = None) -> None:
+def display_result(result: EvaluationResult, output_dir: Optional[Path] = None) -> None:
     """Display evaluation result with proper formatting.
 
     Args:

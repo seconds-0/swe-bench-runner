@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from threading import Lock
-from typing import Any
+from typing import Any, Optional
 
 from .exceptions import CircuitBreakerError
 
@@ -38,14 +38,14 @@ class CircuitBreakerStats:
 
     failure_count: int = 0
     success_count: int = 0
-    last_failure_time: datetime | None = None
-    last_success_time: datetime | None = None
+    last_failure_time: Optional[datetime] = None
+    last_success_time: Optional[datetime] = None
     consecutive_failures: int = 0
     consecutive_successes: int = 0
     total_calls: int = 0
     total_failures: int = 0
     total_successes: int = 0
-    state_changes: dict[str, datetime] = field(default_factory=dict)
+    state_changes: dict = field(default_factory=dict)
 
 
 class CircuitBreaker:
@@ -56,8 +56,8 @@ class CircuitBreaker:
 
     def __init__(self,
                  name: str,
-                 config: CircuitBreakerConfig | None = None,
-                 on_state_change: Callable[[CircuitState, CircuitState], None] | None = None):
+                 config: Optional[CircuitBreakerConfig] = None,
+                 on_state_change: Optional[Callable[[CircuitState, CircuitState], None]] = None):
         """Initialize circuit breaker.
 
         Args:
@@ -71,8 +71,8 @@ class CircuitBreaker:
 
         self._state = CircuitState.CLOSED
         self._failure_count = 0
-        self._last_failure_time: float | None = None
-        self._half_open_test_time: float | None = None
+        self._last_failure_time: Optional[float] = None
+        self._half_open_test_time: Optional[float] = None
         self._lock = Lock()
         self._stats = CircuitBreakerStats()
 

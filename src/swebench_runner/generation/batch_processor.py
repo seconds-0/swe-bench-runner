@@ -7,7 +7,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Optional
 
 from swebench_runner.generation.patch_generator import GenerationResult, PatchGenerator
 from swebench_runner.providers.exceptions import (
@@ -25,12 +25,12 @@ class CheckpointData:
 
     timestamp: datetime
     completed: set[str]
-    failed: dict[str, str]  # instance_id -> error_reason
-    stats: dict[str, Any]
+    failed: dict  # instance_id -> error_reason
+    stats: dict
     total_instances: int
     start_time: datetime
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
             "timestamp": self.timestamp.isoformat(),
@@ -42,7 +42,7 @@ class CheckpointData:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> 'CheckpointData':
+    def from_dict(cls, data: dict) -> 'CheckpointData':
         """Create from dictionary loaded from JSON."""
         return cls(
             timestamp=datetime.fromisoformat(data["timestamp"]),
@@ -64,8 +64,8 @@ class BatchStats:
     skipped: int = 0
     total_cost: float = 0.0
     total_time: float = 0.0
-    start_time: datetime | None = None
-    end_time: datetime | None = None
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
     success_rate: float = 0.0
 
     def update_success_rate(self) -> None:
@@ -73,7 +73,7 @@ class BatchStats:
         if self.completed + self.failed > 0:
             self.success_rate = self.completed / (self.completed + self.failed)
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
             "total_instances": self.total_instances,
@@ -92,9 +92,9 @@ class BatchStats:
 class BatchResult:
     """Result of batch processing."""
 
-    successful: list[GenerationResult] = field(default_factory=list)
-    failed: list[dict[str, Any]] = field(default_factory=list)  # instance + error info
-    skipped: list[str] = field(default_factory=list)  # instance_ids
+    successful: list = field(default_factory=list)
+    failed: list = field(default_factory=list)  # instance + error info
+    skipped: list = field(default_factory=list)  # instance_ids
     stats: BatchStats = field(default_factory=BatchStats)
     checkpoint_saved: bool = False
 
@@ -119,7 +119,7 @@ class ProgressTracker:
         else:
             self.failed += 1
 
-    def get_eta(self) -> float | None:
+    def get_eta(self) -> Optional[float]:
         """Get estimated time to completion."""
         if self.completed == 0:
             return None
@@ -155,7 +155,7 @@ class BatchProcessor:
     def __init__(
         self,
         generator: PatchGenerator,
-        checkpoint_dir: Path | None = None,
+        checkpoint_dir: Optional[Path] = None,
         max_concurrent: int = 5,
         retry_failed: bool = True,
         max_retries: int = 2,
@@ -194,7 +194,7 @@ class BatchProcessor:
 
     async def process_batch(
         self,
-        instances: list[dict[str, Any]],
+        instances: list,
         resume_from_checkpoint: bool = True,
         save_final_checkpoint: bool = True
     ) -> BatchResult:
@@ -219,7 +219,7 @@ class BatchProcessor:
         # Load checkpoint if resuming
         checkpoint_data = None
         completed_ids: set[str] = set()
-        failed_attempts: dict[str, int] = {}
+        failed_attempts: dict = {}
 
         if resume_from_checkpoint and self.checkpoint_dir:
             checkpoint_data = self.load_checkpoint()
@@ -273,7 +273,7 @@ class BatchProcessor:
         failed_results = []
 
         # Create tasks for concurrent processing
-        async def process_and_track(instance: dict[str, Any]) -> dict[str, Any] | None:
+        async def process_and_track(instance: dict) -> Optional[dict]:
             """Process instance and update progress."""
             instance_id = instance.get("instance_id", "unknown")
 
@@ -359,10 +359,10 @@ class BatchProcessor:
 
     async def _process_single_instance(
         self,
-        instance: dict[str, Any],
+        instance: dict,
         semaphore: asyncio.Semaphore,
         attempt: int = 1
-    ) -> dict[str, Any]:
+    ) -> dict:
         """Process a single instance with error handling and retry logic."""
         async with semaphore:
 
@@ -389,7 +389,7 @@ class BatchProcessor:
 
     async def _handle_instance_error(
         self,
-        instance: dict[str, Any],
+        instance: dict,
         error: Exception,
         attempt: int
     ) -> str:
@@ -439,7 +439,7 @@ class BatchProcessor:
         else:
             return "unexpected_error"
 
-    def load_checkpoint(self) -> CheckpointData | None:
+    def load_checkpoint(self) -> Optional[CheckpointData]:
         """Load checkpoint data if exists."""
         if not self.checkpoint_dir:
             return None
@@ -475,7 +475,7 @@ class BatchProcessor:
     def _create_checkpoint_data(
         self,
         completed: set[str],
-        failed: dict[str, str],
+        failed: dict,
         stats: BatchStats,
         total_instances: int,
         start_time: datetime
@@ -492,10 +492,10 @@ class BatchProcessor:
 
     async def _save_intermediate_checkpoint(
         self,
-        instances: list[dict[str, Any]],
-        results: list[GenerationResult],
-        failed_results: list[dict[str, Any]],
-        skipped_ids: list[str],
+        instances: list,
+        results: list,
+        failed_results: list,
+        skipped_ids: list,
         stats: BatchStats
     ) -> None:
         """Save intermediate checkpoint during processing."""
@@ -698,7 +698,7 @@ class BatchProcessor:
         time_per_instance = 30.0
         return (num_instances * time_per_instance) / self.max_concurrent
 
-    def estimate_batch_cost(self, instances: list[dict[str, Any]]) -> float:
+    def estimate_batch_cost(self, instances: list) -> float:
         """Estimate total cost for batch."""
         # Very rough estimate: $0.01 per instance average
         # This would need to be based on actual model pricing

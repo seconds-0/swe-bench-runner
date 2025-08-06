@@ -87,8 +87,8 @@ module = ["datasets", "huggingface_hub", "psutil", "docker", "docker.errors"]
 ignore_missing_imports = true
 
 [tool.ruff]
-target-version = "py310"
-line-length = 88
+target-version = "py38"
+line-length = 100
 
 [tool.ruff.lint]
 select = [
@@ -98,7 +98,7 @@ select = [
     "I",  # isort
     "N",  # pep8-naming
     "D",  # pydocstyle
-    "UP", # pyupgrade
+    # "UP", # pyupgrade - disabled for Python 3.8 compatibility
     "B",  # flake8-bugbear
     "S",  # flake8-bandit
     "C4", # flake8-comprehensions

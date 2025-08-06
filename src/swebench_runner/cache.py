@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import shutil
 from pathlib import Path
+from typing import Optional
 
 
 def get_cache_dir() -> Path:
@@ -147,7 +148,7 @@ def get_datasets_dir() -> Path:
     return cache_dir / "datasets"
 
 
-def auto_detect_patches_file(current_dir: Path | None = None) -> Path | None:
+def auto_detect_patches_file(current_dir: Optional[Path] = None) -> Optional[Path]:
     """Auto-detect patches file in current directory using smart defaults."""
     if current_dir is None:
         current_dir = Path.cwd()

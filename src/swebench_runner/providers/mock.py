@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from typing import Any
+from typing import Optional
 
 from .base import ModelProvider, ModelResponse, ProviderCapabilities, ProviderConfig
 from .exceptions import (
@@ -36,8 +36,8 @@ class MockProvider(ModelProvider):
     def __init__(
         self,
         config: ProviderConfig,
-        mock_responses: dict[str, str] | None = None,
-        mock_errors: dict[str, Exception] | None = None,
+        mock_responses: Optional[dict] = None,
+        mock_errors: Optional[dict] = None,
         response_delay: float = 0.1,
     ):
         """Initialize mock provider.
@@ -175,13 +175,13 @@ class MockProvider(ModelProvider):
         return prompt_cost + completion_cost
 
     @classmethod
-    def get_required_env_vars(cls) -> list[str]:
+    def get_required_env_vars(cls) -> list:
         """Mock provider doesn't require any environment variables."""
         return []
 
     @classmethod
     def _config_from_env(
-        cls, env_vars: dict[str, str], model: str | None = None
+        cls, env_vars: dict, model: Optional[str] = None
     ) -> ProviderConfig:
         """Create mock config from environment (uses defaults)."""
         return ProviderConfig(
@@ -191,7 +191,7 @@ class MockProvider(ModelProvider):
             max_tokens=1000,
         )
 
-    def get_stats(self) -> dict[str, Any]:
+    def get_stats(self) -> dict:
         """Get mock provider statistics.
 
         Returns:

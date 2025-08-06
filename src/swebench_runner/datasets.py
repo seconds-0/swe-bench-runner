@@ -16,7 +16,7 @@ from collections.abc import Iterator
 from functools import lru_cache
 from pathlib import Path
 from re import Pattern
-from typing import Any
+from typing import Any, Optional
 
 from .exceptions import (
     DatasetAuthenticationError,
@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_helpful_error_message(
-    error: Exception, context: dict[str, Any] | None = None
+    error: Exception, context: Optional[dict] = None
 ) -> str:
     """Generate contextual error messages with fix suggestions."""
     if context is None:
@@ -254,9 +254,9 @@ def _validate_instance_ids(instances: list[str]) -> list[str]:
 
 
 def _validate_numeric_params(
-    count: int | None = None,
-    sample_percent: float | None = None,
-    random_seed: int | None = None
+    count: Optional[int] = None,
+    sample_percent: Optional[float] = None,
+    random_seed: Optional[int] = None
 ) -> None:
     """Validate numeric parameters."""
     if count is not None:
@@ -372,11 +372,11 @@ class DatasetManager:
     def get_instances(
         self,
         dataset_name: str,
-        count: int | None = None,
-        subset_pattern: str | None = None,
-        random_seed: int | None = None,
-        instances: list[str] | None = None,
-        sample_percent: float | None = None,
+        count: Optional[int] = None,
+        subset_pattern: Optional[str] = None,
+        random_seed: Optional[int] = None,
+        instances: Optional[list] = None,
+        sample_percent: Optional[float] = None,
         use_regex: bool = False,
         offline: bool = False
     ) -> list[dict[str, Any]]:
@@ -453,7 +453,7 @@ class DatasetManager:
         return result_instances
 
     def estimate_memory_usage(
-        self, dataset_name: str, count: int | None = None
+        self, dataset_name: str, count: Optional[int] = None
     ) -> dict[str, float]:
         """Estimate memory usage in MB for dataset operations."""
         try:
@@ -480,7 +480,7 @@ class DatasetManager:
         }
 
     def check_memory_requirements(
-        self, dataset_name: str, count: int | None = None
+        self, dataset_name: str, count: Optional[int] = None
     ) -> tuple[bool, str]:
         """Check if system has enough memory and provide warnings."""
         try:
@@ -513,11 +513,11 @@ class DatasetManager:
         self,
         dataset_name: str,
         batch_size: int = 100,
-        count: int | None = None,
-        subset_pattern: str | None = None,
-        random_seed: int | None = None,
-        instances: list[str] | None = None,
-        sample_percent: float | None = None,
+        count: Optional[int] = None,
+        subset_pattern: Optional[str] = None,
+        random_seed: Optional[int] = None,
+        instances: Optional[list] = None,
+        sample_percent: Optional[float] = None,
         use_regex: bool = False,
         offline: bool = False
     ) -> Iterator[list[dict[str, Any]]]:
@@ -711,7 +711,7 @@ class DatasetManager:
                 ) from e
 
 
-def get_hf_token() -> str | None:
+def get_hf_token() -> Optional[str]:
     """Get HuggingFace token from environment."""
     return os.environ.get('HF_TOKEN') or os.environ.get('HUGGING_FACE_HUB_TOKEN')
 

@@ -7,7 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from .prompt_builder import PromptContext
@@ -31,8 +31,8 @@ class FitStats:
     original_tokens: int
     final_tokens: int
     truncated: bool
-    sections_truncated: dict[str, int] = field(default_factory=dict)
-    strategy_used: TruncationStrategy | None = None
+    sections_truncated: dict = field(default_factory=dict)
+    strategy_used: Optional[TruncationStrategy] = None
 
 
 class TokenManager:
@@ -103,7 +103,7 @@ class TokenManager:
 
         # Initialize tiktoken support
         self._tiktoken_available = False
-        self._tiktoken_encodings: dict[str, Any] = {}
+        self._tiktoken_encodings: dict = {}
         self._init_tiktoken()
 
         # Set up caching if enabled
@@ -195,7 +195,7 @@ class TokenManager:
             # Default to cl100k_base for unknown models
             return "cl100k_base"
 
-    def _estimate_tokens(self, text: str, chars_per_token: float | None = None) -> int:
+    def _estimate_tokens(self, text: str, chars_per_token: Optional[float] = None) -> int:
         """Estimate token count based on character count.
 
         Args:
@@ -361,7 +361,7 @@ class TokenManager:
         self,
         context: PromptContext,
         tokens_to_remove: int,
-        section_tokens: dict[str, int]
+        section_tokens: dict
     ) -> PromptContext:
         """Remove tokens proportionally from each section."""
         # Import here to avoid circular dependency
@@ -407,7 +407,7 @@ class TokenManager:
         self,
         context: PromptContext,
         tokens_to_remove: int,
-        section_tokens: dict[str, int]
+        section_tokens: dict
     ) -> PromptContext:
         """Preserve test information, truncate code context."""
         # Import here to avoid circular dependency
@@ -480,7 +480,7 @@ class TokenManager:
         self,
         context: PromptContext,
         tokens_to_remove: int,
-        section_tokens: dict[str, int]
+        section_tokens: dict
     ) -> PromptContext:
         """Preserve recent/relevant code, truncate older parts."""
         # For now, implement similar to balanced but prioritize keeping
@@ -582,7 +582,7 @@ class TokenManager:
 
             # Add from end if space remains
             if remaining_budget - chars > 100:
-                end_lines: list[str] = []
+                end_lines: list = []
                 end_chars = 0
                 for _, line in reversed(body_lines):
                     if end_chars + len(line) + 1 < (remaining_budget - chars):
@@ -602,10 +602,10 @@ class TokenManager:
 
     def _truncate_file_dict(
         self,
-        files: dict[str, str],
+        files: dict,
         token_budget: int,
         preserve_structure: bool = True
-    ) -> dict[str, str]:
+    ) -> dict:
         """Truncate a dictionary of files to fit token budget."""
         if not files:
             return {}
@@ -644,7 +644,7 @@ class TokenManager:
 
         return result
 
-    def _estimate_section_tokens(self, context: PromptContext) -> dict[str, int]:
+    def _estimate_section_tokens(self, context: PromptContext) -> dict:
         """Estimate tokens used by each section of the context."""
         tokens = {}
 
@@ -682,7 +682,7 @@ class TokenManager:
         self,
         original: PromptContext,
         truncated: PromptContext
-    ) -> dict[str, int]:
+    ) -> dict:
         """Calculate tokens removed from each section."""
         original_tokens = self._estimate_section_tokens(original)
         truncated_tokens = self._estimate_section_tokens(truncated)
@@ -715,7 +715,7 @@ class TokenManager:
         max_completion_tokens: int,
         provider: str,
         model: str
-    ) -> float | None:
+    ) -> Optional[float]:
         """Estimate generation cost.
 
         Args:
@@ -766,7 +766,7 @@ class TokenManager:
         self,
         context_size: int,
         provider: str = "any"
-    ) -> list[str]:
+    ) -> list:
         """Suggest models that can handle the context size.
 
         Args:

@@ -4,7 +4,7 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -15,13 +15,13 @@ class ModelResponse:
 
     content: str
     model: str
-    usage: dict[str, int] | None = None
-    cost: float | None = None
-    latency_ms: int | None = None
-    provider: str | None = None
+    usage: Optional[dict] = None
+    cost: Optional[float] = None
+    latency_ms: Optional[int] = None
+    provider: Optional[str] = None
     timestamp: datetime = field(default_factory=datetime.utcnow)
-    finish_reason: str | None = None
-    raw_response: dict[str, Any] | None = None
+    finish_reason: Optional[str] = None
+    raw_response: Optional[dict] = None
 
 
 @dataclass
@@ -32,10 +32,10 @@ class ProviderCapabilities:
     supports_streaming: bool = False
     supports_json_mode: bool = False
     supports_function_calling: bool = False
-    rate_limits: dict[str, int] | None = None
-    supported_models: list[str] = field(default_factory=list)
-    cost_per_1k_prompt_tokens: float | None = None
-    cost_per_1k_completion_tokens: float | None = None
+    rate_limits: Optional[dict] = None
+    supported_models: list = field(default_factory=list)
+    cost_per_1k_prompt_tokens: Optional[float] = None
+    cost_per_1k_completion_tokens: Optional[float] = None
 
 
 @dataclass
@@ -43,13 +43,13 @@ class ProviderConfig:
     """Configuration for a provider."""
 
     name: str
-    api_key: str | None = None
-    endpoint: str | None = None
-    model: str | None = None
+    api_key: Optional[str] = None
+    endpoint: Optional[str] = None
+    model: Optional[str] = None
     temperature: float = 0.0
     max_tokens: int = 4000
     timeout: int = 120
-    extra_params: dict[str, Any] | None = None
+    extra_params: Optional[dict] = None
 
     def __post_init__(self):
         if self.extra_params is None:
@@ -64,9 +64,9 @@ class ModelProvider(ABC):
     description: str = ""
     api_version: str = "1.0"
     requires_api_key: bool = True
-    supported_models: list[str] = []
+    supported_models: list = []
     supports_streaming: bool = False
-    default_model: str | None = None
+    default_model: Optional[str] = None
 
     def __init__(self, config: ProviderConfig):
         self.config = config
@@ -153,7 +153,7 @@ class ModelProvider(ABC):
         return 4096
 
     @classmethod
-    def get_required_env_vars(cls) -> list[str]:
+    def get_required_env_vars(cls) -> list:
         """Get list of required environment variables.
 
         Returns:
@@ -162,7 +162,7 @@ class ModelProvider(ABC):
         return []
 
     @classmethod
-    def from_env(cls, model: str | None = None) -> "ModelProvider":
+    def from_env(cls, model: Optional[str] = None) -> "ModelProvider":
         """Create provider instance from environment variables.
 
         Args:
@@ -194,7 +194,7 @@ class ModelProvider(ABC):
     @classmethod
     @abstractmethod
     def _config_from_env(
-        cls, env_vars: dict[str, str], model: str | None = None
+        cls, env_vars: dict, model: Optional[str] = None
     ) -> ProviderConfig:
         """Create provider config from environment variables.
 
@@ -220,7 +220,7 @@ class ModelProvider(ABC):
         """
         pass
 
-    def get_generation_params(self) -> dict[str, Any]:
+    def get_generation_params(self) -> dict:
         """Get provider-specific generation parameters.
 
         Returns:
@@ -231,7 +231,7 @@ class ModelProvider(ABC):
             "max_tokens": self.config.max_tokens,
         }
 
-    async def health_check(self) -> dict[str, Any]:
+    async def health_check(self) -> dict:
         """Get current health status.
 
         Returns:
@@ -244,7 +244,7 @@ class ModelProvider(ABC):
             "timestamp": datetime.utcnow().isoformat()
         }
 
-    async def generate_patch(self, instance: dict[str, Any]) -> str:
+    async def generate_patch(self, instance: dict) -> str:
         """Generate a patch for a SWE-bench instance.
 
         This is a convenience method that formats the prompt appropriately

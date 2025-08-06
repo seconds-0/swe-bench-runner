@@ -48,6 +48,15 @@ lint:  ## Run linting with auto-fix
 mypy:  ## Run type checking
 	mypy src/swebench_runner
 
+# End-to-end testing
+test-e2e:  ## Run end-to-end tests (actual CLI execution)
+	pytest tests/e2e/ -v -s
+
+test-e2e-quick:  ## Run quick E2E tests (no Docker required)
+	pytest tests/e2e/test_cli_happy_path.py -v -s -k "not docker"
+
+test-all: test test-e2e  ## Run all tests including E2E
+
 quick:  ## Quick checks before commit (lint + mypy + critical tests)
 	@echo "Running quick checks..."
 	@make lint

@@ -1,0 +1,1 @@
+{"instance_id": "django__django-11001", "patch": "diff --git a/test.py b/test.py\n--- a/test.py\n+++ b/test.py\n@@ -1,1 +1,1 @@\n-print('hello')\n+print('world')\n"}

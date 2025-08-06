@@ -12,6 +12,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 
 class SWEBenchTestHarness:
@@ -26,12 +27,12 @@ class SWEBenchTestHarness:
 
     def __init__(self):
         """Initialize the test harness."""
-        self.temp_dir: Path | None = None
-        self.original_env: dict[str, str] = {}
-        self.env_vars: dict[str, str] = {}
-        self.processes: list[subprocess.Popen] = []
-        self.created_files: list[Path] = []
-        self.created_dirs: list[Path] = []
+        self.temp_dir: Optional[Path] = None
+        self.original_env: Dict[str, str] = {}
+        self.env_vars: Dict[str, str] = {}
+        self.processes: List[subprocess.Popen] = []
+        self.created_files: List[Path] = []
+        self.created_dirs: List[Path] = []
 
     def setup(self, test_name: str = "test") -> Path:
         """Create isolated test environment.
@@ -98,12 +99,12 @@ class SWEBenchTestHarness:
 
     def run_cli(
         self,
-        args: list[str],
-        env: dict[str, str] | None = None,
+        args: List[str],
+        env: Optional[Dict[str, str]] = None,
         timeout: int = 30,
-        input_text: str | None = None,
+        input_text: Optional[str] = None,
         check_returncode: bool = False
-    ) -> tuple[int, str, str]:
+    ) -> Tuple[int, str, str]:
         """Run CLI command with proper isolation.
 
         Args:
@@ -153,7 +154,7 @@ class SWEBenchTestHarness:
 
     def create_patch_file(
         self,
-        patches: list[dict[str, str]],
+        patches: List[Dict[str, str]],
         filename: str = "patches.jsonl"
     ) -> Path:
         """Create a JSONL patch file for testing.
@@ -222,9 +223,9 @@ class SWEBenchTestHarness:
 
     def assert_cli_success(
         self,
-        args: list[str],
-        expected_output: str | None = None,
-        env: dict[str, str] | None = None
+        args: List[str],
+        expected_output: Optional[str] = None,
+        env: Optional[Dict[str, str]] = None
     ):
         """Assert that a CLI command succeeds.
 
@@ -248,10 +249,10 @@ class SWEBenchTestHarness:
 
     def assert_cli_error(
         self,
-        args: list[str],
+        args: List[str],
         expected_code: int,
-        expected_error: str | None = None,
-        env: dict[str, str] | None = None
+        expected_error: Optional[str] = None,
+        env: Optional[Dict[str, str]] = None
     ):
         """Assert that a CLI command fails with expected error.
 
@@ -300,7 +301,7 @@ class SWEBenchTestHarness:
             time.sleep(interval)
         return False
 
-    def create_mock_docker_response(self, success: bool = True) -> dict[str, any]:
+    def create_mock_docker_response(self, success: bool = True) -> Dict[str, Any]:
         """Create a mock Docker API response for testing.
 
         Args:

@@ -1,0 +1,10 @@
+{
+  "code": 15,
+  "exit_code": 3,
+  "trigger": "GHCR blocked",
+  "expected_message": "`\u26d4 Cannot reach ghcr.io. Set --registry docker.io/swebench/runner`",
+  "expected_action": "Use alternate registry",
+  "key_terms": [
+    "\u26d4 Cannot reach ghcr.io. Set --registry docker.io/swebench/runner"
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "code": 2,
+  "exit_code": 2,
+  "trigger": "Docker not running",
+  "expected_message": "`\u26d4 Docker daemon unreachable at /var/run/docker.sock`",
+  "expected_action": "Start Docker Desktop or set `DOCKER_HOST`",
+  "key_terms": [
+    "\u26d4 Docker daemon unreachable at /var/run/docker.sock",
+    "Docker"
+  ]
+}

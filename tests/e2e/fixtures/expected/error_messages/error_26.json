@@ -1,0 +1,10 @@
+{
+  "code": 26,
+  "exit_code": 1,
+  "trigger": "Patch apply failed",
+  "expected_message": "`\u26a0\ufe0f Patch failed: Hunk #3 FAILED at 245. See logs/django-123/patch_error.log`",
+  "expected_action": "Fix patch context",
+  "key_terms": [
+    "\u26a0\ufe0f Patch failed: Hunk #3 FAILED at 245. See logs/django-123/patch_error.log"
+  ]
+}

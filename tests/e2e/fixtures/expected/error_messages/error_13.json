@@ -1,0 +1,11 @@
+{
+  "code": 13,
+  "exit_code": 4,
+  "trigger": "OOM during test",
+  "expected_message": "`\u26a0\ufe0f Instance django-123 killed (OOM). Increase Docker memory limit to 16GB.`",
+  "expected_action": "Adjust Docker resources",
+  "key_terms": [
+    "\u26a0\ufe0f Instance django-123 killed (OOM). Increase Docker memory limit to 16GB.",
+    "Docker"
+  ]
+}

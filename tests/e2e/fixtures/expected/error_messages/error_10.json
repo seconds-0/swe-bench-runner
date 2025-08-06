@@ -1,0 +1,12 @@
+{
+  "code": 10,
+  "exit_code": 2,
+  "trigger": "Docker permission denied",
+  "expected_message": "`\u26d4 Docker permission denied. Run: sudo usermod -aG docker $USER && newgrp docker`",
+  "expected_action": "Add user to docker group",
+  "key_terms": [
+    "\u26d4 Docker permission denied. Run: sudo usermod -aG docker $USER && newgrp docker",
+    "Docker",
+    "permission"
+  ]
+}

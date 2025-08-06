@@ -1,0 +1,10 @@
+{
+  "code": 20,
+  "exit_code": 1,
+  "trigger": "Invalid Python",
+  "expected_message": "`\u26d4 Python 3.7 detected; 3.8+ required. Use pyenv or conda.`",
+  "expected_action": "Upgrade Python",
+  "key_terms": [
+    "\u26d4 Python 3.7 detected; 3.8+ required. Use pyenv or conda."
+  ]
+}

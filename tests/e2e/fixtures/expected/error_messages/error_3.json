@@ -1,0 +1,10 @@
+{
+  "code": 3,
+  "exit_code": 3,
+  "trigger": "Network failure after 3 retries",
+  "expected_message": "`\u26a0\ufe0f Unable to download dataset. Check internet or use --offline`",
+  "expected_action": "Retry or provide offline cache",
+  "key_terms": [
+    "\u26a0\ufe0f Unable to download dataset. Check internet or use --offline"
+  ]
+}

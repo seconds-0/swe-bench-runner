@@ -1,0 +1,11 @@
+{
+  "code": 11,
+  "exit_code": 2,
+  "trigger": "Docker Desktop stopped",
+  "expected_message": "`\u26d4 Docker Desktop not running. Start it from Applications and wait for whale icon.`",
+  "expected_action": "Start Docker Desktop",
+  "key_terms": [
+    "\u26d4 Docker Desktop not running. Start it from Applications and wait for whale icon.",
+    "Docker"
+  ]
+}

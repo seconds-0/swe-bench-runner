@@ -1,9 +1,10 @@
 # E2E Test Analysis & Remediation Plan
 
-**Document Version:** 1.0
+**Document Version:** 2.0
 **Date:** 2025-01-06
-**Status:** Active
-**Priority:** HIGH
+**Status:** Active Implementation
+**Priority:** CRITICAL
+**Implementation Status:** Phase 1 In Progress
 
 ---
 
@@ -27,10 +28,16 @@ The E2E test implementation has established a **solid foundation** with comprehe
 | Effectiveness | C+ | Tests run but don't catch failures |
 
 ### Top Recommendations
-1. **Immediate**: Add assertions to all tests
-2. **Critical**: Replace environment mocks with proper test doubles
-3. **Important**: Implement real CLI subprocess testing
-4. **Strategic**: Enable provider integration tests with API keys
+1. **Immediate**: Add assertions to all tests (28 tests × 3-5 assertions = ~100 assertions)
+2. **Critical**: Replace environment mocks with proper test doubles (20+ mock flags → 5 test doubles)
+3. **Important**: Implement real CLI subprocess testing (verify actual binary execution)
+4. **Strategic**: Enable provider integration tests with API keys (3 providers minimum)
+
+### Implementation Timeline
+- **Today**: Fix assertions and Python compatibility (Phase 1.1-1.2)
+- **Tomorrow**: Mock refactoring and real CLI tests (Phase 2.1-2.2)
+- **Week 2**: Integration tests and benchmarks (Phase 3)
+- **Month 2**: Advanced features and chaos testing
 
 ---
 
@@ -597,7 +604,174 @@ class ChaosTestHarness(SWEBenchTestHarness):
 
 ---
 
-## 9. Appendices
+## 9. Specific Assertion Patterns for All 30 Error Codes
+
+### Error Code Mapping to Exit Codes
+Based on `exit_codes.py` and UX_Plan.md, here's the complete mapping:
+
+| UX Error Code | Exit Code | Category | Required Assertions |
+|---------------|-----------|----------|---------------------|
+| 2 | 2 | Docker | Docker not running, suggest start command |
+| 3 | 3 | Network | Network failure, retry suggestion |
+| 4 | 4 | Resource | Disk space, free space command |
+| 5 | 1 | General | Invalid patch, schema details |
+| 6 | 1 | General | Patch size, env var limit |
+| 7 | 1 | General | Architecture warning |
+| 10 | 2 | Docker | Permission denied, usermod command |
+| 11 | 2 | Docker | Docker Desktop, whale icon |
+| 13 | 4 | Resource | OOM, memory increase |
+| 14 | 1 | General | Patch conflict, hunk details |
+| 15 | 3 | Network | GHCR blocked, alternate registry |
+| 16 | 3 | Network | Rate limit, retry timing |
+| 17 | 1 | General | Cache corruption, clean command |
+| 18 | 1 | General | Stale image, upgrade command |
+| 19 | 4 | Resource | Docker storage, prune command |
+| 20 | 1 | General | Python version, upgrade path |
+| 21 | 1 | General | Container timeout, increase limit |
+| 22 | 1 | General | Invalid instance, check dataset |
+| 23 | 1 | General | Encoding error, UTF-8 fix |
+| 24 | 1 | General | Patch size, increase limit |
+| 25 | 1 | General | Binary files, allow flag |
+| 26 | 1 | General | Apply failed, hunk details |
+| 27 | 3 | Network | HF rate limit, token suggestion |
+| 28 | 1 | General | Instance timeout, increase timeout |
+| 29 | 1 | General | Flaky test, retry info |
+| 30 | 1 | General | Container limit, reduce workers |
+
+### Complete Assertion Examples for Each Error
+
+#### Error 2: Docker Not Running
+```python
+def test_error_2_docker_not_running(self):
+    with SWEBenchTestHarness() as harness:
+        returncode, stdout, stderr = harness.run_cli(
+            ["run", "--patches", str(patch_file)],
+            env={"SWEBENCH_MOCK_NO_DOCKER": "true"}
+        )
+        combined = stdout + stderr
+
+        # Required assertions from UX_Plan
+        assert returncode == 2, f"Expected exit code 2, got {returncode}"
+        assert "Docker daemon unreachable" in combined or "Docker not running" in combined
+        assert "/var/run/docker.sock" in combined or "Docker Desktop" in combined
+
+        # Platform-specific suggestions
+        if "darwin" in sys.platform:
+            assert "Docker Desktop" in combined or "whale icon" in combined
+        else:
+            assert "systemctl start docker" in combined or "DOCKER_HOST" in combined
+```
+
+#### Error 10: Docker Permission Denied
+```python
+def test_error_10_docker_permission_denied(self):
+    with SWEBenchTestHarness() as harness:
+        returncode, stdout, stderr = harness.run_cli(
+            ["run", "--patches", str(patch_file)],
+            env={"SWEBENCH_MOCK_DOCKER_ERROR": "permission_denied"}
+        )
+        combined = stdout + stderr
+
+        assert returncode == 10, f"Expected exit code 10 (mapped to 2), got {returncode}"
+        assert "permission denied" in combined.lower()
+        assert "usermod -aG docker" in combined
+        assert "$USER" in combined or "newgrp docker" in combined
+        assert "/var/run/docker.sock" in combined
+```
+
+#### Error 27: HuggingFace Rate Limit
+```python
+def test_error_27_hf_rate_limit(self):
+    with SWEBenchTestHarness() as harness:
+        returncode, stdout, stderr = harness.run_cli(
+            ["run", "--dataset", "lite"],
+            env={"SWEBENCH_MOCK_HF_RATE_LIMIT": "true"}
+        )
+        combined = stdout + stderr
+
+        assert returncode == 27 or returncode == 3  # Network error category
+        assert "HuggingFace rate limit" in combined or "rate limit" in combined.lower()
+        assert "10/hour" in combined or "quota" in combined
+        assert "--hf-token" in combined or "HUGGINGFACE_TOKEN" in combined
+        assert "wait 45 min" in combined or "retry" in combined
+```
+
+---
+
+## 10. Test Data Management Strategy
+
+### Fixture Organization
+```
+tests/e2e/fixtures/
+├── patches/
+│   ├── valid/
+│   │   ├── minimal.jsonl        # Single valid patch
+│   │   ├── multiple.jsonl       # 10 patches
+│   │   └── large_set.jsonl      # 100+ patches
+│   ├── invalid/
+│   │   ├── missing_field.jsonl  # Schema errors
+│   │   ├── binary_patch.jsonl   # Binary file
+│   │   ├── oversized.jsonl      # 7MB patch
+│   │   └── bad_encoding.jsonl   # UTF-8 errors
+│   └── edge_cases/
+│       ├── empty.jsonl          # Empty file
+│       ├── malformed.jsonl      # JSON errors
+│       └── conflict.jsonl       # Patch conflicts
+├── datasets/
+│   ├── mini_lite.json           # 3 instances
+│   ├── test_full.json           # 10 instances
+│   └── corrupted.json           # For cache tests
+├── expected/
+│   ├── error_messages/
+│   │   ├── docker_error.txt     # Expected Docker error
+│   │   ├── network_error.txt    # Expected network error
+│   │   └── [one per error code]
+│   └── success/
+│       ├── progress_bar.txt     # Expected progress format
+│       └── final_report.txt     # Expected success output
+└── mocks/
+    ├── docker_responses.json    # Mock Docker API responses
+    ├── hf_responses.json        # Mock HuggingFace responses
+    └── provider_responses.json  # Mock provider API responses
+```
+
+### Test Data Generation Script
+```python
+# scripts/generate_test_fixtures.py
+def generate_all_fixtures():
+    """Generate comprehensive test fixtures from UX_Plan."""
+    # Generate one patch for each error scenario
+    # Generate expected outputs for each error code
+    # Create mock responses for external services
+```
+
+---
+
+## 11. Mock Deprecation Timeline
+
+### Phase 1: Current State (Week 1)
+- 20+ environment variables for mocking
+- No real subprocess testing
+- All external calls mocked
+
+### Phase 2: Test Doubles (Week 2)
+- Replace env vars with test doubles
+- Implement dependency injection
+- Create MockFactory class
+
+### Phase 3: Integration Tests (Week 3)
+- Real Docker API with testcontainers
+- Real HuggingFace with test dataset
+- Real provider APIs with low limits
+
+### Phase 4: Full Integration (Month 2)
+- Minimal mocking (only for CI)
+- Real end-to-end workflows
+- Performance benchmarks on real systems
+
+---
+
+## 12. Appendices
 
 ### Appendix A: Proper Assertion Examples
 

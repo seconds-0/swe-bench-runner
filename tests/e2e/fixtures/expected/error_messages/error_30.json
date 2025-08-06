@@ -1,0 +1,11 @@
+{
+  "code": 30,
+  "exit_code": 1,
+  "trigger": "Docker limit reached",
+  "expected_message": "`\u26a0\ufe0f Reduced to 5 workers due to Docker container limit (100)`",
+  "expected_action": "No action needed",
+  "key_terms": [
+    "\u26a0\ufe0f Reduced to 5 workers due to Docker container limit (100)",
+    "Docker"
+  ]
+}

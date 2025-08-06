@@ -1,0 +1,10 @@
+{
+  "code": 22,
+  "exit_code": 1,
+  "trigger": "Invalid instance ID",
+  "expected_message": "`\u26d4 Unknown instance IDs: fake-123, bad-456`",
+  "expected_action": "Check dataset for valid IDs",
+  "key_terms": [
+    "\u26d4 Unknown instance IDs: fake-123, bad-456"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "code": 24,
+  "exit_code": 1,
+  "trigger": "Patch too large",
+  "expected_message": "`\u26d4 Patch size 7.2MB exceeds limit (5MB). Use --max-patch-size 10`",
+  "expected_action": "Increase limit or split patch",
+  "key_terms": [
+    "\u26d4 Patch size 7.2MB exceeds limit (5MB). Use --max-patch-size 10"
+  ]
+}

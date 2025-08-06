@@ -1,0 +1,10 @@
+{
+  "code": 28,
+  "exit_code": 1,
+  "trigger": "Instance timeout",
+  "expected_message": "`\u26a0\ufe0f Instance django-123 timed out after 30 min. Use --timeout-mins 60`",
+  "expected_action": "Increase timeout",
+  "key_terms": [
+    "\u26a0\ufe0f Instance django-123 timed out after 30 min. Use --timeout-mins 60"
+  ]
+}

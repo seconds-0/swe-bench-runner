@@ -1,0 +1,10 @@
+{
+  "code": 7,
+  "exit_code": 1,
+  "trigger": "Unsupported arch image",
+  "expected_message": "`\u26d4 No arm64 image tag v0.4.0 found; falling back to x86 emulation (slow).`",
+  "expected_action": "Accept or specify older tag",
+  "key_terms": [
+    "\u26d4 No arm64 image tag v0.4.0 found; falling back to x86 emulation (slow)."
+  ]
+}

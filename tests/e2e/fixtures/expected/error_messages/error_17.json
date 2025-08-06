@@ -1,0 +1,10 @@
+{
+  "code": 17,
+  "exit_code": 1,
+  "trigger": "Corrupted cache",
+  "expected_message": "`\u26d4 Dataset checksum mismatch. Run: swebench clean --datasets`",
+  "expected_action": "Clear bad cache",
+  "key_terms": [
+    "\u26d4 Dataset checksum mismatch. Run: swebench clean --datasets"
+  ]
+}

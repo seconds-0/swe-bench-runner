@@ -1,0 +1,10 @@
+{
+  "code": 4,
+  "exit_code": 4,
+  "trigger": "Disk space < threshold",
+  "expected_message": "`\u26d4 Only 8 GB free; 50 GB required. Run 'swebench clean'.`",
+  "expected_action": "Free space or change cache dir",
+  "key_terms": [
+    "\u26d4 Only 8 GB free; 50 GB required. Run 'swebench clean'."
+  ]
+}

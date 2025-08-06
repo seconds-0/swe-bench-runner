@@ -1,0 +1,19 @@
+⛔ Docker daemon unreachable at /var/run/docker.sock
+
+Docker is required to run SWE-bench evaluations.
+
+To fix this issue:
+
+On macOS:
+  1. Install Docker Desktop from https://docker.com/products/docker-desktop
+  2. Start Docker Desktop from Applications
+  3. Wait for the whale icon to appear in the menu bar
+  4. Try running the command again
+
+On Linux:
+  1. Install Docker Engine: https://docs.docker.com/engine/install/
+  2. Start the Docker service: sudo systemctl start docker
+  3. Add your user to the docker group: sudo usermod -aG docker $USER
+  4. Log out and back in for group changes to take effect
+
+For more help, see: https://docs.swebench.com/troubleshooting#2

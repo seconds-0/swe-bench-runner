@@ -1,0 +1,29 @@
+🎉 First run detected! Let me check your setup...
+✅ Docker is running
+✅ 75 GB disk space available
+🎁 I'll download the runner image and dataset (one-time setup ~14GB)
+
+Ready to start? [Y/n]: Y
+
+💡 Found predictions.jsonl in current directory - using it!
+📚 Dataset: swe-bench-lite ✓ (cached)
+🐳 Runner image ready ✓
+🚀 Evaluating 300 instances with 8 workers...
+
+[▇▇▇▇▁] 195/300 (65%) • 🟢 122 passed • 🔴 73 failed • ⏱️ 4m remaining
+
+┌───────────────────────────┐
+│   🎆 SUCCESS! 🎆       │
+└───────────────────────────┘
+
+🏆 Success Rate: 62.0% (186/300)
+⏱️  Total Time: 12m 33s
+📁 Results: ./results/latest/
+
+🌐 View in browser:
+   file:///path/to/results/latest/report.html
+
+💡 Next steps:
+   • Focus on failures: swebench run --rerun-failed ./results/latest
+   • Try a subset: swebench run --subset "django/**" --patches ...
+   • Share results: swebench share ./results/latest

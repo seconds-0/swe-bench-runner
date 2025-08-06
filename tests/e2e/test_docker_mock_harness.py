@@ -280,13 +280,9 @@ class TestCLIIntegrationWithCache:
 
             # Check if cache directory structure was created
             cache_dir = Path(temp_dir)
-            if cache_dir.exists():
-                # Cache directory exists, which is good
-                assert True
-            else:
-                # Cache might not be created if dataset fetch fails early
-                # This is acceptable for this test
-                assert True
+            # The cache directory should always exist since we set SWEBENCH_CACHE_DIR
+            # Even if the command fails, the directory should be created
+            assert cache_dir.exists(), f"Cache directory {cache_dir} should exist even after command failure"
 
 
 def test_cli_subprocess_timeout_handling():
@@ -307,9 +303,10 @@ def test_cli_subprocess_timeout_handling():
 
         # Should not reach here
         raise AssertionError("Script should have timed out")
-    except subprocess.TimeoutExpired:
-        # This is expected
-        assert True
+    except subprocess.TimeoutExpired as e:
+        # This is expected - verify the timeout was triggered
+        assert e.timeout == 1, f"Expected timeout of 1 second, got {e.timeout}"
+        # pass - timeout is the expected behavior
     finally:
         os.unlink(hang_script)
 

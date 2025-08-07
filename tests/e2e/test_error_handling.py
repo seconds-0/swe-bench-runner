@@ -643,7 +643,7 @@ class TestVersionErrors:
             # Should mention Python version if checking
             if "3.7" in combined or "python" in combined.lower():
                 # Should mention version requirement
-                assert any(term in combined for term in ["3.8", "3.9", "3.10", "pyenv", "conda"]), \
+                assert any(term in combined for term in ["3.11", "3.12", "3.13", "pyenv", "conda"]), \
                     "Should mention Python version requirement"
 
 

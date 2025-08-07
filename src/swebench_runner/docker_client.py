@@ -6,7 +6,7 @@ allowing for easy testing through dependency injection.
 
 import platform
 import sys
-from typing import Protocol
+from typing import Protocol, Optional
 
 import docker
 from docker.errors import APIError
@@ -63,7 +63,7 @@ def get_docker_client() -> DockerClientProtocol:
     return docker.from_env()
 
 
-def check_docker_running(client: DockerClientProtocol | None = None) -> None:
+def check_docker_running(client: Optional[DockerClientProtocol] = None) -> None:
     """Check if Docker daemon is accessible.
 
     Args:

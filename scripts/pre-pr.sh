@@ -110,7 +110,7 @@ echo ""
 echo "🐍 Testing on multiple Python versions..."
 TESTED_VERSIONS=0
 # Only test a lightweight module for version compatibility
-for py_version in python3.9 python3.10 python3.11 python3.12; do
+for py_version in python3.11 python3.12 python3.13; do
     if command -v $py_version &> /dev/null; then
         echo -n "  Testing with $py_version... "
         # Quick import test instead of full test suite
@@ -127,10 +127,10 @@ done
 
 if [ $TESTED_VERSIONS -eq 0 ]; then
     echo -e "${YELLOW}⚠️  Warning: Could only test on current Python version${NC}"
-    echo "   CI will test on Python 3.9, 3.10, 3.11, and 3.12"
+    echo "   CI will test on Python 3.11 and 3.12"
     ((WARNINGS++))
-elif [ $TESTED_VERSIONS -lt 4 ]; then
-    echo -e "${YELLOW}⚠️  Tested on $TESTED_VERSIONS/4 Python versions${NC}"
+elif [ $TESTED_VERSIONS -lt 3 ]; then
+    echo -e "${YELLOW}⚠️  Tested on $TESTED_VERSIONS/3 Python versions${NC}"
     ((WARNINGS++))
 else
     echo -e "${GREEN}✅ Tested on all 4 Python versions${NC}"

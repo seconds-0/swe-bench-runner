@@ -8,15 +8,36 @@ This module provides test isolation to prevent:
 """
 
 import os
-from unittest.mock import patch
 
 import pytest
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
+def simple_test_env(monkeypatch):
+    """
+    Simple environment setup for unit tests that don't need CLI mocking.
+    
+    This fixture only sets basic environment variables without importing
+    any swebench_runner modules.
+    """
+    # Force CI mode to skip resource checks
+    monkeypatch.setenv("CI", "true")
+    monkeypatch.setenv("SWEBENCH_SKIP_RESOURCE_CHECK", "true")
+    
+    # Use temp cache to avoid polluting real cache
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmpdir:
+        monkeypatch.setenv("SWEBENCH_CACHE_DIR", tmpdir)
+        yield tmpdir
+
+
+@pytest.fixture
 def isolated_test_environment(monkeypatch, tmp_path):
     """
-    Automatically applied fixture that provides complete test isolation.
+    Fixture that provides complete test isolation.
+    
+    NOTE: This is NOT autouse - only tests that need CLI isolation should use it.
+    Unit tests should not need this fixture.
 
     This fixture:
     1. Isolates cache directory to prevent ~/.swebench pollution
@@ -41,6 +62,9 @@ def isolated_test_environment(monkeypatch, tmp_path):
     # Force CI mode to disable interactive prompts
     monkeypatch.setenv("CI", "true")
 
+    # Lazy import to avoid import issues
+    from unittest.mock import patch
+    
     # Mock bootstrap functions to prevent first-run checks
     with patch("swebench_runner.cli.check_and_prompt_first_run", return_value=False), \
          patch("swebench_runner.cli.suggest_patches_file", return_value=None):

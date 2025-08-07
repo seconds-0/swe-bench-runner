@@ -654,8 +654,8 @@ def setup() -> None:
 
     # Check if Docker is available
     try:
-        import docker
-        client = docker.from_env()
+        from .docker_client import get_docker_client
+        client = get_docker_client()
         client.ping()
         click.echo("✅ Docker is running")
     except Exception:

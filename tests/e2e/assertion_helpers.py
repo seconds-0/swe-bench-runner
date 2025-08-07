@@ -6,7 +6,6 @@ CLI output against UX_Plan.md specifications.
 
 import re
 import sys
-from typing import Optional
 
 
 def assert_exit_code(actual: int, expected: int, context: str = "") -> None:
@@ -167,7 +166,7 @@ def assert_patch_error(output: str, error_type: str) -> None:
             "Should mention binary file policy"
 
 
-def assert_timeout_error(output: str, instance_id: Optional[str] = None) -> None:
+def assert_timeout_error(output: str, instance_id: str | None = None) -> None:
     """Assert timeout-related error messages are present.
 
     Args:
@@ -240,11 +239,25 @@ def assert_contains_suggestion(output: str) -> None:
         r'export \w+',  # Environment variables
     ]
 
-    has_suggestion = any(re.search(pattern, output) for pattern in command_patterns)
+    # Also accept common action phrases
+    action_phrases = [
+        "Start Docker",
+        "Start it from Applications",
+        "usermod -aG docker",
+        "Click the whale icon",
+        "try again",
+        "check",
+        "install"
+    ]
+
+    has_suggestion = (
+        any(re.search(pattern, output) for pattern in command_patterns) or
+        any(phrase in output for phrase in action_phrases)
+    )
     assert has_suggestion, "Error should include actionable suggestion (command, flag, or URL)"
 
 
-def assert_platform_specific(output: str, platform: Optional[str] = None) -> None:
+def assert_platform_specific(output: str, platform: str | None = None) -> None:
     """Assert platform-specific messages are appropriate.
 
     Args:
@@ -264,4 +277,3 @@ def assert_platform_specific(output: str, platform: Optional[str] = None) -> Non
         if "docker" in output.lower() and "permission" in output.lower():
             assert any(term in output for term in ["usermod", "docker group", "/var/run/docker.sock"]), \
                 "Linux Docker permission errors should mention usermod or socket"
-

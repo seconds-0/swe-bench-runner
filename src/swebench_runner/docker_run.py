@@ -11,79 +11,20 @@ import tempfile
 import uuid
 from pathlib import Path
 
-import docker
-from docker.errors import APIError
-
 from . import exit_codes
 from .bootstrap import show_memory_warning, show_resource_warning
 from .cache import get_cache_dir, get_logs_dir
+from .docker_client import check_docker_running as _check_docker_running
 from .models import EvaluationResult, Patch
 
 
 def check_docker_running() -> None:
-    """Check if Docker daemon is accessible."""
-    # Check if we're mocking no Docker for testing
-    if os.environ.get("SWEBENCH_MOCK_NO_DOCKER") == "true":
-        if platform.system() == "Darwin":
-            print("⛔ Docker Desktop not running. Start it from Applications "
-                  "and wait for whale icon.")
-        else:
-            print("⛔ Docker daemon unreachable at /var/run/docker.sock")
-        print("ℹ️  Start Docker and try again.")
-        sys.exit(exit_codes.DOCKER_NOT_FOUND)
+    """Check if Docker daemon is accessible.
 
-    try:
-        client = docker.from_env()
-        client.ping()
-    except APIError as e:
-        error_msg = str(e).lower()
-        # Connection refused to Docker daemon means Docker is not running
-        if ("connection refused" in error_msg or
-            "cannot connect to the docker daemon" in error_msg):
-            if platform.system() == "Darwin":
-                print("⛔ Docker Desktop not running. Start it from Applications "
-                      "and wait for whale icon.")
-            else:
-                print("⛔ Docker daemon unreachable at /var/run/docker.sock")
-            print("ℹ️  Start Docker and try again.")
-            sys.exit(exit_codes.DOCKER_NOT_FOUND)
-        elif any(term in error_msg for term in [
-            "network", "connection", "timeout", "unreachable",
-            "resolve", "dns", "timed out"
-        ]):
-            print("❌ Network error connecting to Docker daemon")
-            print("   Check internet connection and Docker network settings")
-            sys.exit(exit_codes.NETWORK_ERROR)
-        else:
-            if platform.system() == "Darwin":
-                print("⛔ Docker Desktop not running. Start it from Applications "
-                      "and wait for whale icon.")
-            else:
-                print("⛔ Docker daemon unreachable at /var/run/docker.sock")
-            print("ℹ️  Start Docker and try again.")
-            sys.exit(exit_codes.DOCKER_NOT_FOUND)
-    except Exception as e:
-        error_msg = str(e).lower()
-        # Connection refused to Docker daemon means Docker is not running
-        if ("connection refused" in error_msg or
-            "cannot connect to the docker daemon" in error_msg):
-            if platform.system() == "Darwin":
-                print("⛔ Docker Desktop not running. Start it from Applications "
-                      "and wait for whale icon.")
-            else:
-                print("⛔ Docker daemon unreachable at /var/run/docker.sock")
-            print("ℹ️  Start Docker and try again.")
-            sys.exit(exit_codes.DOCKER_NOT_FOUND)
-        elif any(term in error_msg for term in [
-            "network", "connection", "timeout", "unreachable",
-            "resolve", "dns"
-        ]):
-            print(f"❌ Network error connecting to Docker: {e}")
-            print("   Check internet connection and Docker network settings")
-            sys.exit(exit_codes.NETWORK_ERROR)
-        else:
-            print(f"❌ Error connecting to Docker: {e}")
-            sys.exit(exit_codes.DOCKER_NOT_FOUND)
+    This function delegates to the new docker_client module for
+    better testability through dependency injection.
+    """
+    _check_docker_running()
 
 
 def load_first_patch(patch_source: str, max_size_mb: int = 5) -> Patch:

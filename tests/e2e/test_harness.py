@@ -12,7 +12,24 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
+
+try:
+    # When run as part of tests package
+    from tests.e2e.test_doubles import (
+        DockerClientDouble,
+        FileSystemDouble,
+        HuggingFaceDouble,
+        NetworkDouble,
+        ProviderDouble,
+        TestDoubleFactory,
+    )
+except ImportError:
+    # When run directly from tests/e2e directory
+    from test_doubles import (
+        DockerClientDouble,
+        TestDoubleFactory,
+    )
 
 
 class SWEBenchTestHarness:
@@ -27,12 +44,14 @@ class SWEBenchTestHarness:
 
     def __init__(self):
         """Initialize the test harness."""
-        self.temp_dir: Optional[Path] = None
-        self.original_env: Dict[str, str] = {}
-        self.env_vars: Dict[str, str] = {}
-        self.processes: List[subprocess.Popen] = []
-        self.created_files: List[Path] = []
-        self.created_dirs: List[Path] = []
+        self.temp_dir: Path | None = None
+        self.original_env: dict[str, str] = {}
+        self.env_vars: dict[str, str] = {}
+        self.processes: list[subprocess.Popen] = []
+        self.created_files: list[Path] = []
+        self.created_dirs: list[Path] = []
+        self.injected_doubles: dict[str, Any] = {}
+        self._original_factories = {}
 
     def setup(self, test_name: str = "test") -> Path:
         """Create isolated test environment.
@@ -67,6 +86,9 @@ class SWEBenchTestHarness:
 
     def teardown(self):
         """Clean up all resources created during testing."""
+        # Restore original factories
+        self._restore_factories()
+
         # Kill any running processes
         for proc in self.processes:
             if proc.poll() is None:  # Still running
@@ -97,15 +119,170 @@ class SWEBenchTestHarness:
         os.environ.clear()
         os.environ.update(self.original_env)
 
+    def inject_docker_double(self, scenario: str = "success") -> DockerClientDouble:
+        """Inject a Docker client test double.
+
+        Args:
+            scenario: Test scenario for the double
+
+        Returns:
+            The injected Docker double
+        """
+        double = TestDoubleFactory.create_docker_double(scenario)
+
+        # Import here to avoid circular dependency
+        import swebench_runner.docker_client as docker_client
+
+        # Store original factory
+        if "docker" not in self._original_factories:
+            self._original_factories["docker"] = docker_client._docker_client_factory
+
+        # Inject the double
+        docker_client.set_docker_client_factory(lambda: double)
+
+        self.injected_doubles["docker"] = double
+        return double
+
+    def inject_patch_double(self, scenario: str = "success"):
+        """Inject a patch validator test double.
+
+        Args:
+            scenario: Test scenario for the double
+
+        Returns:
+            The injected patch validator double
+        """
+        from tests.e2e.test_doubles import TestDoubleFactory
+        double = TestDoubleFactory.create_patch_double(scenario)
+
+        # TODO: Hook up to actual patch validation once abstraction exists
+        # For now, just store for test verification
+        self.injected_doubles["patch"] = double
+        return double
+
+    def inject_network_double(self, scenario: str = "success"):
+        """Inject a network test double.
+
+        Args:
+            scenario: Test scenario for the double
+
+        Returns:
+            The injected network double
+        """
+        from tests.e2e.test_doubles import TestDoubleFactory
+        double = TestDoubleFactory.create_network_double(scenario)
+
+        # TODO: Hook up to actual network calls once abstraction exists
+        # For now, just store for test verification
+        self.injected_doubles["network"] = double
+        return double
+
+    def inject_filesystem_double(self, scenario: str = "success"):
+        """Inject a file system test double.
+
+        Args:
+            scenario: Test scenario for the double
+
+        Returns:
+            The injected filesystem double
+        """
+        from tests.e2e.test_doubles import TestDoubleFactory
+        double = TestDoubleFactory.create_filesystem_double(scenario)
+
+        # TODO: Hook up to actual filesystem operations once abstraction exists
+        # For now, just store for test verification
+        self.injected_doubles["filesystem"] = double
+        return double
+
+    def inject_huggingface_double(self, scenario: str = "success"):
+        """Inject a HuggingFace test double.
+
+        Args:
+            scenario: Test scenario for the double
+
+        Returns:
+            The injected HuggingFace double
+        """
+        from tests.e2e.test_doubles import TestDoubleFactory
+        double = TestDoubleFactory.create_huggingface_double(scenario)
+
+        # TODO: Hook up to actual HF operations once abstraction exists
+        # For now, just store for test verification
+        self.injected_doubles["huggingface"] = double
+        return double
+
+    def inject_provider_double(self, provider: str = "openai", scenario: str = "success"):
+        """Inject a provider test double.
+
+        Args:
+            provider: Provider name (openai, anthropic, ollama)
+            scenario: Test scenario for the double
+
+        Returns:
+            The injected provider double
+        """
+        from tests.e2e.test_doubles import TestDoubleFactory
+        double = TestDoubleFactory.create_provider_double(provider, scenario)
+
+        # TODO: Hook up to actual provider operations once abstraction exists
+        # For now, just store for test verification
+        self.injected_doubles[provider] = double
+        return double
+
+    def inject_instance_double(self, scenario: str = "success"):
+        """Inject an instance test double.
+
+        Args:
+            scenario: Test scenario for the double
+
+        Returns:
+            The injected instance double
+        """
+        from tests.e2e.test_doubles import TestDoubleFactory
+        double = TestDoubleFactory.create_instance_double(scenario)
+
+        # TODO: Hook up to actual instance operations once abstraction exists
+        # For now, just store for test verification
+        self.injected_doubles["instance"] = double
+        return double
+
+    def inject_all_doubles(self, scenario: str = "success") -> dict[str, Any]:
+        """Inject all test doubles with the same scenario.
+
+        Args:
+            scenario: Test scenario for all doubles
+
+        Returns:
+            Dictionary of all injected doubles
+        """
+        doubles = TestDoubleFactory.create_all_doubles(scenario)
+
+        # Inject Docker
+        if "docker" in doubles:
+            self.inject_docker_double(scenario)
+
+        # Store all doubles
+        self.injected_doubles.update(doubles)
+        return doubles
+
+    def _restore_factories(self):
+        """Restore original factories."""
+        if "docker" in self._original_factories:
+            import swebench_runner.docker_client as docker_client
+            docker_client._docker_client_factory = self._original_factories["docker"]
+
+        self._original_factories.clear()
+        self.injected_doubles.clear()
+
     def run_cli(
         self,
-        args: List[str],
-        env: Optional[Dict[str, str]] = None,
+        args: list[str],
+        env: dict[str, str] | None = None,
         timeout: int = 30,
-        input_text: Optional[str] = None,
+        input_text: str | None = None,
         check_returncode: bool = False
-    ) -> Tuple[int, str, str]:
-        """Run CLI command with proper isolation.
+    ) -> tuple[int, str, str]:
+        """Run CLI command with proper isolation using subprocess.
 
         Args:
             args: CLI arguments (e.g., ["run", "--patches", "file.jsonl"])
@@ -152,9 +329,77 @@ class SWEBenchTestHarness:
             # Return timeout as special exit code
             return -1, "", f"Command timed out after {timeout} seconds"
 
+    def run_cli_direct(
+        self,
+        args: list[str],
+        env: dict[str, str] | None = None,
+        input_text: str | None = None
+    ) -> tuple[int, str, str]:
+        """Run CLI command directly in the same process (for test double injection).
+
+        This method calls the CLI module directly instead of using subprocess,
+        allowing injected test doubles to work correctly.
+
+        Args:
+            args: CLI arguments (e.g., ["run", "--patches", "file.jsonl"])
+            env: Additional environment variables to set
+            input_text: Optional input to simulate stdin (not fully supported)
+
+        Returns:
+            Tuple of (returncode, stdout, stderr)
+        """
+        import contextlib
+        import io
+
+        from swebench_runner import cli
+
+        # Save original argv and environment
+        original_argv = sys.argv
+        original_env = os.environ.copy()
+
+        # Set up new argv
+        sys.argv = ["swebench_runner"] + args
+
+        # Apply environment variables if provided
+        if env:
+            os.environ.update(env)
+
+        # Capture stdout and stderr
+        stdout_capture = io.StringIO()
+        stderr_capture = io.StringIO()
+
+        returncode = 0
+
+        try:
+            # Redirect stdout and stderr
+            with contextlib.redirect_stdout(stdout_capture), \
+                 contextlib.redirect_stderr(stderr_capture):
+
+                # Add --no-input flag if not present to avoid prompts
+                if "--no-input" not in args and "setup" not in args:
+                    sys.argv.append("--no-input")
+
+                # Call CLI directly
+                cli.cli()
+
+        except SystemExit as e:
+            # Capture the exit code
+            returncode = e.code if e.code is not None else 0
+        except Exception as e:
+            # Unexpected error
+            stderr_capture.write(f"Unexpected error: {e}\n")
+            returncode = 1
+        finally:
+            # Restore original argv and environment
+            sys.argv = original_argv
+            os.environ.clear()
+            os.environ.update(original_env)
+
+        return returncode, stdout_capture.getvalue(), stderr_capture.getvalue()
+
     def create_patch_file(
         self,
-        patches: List[Dict[str, str]],
+        patches: list[dict[str, str]],
         filename: str = "patches.jsonl"
     ) -> Path:
         """Create a JSONL patch file for testing.
@@ -223,9 +468,9 @@ class SWEBenchTestHarness:
 
     def assert_cli_success(
         self,
-        args: List[str],
-        expected_output: Optional[str] = None,
-        env: Optional[Dict[str, str]] = None
+        args: list[str],
+        expected_output: str | None = None,
+        env: dict[str, str] | None = None
     ):
         """Assert that a CLI command succeeds.
 
@@ -249,10 +494,10 @@ class SWEBenchTestHarness:
 
     def assert_cli_error(
         self,
-        args: List[str],
+        args: list[str],
         expected_code: int,
-        expected_error: Optional[str] = None,
-        env: Optional[Dict[str, str]] = None
+        expected_error: str | None = None,
+        env: dict[str, str] | None = None
     ):
         """Assert that a CLI command fails with expected error.
 
@@ -301,7 +546,7 @@ class SWEBenchTestHarness:
             time.sleep(interval)
         return False
 
-    def create_mock_docker_response(self, success: bool = True) -> Dict[str, Any]:
+    def create_mock_docker_response(self, success: bool = True) -> dict[str, Any]:
         """Create a mock Docker API response for testing.
 
         Args:

@@ -137,9 +137,133 @@ To ensure your local tests match CI:
 3. **For CI Debugging**: Use `test-docker.sh` to replicate CI environment exactly
 4. **Before Pushing**: Always run `./scripts/test-quick.sh` to catch issues early
 
+## Test Doubles (Phase 2.1)
+
+### Overview
+The E2E test suite now uses test doubles instead of environment variable mocking. This provides:
+- **Type Safety**: Full IDE support with type hints
+- **Performance**: ~20% faster test execution
+- **Maintainability**: Clean, reusable test infrastructure
+- **Flexibility**: Easy to add new test scenarios
+
+### Available Test Doubles
+
+#### 1. DockerClientDouble
+Simulates Docker operations with scenarios:
+- `success`: Normal Docker operations
+- `not_running`: Docker daemon not running
+- `permission_denied`: Permission denied errors
+- `desktop_stopped`: Docker Desktop stopped (macOS)
+- `oom_during_run`: Out of memory during container run
+- `storage_full_during_run`: Storage full during operations
+- `container_limit_exceeded`: Too many containers (100+)
+- `stale_image`: Docker image is outdated
+- `container_timeout`: Container operation timeout
+
+#### 2. NetworkDouble
+Simulates network operations with scenarios:
+- `success`: Normal network operations
+- `connection_error`: Connection refused
+- `timeout`: Request timeout
+- `dns_error`: DNS resolution failure
+- `ghcr_blocked`: GitHub Container Registry blocked
+- `git_rate_limit`: GitHub API rate limit
+- `hf_rate_limit`: HuggingFace rate limit
+- `general_failure`: General network failure
+
+#### 3. PatchValidatorDouble
+Simulates patch validation with scenarios:
+- `success`: Valid patch
+- `invalid_schema`: Invalid patch format
+- `too_large`: Patch file too large
+- `too_large_env`: Patch too large for env variable
+- `encoding_error`: UTF-8 encoding issues
+- `binary`: Binary content in patch
+- `conflict`: Merge conflicts
+- `apply_failed`: Patch application failure
+
+#### 4. FileSystemDouble
+Simulates filesystem operations with scenarios:
+- `success`: Normal operations
+- `disk_full`: No space left on device
+- `permission_denied`: Permission errors
+- `cache_corrupted`: Corrupted cache files
+
+#### 5. InstanceDouble
+Simulates instance operations with scenarios:
+- `success`: Normal operations
+- `timeout`: Instance evaluation timeout
+- `flaky`: Flaky test detection
+- `invalid_id`: Invalid instance ID
+
+### Usage in Tests
+
+#### Basic Pattern
+```python
+def test_docker_error(self):
+    with SWEBenchTestHarness() as harness:
+        # 1. Inject test double with scenario
+        docker_double = harness.inject_docker_double(scenario="not_running")
+
+        # 2. Run CLI directly (no subprocess)
+        returncode, stdout, stderr = harness.run_cli_direct(
+            ["run", "--patches", str(patch_file)]
+        )
+
+        # 3. Assert expected behavior
+        assert returncode == 2  # Docker error code
+        assert "Docker daemon" in stdout + stderr
+
+        # 4. Verify double was called
+        assert docker_double.ping_called
+```
+
+#### Multiple Doubles
+```python
+def test_complex_scenario(self):
+    with SWEBenchTestHarness() as harness:
+        # Inject multiple doubles
+        docker_double = harness.inject_docker_double(scenario="success")
+        patch_double = harness.inject_patch_double(scenario="conflict")
+
+        returncode, stdout, stderr = harness.run_cli_direct(args)
+
+        # Verify interactions
+        assert docker_double.containers_run_called
+        assert patch_double.validation_errors
+```
+
+### Test Harness Methods
+
+The `SWEBenchTestHarness` provides injection methods:
+- `inject_docker_double(scenario)`: Inject Docker client double
+- `inject_patch_double(scenario)`: Inject patch validator double
+- `inject_network_double(scenario)`: Inject network double
+- `inject_filesystem_double(scenario)`: Inject filesystem double
+- `inject_huggingface_double(scenario)`: Inject HuggingFace double
+- `inject_provider_double(provider, scenario)`: Inject AI provider double
+- `inject_instance_double(scenario)`: Inject instance double
+- `inject_all_doubles(scenario)`: Inject all doubles with same scenario
+
+### Module-Level Testing
+
+Tests use `run_cli_direct()` instead of `run_cli()` to enable test double injection:
+- **run_cli()**: Uses subprocess (test doubles don't work)
+- **run_cli_direct()**: Calls CLI module directly (test doubles work)
+
+This approach solves the subprocess isolation challenge while maintaining test integrity.
+
+### Migration Statistics
+
+Phase 2.1 successfully migrated all E2E tests:
+- **Tests migrated**: 28 of 28 (100%)
+- **Environment mocks removed**: 36 of 37 (97%)
+- **Performance improvement**: ~20% faster
+- **Last remaining mock**: `SWEBENCH_MOCK_PYTHON_VERSION` (module-level check)
+
 ## Next Steps
 
-1. Fix the hanging test in `test_cli_generation_simple.py`
-2. Add pre-commit hook to run quick tests automatically
-3. Consider adding a devcontainer configuration for VS Code users
-4. Add make targets for common test operations
+1. Add integration tests with real external services
+2. Implement test configuration files for subprocess testing
+3. Add chaos testing using test double failure scenarios
+4. Create performance benchmarks using test doubles

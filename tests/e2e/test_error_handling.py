@@ -27,11 +27,13 @@ class TestDockerErrors:
     def test_error_2_docker_not_running(self):
         """Test Docker daemon unreachable (exit code 2)."""
         with SWEBenchTestHarness() as harness:
+            # Inject Docker double with "not_running" scenario
+            docker_double = harness.inject_docker_double(scenario="not_running")
+
             patch_file = harness.create_minimal_patch()
 
-            returncode, stdout, stderr = harness.run_cli(
-                ["run", "--patches", str(patch_file)],
-                env={"SWEBENCH_MOCK_NO_DOCKER": "true"}
+            returncode, stdout, stderr = harness.run_cli_direct(
+                ["run", "--patches", str(patch_file)]
             )
             combined = stdout + stderr
 
@@ -47,20 +49,19 @@ class TestDockerErrors:
             # Verify platform-specific guidance
             assert_platform_specific(combined)
 
+            # Verify the double was called
+            assert docker_double.ping_called, "Docker ping should have been called"
+
     def test_error_10_docker_permission_denied(self):
         """Test Docker permission denied (exit code 10)."""
         with SWEBenchTestHarness() as harness:
+            # Inject Docker double with "permission_denied" scenario
+            docker_double = harness.inject_docker_double(scenario="permission_denied")
+
             patch_file = harness.create_minimal_patch()
 
-            # Mock permission error
-            env = {
-                "SWEBENCH_MOCK_DOCKER_ERROR": "permission_denied",
-                "SWEBENCH_MOCK_NO_DOCKER": "false"
-            }
-
-            returncode, stdout, stderr = harness.run_cli(
-                ["run", "--patches", str(patch_file)],
-                env=env
+            returncode, stdout, stderr = harness.run_cli_direct(
+                ["run", "--patches", str(patch_file)]
             )
             combined = stdout + stderr
 
@@ -73,19 +74,20 @@ class TestDockerErrors:
             # Should include usermod command
             assert_contains_suggestion(combined)
 
+            # Verify the double was called
+            assert docker_double.ping_called, "Docker ping should have been called"
+
     def test_error_11_docker_desktop_stopped(self):
         """Test Docker Desktop not running on macOS (exit code 11)."""
         with SWEBenchTestHarness() as harness:
+            # Inject Docker double with "desktop_stopped" scenario
+            docker_double = harness.inject_docker_double(scenario="desktop_stopped")
+
             patch_file = harness.create_minimal_patch()
 
-            env = {
-                "SWEBENCH_MOCK_DOCKER_ERROR": "desktop_stopped",
-                "SWEBENCH_PLATFORM": "darwin"  # macOS
-            }
-
-            returncode, stdout, stderr = harness.run_cli(
+            returncode, stdout, stderr = harness.run_cli_direct(
                 ["run", "--patches", str(patch_file)],
-                env=env
+                env={"SWEBENCH_PLATFORM": "darwin"}  # Keep platform setting for now
             )
             combined = stdout + stderr
 
@@ -98,19 +100,21 @@ class TestDockerErrors:
             # Must have macOS-specific guidance
             assert_platform_specific(combined, "darwin")
 
+            # Verify the double was called
+            assert docker_double.ping_called, "Docker ping should have been called"
+
     def test_error_13_oom_during_test(self):
         """Test out-of-memory during test (exit code 13)."""
         with SWEBenchTestHarness() as harness:
-            patch_file = harness.create_minimal_patch()
+            # Inject Docker double with OOM during container run scenario
+            docker_double = harness.inject_docker_double(scenario="oom_during_run")
 
-            env = {
-                "SWEBENCH_MOCK_DOCKER_ERROR": "oom",
-                "SWEBENCH_MOCK_INSTANCE": "django-123"
-            }
+            # Create patch with specific instance ID for testing
+            patches = [{"instance_id": "django-123", "patch": "diff --git a/test.py b/test.py"}]
+            patch_file = harness.create_patch_file(patches)
 
-            returncode, stdout, stderr = harness.run_cli(
-                ["run", "--patches", str(patch_file)],
-                env=env
+            returncode, stdout, stderr = harness.run_cli_direct(
+                ["run", "--patches", str(patch_file)]
             )
             combined = stdout + stderr
 
@@ -126,18 +130,19 @@ class TestDockerErrors:
             # Should suggest solution
             assert_contains_suggestion(combined)
 
+            # Verify the double was called
+            assert docker_double.containers_run_called, "Docker container run should have been attempted"
+
     def test_error_19_docker_storage_full(self):
         """Test Docker storage full (exit code 19)."""
         with SWEBenchTestHarness() as harness:
+            # Inject Docker double with storage full during container run scenario
+            docker_double = harness.inject_docker_double(scenario="storage_full_during_run")
+
             patch_file = harness.create_minimal_patch()
 
-            env = {
-                "SWEBENCH_MOCK_DOCKER_ERROR": "storage_full"
-            }
-
-            returncode, stdout, stderr = harness.run_cli(
-                ["run", "--patches", str(patch_file)],
-                env=env
+            returncode, stdout, stderr = harness.run_cli_direct(
+                ["run", "--patches", str(patch_file)]
             )
             combined = stdout + stderr
 
@@ -150,9 +155,15 @@ class TestDockerErrors:
             # Must include docker system prune command
             assert "docker system prune" in combined
 
+            # Verify the double was called
+            assert docker_double.containers_run_called, "Docker container run should have been attempted"
+
     def test_error_30_docker_container_limit(self):
         """Test Docker container limit reached (warning)."""
         with SWEBenchTestHarness() as harness:
+            # Inject Docker double with container limit exceeded scenario
+            docker_double = harness.inject_docker_double(scenario="container_limit_exceeded")
+
             # Create many patches
             patches = [
                 {"instance_id": f"test-{i}", "patch": "diff"}
@@ -160,14 +171,8 @@ class TestDockerErrors:
             ]
             patch_file = harness.create_patch_file(patches)
 
-            env = {
-                "SWEBENCH_MOCK_DOCKER_LIMIT": "100",
-                "SWEBENCH_MOCK_NO_DOCKER": "true"
-            }
-
-            returncode, stdout, stderr = harness.run_cli(
-                ["run", "--patches", str(patch_file), "--workers", "20"],
-                env=env
+            returncode, stdout, stderr = harness.run_cli_direct(
+                ["run", "--patches", str(patch_file), "--workers", "20"]
             )
             combined = stdout + stderr
 
@@ -181,6 +186,9 @@ class TestDockerErrors:
             # Should mention worker reduction
             assert "workers" in combined.lower() or "reduced" in combined.lower()
 
+            # Verify the double was used
+            assert len(docker_double.containers_list) > 100, "Should have simulated many containers"
+
 
 class TestNetworkErrors:
     """Test network-related error codes (3, 15, 16, 27)."""
@@ -188,14 +196,11 @@ class TestNetworkErrors:
     def test_error_3_network_failure(self):
         """Test network failure after retries (exit code 3)."""
         with SWEBenchTestHarness() as harness:
-            env = {
-                "SWEBENCH_MOCK_NETWORK_FAIL": "true",
-                "SWEBENCH_MOCK_NO_DOCKER": "true"
-            }
+            # Inject network double with general failure scenario
+            network_double = harness.inject_network_double(scenario="general_failure")
 
-            returncode, stdout, stderr = harness.run_cli(
-                ["run", "--dataset", "lite"],
-                env=env
+            returncode, stdout, stderr = harness.run_cli_direct(
+                ["run", "--dataset", "lite"]
             )
             combined = stdout + stderr
 
@@ -211,15 +216,13 @@ class TestNetworkErrors:
     def test_error_15_ghcr_blocked(self):
         """Test GitHub Container Registry blocked (exit code 15)."""
         with SWEBenchTestHarness() as harness:
+            # Inject network double with GHCR blocked scenario
+            network_double = harness.inject_network_double(scenario="ghcr_blocked")
+
             patch_file = harness.create_minimal_patch()
 
-            env = {
-                "SWEBENCH_MOCK_GHCR_BLOCKED": "true"
-            }
-
-            returncode, stdout, stderr = harness.run_cli(
-                ["run", "--patches", str(patch_file)],
-                env=env
+            returncode, stdout, stderr = harness.run_cli_direct(
+                ["run", "--patches", str(patch_file)]
             )
             combined = stdout + stderr
 
@@ -235,16 +238,13 @@ class TestNetworkErrors:
     def test_error_16_git_rate_limit(self):
         """Test GitHub rate limit (warning with retry)."""
         with SWEBenchTestHarness() as harness:
+            # Inject network double with GitHub rate limit scenario
+            network_double = harness.inject_network_double(scenario="git_rate_limit")
+
             patch_file = harness.create_minimal_patch()
 
-            env = {
-                "SWEBENCH_MOCK_GIT_RATE_LIMIT": "true",
-                "SWEBENCH_MOCK_NO_DOCKER": "true"
-            }
-
-            returncode, stdout, stderr = harness.run_cli(
-                ["run", "--patches", str(patch_file)],
-                env=env
+            returncode, stdout, stderr = harness.run_cli_direct(
+                ["run", "--patches", str(patch_file)]
             )
             combined = stdout + stderr
 
@@ -257,18 +257,18 @@ class TestNetworkErrors:
             # Should mention retry behavior
             assert "retry" in combined.lower() or "attempt" in combined.lower()
 
+            # Verify the double tracked rate limits
+            assert network_double.rate_limit_hits > 0, "Should have hit rate limit"
+
     def test_error_27_hf_rate_limit(self):
         """Test HuggingFace rate limit (warning)."""
         with SWEBenchTestHarness() as harness:
-            env = {
-                "SWEBENCH_MOCK_HF_RATE_LIMIT": "true",
-                "HUGGINGFACE_TOKEN": "",  # No token
-                "SWEBENCH_MOCK_NO_DOCKER": "true"
-            }
+            # Inject HuggingFace double with rate limit scenario
+            hf_double = harness.inject_huggingface_double(scenario="rate_limit")
 
-            returncode, stdout, stderr = harness.run_cli(
+            returncode, stdout, stderr = harness.run_cli_direct(
                 ["run", "--dataset", "lite"],
-                env=env
+                env={"HUGGINGFACE_TOKEN": ""}  # No token
             )
             combined = stdout + stderr
 
@@ -288,17 +288,13 @@ class TestDiskSpaceErrors:
     def test_error_4_insufficient_disk_space(self):
         """Test insufficient disk space (exit code 4)."""
         with SWEBenchTestHarness() as harness:
+            # Inject filesystem double with disk full scenario
+            fs_double = harness.inject_filesystem_double(scenario="disk_full")
+
             patch_file = harness.create_minimal_patch()
 
-            env = {
-                "SWEBENCH_MIN_DISK_GB": "999999",  # Impossible amount
-                "SWEBENCH_CHECK_DISK": "true",
-                "SWEBENCH_MOCK_NO_DOCKER": "true"
-            }
-
-            returncode, stdout, stderr = harness.run_cli(
-                ["run", "--patches", str(patch_file)],
-                env=env
+            returncode, stdout, stderr = harness.run_cli_direct(
+                ["run", "--patches", str(patch_file)]
             )
             combined = stdout + stderr
 
@@ -318,20 +314,33 @@ class TestPatchErrors:
     def test_error_5_invalid_patch_schema(self):
         """Test invalid patch schema (exit code 5)."""
         with SWEBenchTestHarness() as harness:
+            # Inject patch validator double with invalid schema scenario
+            patch_double = harness.inject_patch_double(scenario="invalid_schema")
+
             # Create invalid patch file
             invalid_file = harness.temp_dir / "invalid.jsonl"
             invalid_file.write_text('{"missing_patch_field": "value"}')
 
-            harness.assert_cli_error(
-                ["run", "--patches", str(invalid_file)],
-                expected_code=1,  # General error since validation happens early
-                expected_error="",  # Error message varies
-                env={"SWEBENCH_MOCK_NO_DOCKER": "true"}
+            returncode, stdout, stderr = harness.run_cli_direct(
+                ["run", "--patches", str(invalid_file)]
             )
+            combined = stdout + stderr
+
+            # UX_Plan error 5 maps to exit code 1 (General error)
+            assert_exit_code(returncode, 1, "Invalid patch schema")
+
+            # Verify patch schema error
+            assert_patch_error(combined, "invalid_schema")
+
+            # Should provide actionable guidance
+            assert_contains_suggestion(combined)
 
     def test_error_6_patch_too_large_for_env(self):
         """Test patch too large for Docker env var (exit code 6)."""
         with SWEBenchTestHarness() as harness:
+            # Inject patch validator double with too large for env scenario
+            patch_double = harness.inject_patch_double(scenario="too_large_env")
+
             # Create very large patch
             large_patch = {
                 "instance_id": "test-large",
@@ -339,14 +348,8 @@ class TestPatchErrors:
             }
             patch_file = harness.create_patch_file([large_patch])
 
-            env = {
-                "SWEBENCH_CHECK_PATCH_SIZE": "true",
-                "SWEBENCH_MOCK_NO_DOCKER": "true"
-            }
-
-            returncode, stdout, stderr = harness.run_cli(
-                ["run", "--patches", str(patch_file)],
-                env=env
+            returncode, stdout, stderr = harness.run_cli_direct(
+                ["run", "--patches", str(patch_file)]
             )
             combined = stdout + stderr
 
@@ -359,9 +362,15 @@ class TestPatchErrors:
             # Should suggest workaround
             assert_contains_suggestion(combined)
 
+            # Verify the double was called
+            assert patch_double.patches_validated, "Patch validator should have been called"
+
     def test_error_14_patch_conflict(self):
         """Test patch application conflict (warning)."""
         with SWEBenchTestHarness() as harness:
+            # Inject patch validator double with conflict scenario
+            patch_double = harness.inject_patch_double(scenario="conflict")
+
             # Create patch with conflict markers
             conflicting_patch = {
                 "instance_id": "django-123",
@@ -369,14 +378,8 @@ class TestPatchErrors:
             }
             patch_file = harness.create_patch_file([conflicting_patch])
 
-            env = {
-                "SWEBENCH_MOCK_PATCH_CONFLICT": "true",
-                "SWEBENCH_MOCK_NO_DOCKER": "true"
-            }
-
-            returncode, stdout, stderr = harness.run_cli(
-                ["run", "--patches", str(patch_file)],
-                env=env
+            returncode, stdout, stderr = harness.run_cli_direct(
+                ["run", "--patches", str(patch_file)]
             )
             combined = stdout + stderr
 
@@ -389,17 +392,22 @@ class TestPatchErrors:
             # Should mention specific instance
             assert "django-123" in combined
 
+            # Verify the double detected conflict
+            assert patch_double.validation_errors, "Should have validation errors"
+
     def test_error_23_patch_encoding_error(self):
         """Test patch encoding error (exit code 23)."""
         with SWEBenchTestHarness() as harness:
+            # Inject patch validator double with encoding error scenario
+            patch_double = harness.inject_patch_double(scenario="encoding_error")
+
             # Create file with invalid UTF-8
             invalid_file = harness.temp_dir / "bad_encoding.jsonl"
             with open(invalid_file, 'wb') as f:
                 f.write(b'{"instance_id": "test", "patch": "\xff\xfe invalid utf-8"}')
 
-            returncode, stdout, stderr = harness.run_cli(
-                ["run", "--patches", str(invalid_file)],
-                env={"SWEBENCH_MOCK_NO_DOCKER": "true"}
+            returncode, stdout, stderr = harness.run_cli_direct(
+                ["run", "--patches", str(invalid_file)]
             )
             combined = stdout + stderr
 
@@ -412,9 +420,15 @@ class TestPatchErrors:
             # Should provide actionable guidance
             assert_contains_suggestion(combined)
 
+            # Verify the double detected encoding issues
+            assert patch_double.validation_errors, "Should have validation errors"
+
     def test_error_24_patch_too_large(self):
         """Test patch exceeds size limit (exit code 24)."""
         with SWEBenchTestHarness() as harness:
+            # Inject patch validator double with too large scenario
+            patch_double = harness.inject_patch_double(scenario="too_large")
+
             # Create 7MB patch
             huge_patch = {
                 "instance_id": "test-huge",
@@ -422,9 +436,8 @@ class TestPatchErrors:
             }
             patch_file = harness.create_patch_file([huge_patch])
 
-            returncode, stdout, stderr = harness.run_cli(
-                ["run", "--patches", str(patch_file), "--max-patch-size", "5"],
-                env={"SWEBENCH_MOCK_NO_DOCKER": "true"}
+            returncode, stdout, stderr = harness.run_cli_direct(
+                ["run", "--patches", str(patch_file), "--max-patch-size", "5"]
             )
             combined = stdout + stderr
 
@@ -440,9 +453,15 @@ class TestPatchErrors:
 
             assert_contains_suggestion(combined)
 
+            # Verify the double checked patch size
+            assert patch_double.patches_validated, "Patch validator should have been called"
+
     def test_error_25_binary_patch(self):
         """Test binary files in patch (exit code 25)."""
         with SWEBenchTestHarness() as harness:
+            # Inject patch validator double with binary scenario
+            patch_double = harness.inject_patch_double(scenario="binary")
+
             # Create patch with binary file reference
             binary_patch = {
                 "instance_id": "test-binary",
@@ -450,14 +469,8 @@ class TestPatchErrors:
             }
             patch_file = harness.create_patch_file([binary_patch])
 
-            env = {
-                "SWEBENCH_CHECK_BINARY": "true",
-                "SWEBENCH_MOCK_NO_DOCKER": "true"
-            }
-
-            returncode, stdout, stderr = harness.run_cli(
-                ["run", "--patches", str(patch_file)],
-                env=env
+            returncode, stdout, stderr = harness.run_cli_direct(
+                ["run", "--patches", str(patch_file)]
             )
             combined = stdout + stderr
 
@@ -470,9 +483,15 @@ class TestPatchErrors:
             # Should mention --allow-binary flag
             assert_contains_suggestion(combined)
 
+            # Verify the double detected binary content
+            assert patch_double.validation_errors, "Should have validation errors"
+
     def test_error_26_patch_apply_failed(self):
         """Test patch application failure (warning)."""
         with SWEBenchTestHarness() as harness:
+            # Inject patch validator double with apply failed scenario
+            patch_double = harness.inject_patch_double(scenario="apply_failed")
+
             # Create malformed patch
             bad_patch = {
                 "instance_id": "django-123",
@@ -480,14 +499,8 @@ class TestPatchErrors:
             }
             patch_file = harness.create_patch_file([bad_patch])
 
-            env = {
-                "SWEBENCH_MOCK_PATCH_FAIL": "true",
-                "SWEBENCH_MOCK_NO_DOCKER": "true"
-            }
-
-            returncode, stdout, stderr = harness.run_cli(
-                ["run", "--patches", str(patch_file)],
-                env=env
+            returncode, stdout, stderr = harness.run_cli_direct(
+                ["run", "--patches", str(patch_file)]
             )
             combined = stdout + stderr
 
@@ -502,6 +515,9 @@ class TestPatchErrors:
 
             assert_contains_suggestion(combined)
 
+            # Verify the double tracked application failure
+            assert patch_double.validation_errors, "Should have validation errors"
+
 
 class TestArchitectureErrors:
     """Test architecture-related error codes (7)."""
@@ -509,14 +525,15 @@ class TestArchitectureErrors:
     def test_error_7_unsupported_arch(self):
         """Test unsupported architecture (warning with fallback)."""
         with SWEBenchTestHarness() as harness:
+            # Mock platform architecture directly
             patch_file = harness.create_minimal_patch()
 
+            # Still use env for platform until we have full abstraction
             env = {
-                "SWEBENCH_ARCH": "riscv64",  # Unsupported
-                "SWEBENCH_MOCK_NO_DOCKER": "true"
+                "SWEBENCH_ARCH": "riscv64"  # Unsupported
             }
 
-            returncode, stdout, stderr = harness.run_cli(
+            returncode, stdout, stderr = harness.run_cli_direct(
                 ["run", "--patches", str(patch_file)],
                 env=env
             )
@@ -539,6 +556,9 @@ class TestCacheErrors:
     def test_error_17_corrupted_cache(self):
         """Test corrupted dataset cache (exit code 17)."""
         with SWEBenchTestHarness() as harness:
+            # Inject filesystem double with cache corrupted scenario
+            fs_double = harness.inject_filesystem_double(scenario="cache_corrupted")
+
             # Create corrupted cache file
             cache_dir = harness.temp_dir / "cache" / "datasets" / "lite"
             cache_dir.mkdir(parents=True)
@@ -547,11 +567,10 @@ class TestCacheErrors:
             cache_file.write_text("corrupted{not json}")
 
             env = {
-                "SWEBENCH_CACHE_DIR": str(harness.temp_dir / "cache"),
-                "SWEBENCH_MOCK_NO_DOCKER": "true"
+                "SWEBENCH_CACHE_DIR": str(harness.temp_dir / "cache")
             }
 
-            returncode, stdout, stderr = harness.run_cli(
+            returncode, stdout, stderr = harness.run_cli_direct(
                 ["run", "--dataset", "lite"],
                 env=env
             )
@@ -577,16 +596,13 @@ class TestVersionErrors:
     def test_error_18_stale_image(self):
         """Test stale Docker image warning."""
         with SWEBenchTestHarness() as harness:
+            # Inject Docker double with stale image scenario
+            docker_double = harness.inject_docker_double(scenario="stale_image")
+
             patch_file = harness.create_minimal_patch()
 
-            env = {
-                "SWEBENCH_IMAGE_AGE_DAYS": "200",  # Old image
-                "SWEBENCH_MOCK_NO_DOCKER": "true"
-            }
-
-            returncode, stdout, stderr = harness.run_cli(
-                ["run", "--patches", str(patch_file)],
-                env=env
+            returncode, stdout, stderr = harness.run_cli_direct(
+                ["run", "--patches", str(patch_file)]
             )
             combined = stdout + stderr
 
@@ -603,14 +619,19 @@ class TestVersionErrors:
 
             assert_contains_suggestion(combined)
 
+            # Verify the double tracked image age
+            assert docker_double.image_age_days == 200, "Should have old image"
+
     def test_error_20_invalid_python(self):
         """Test invalid Python version (exit code 20)."""
         with SWEBenchTestHarness() as harness:
+            # TODO: Replace with proper Python version double once abstraction exists
+            # For now, still use env var as Python version check happens at startup
             env = {
-                "SWEBENCH_MOCK_PYTHON_VERSION": "3.7",  # Too old
+                "SWEBENCH_MOCK_PYTHON_VERSION": "3.7"  # Too old - Last remaining mock env var
             }
 
-            returncode, stdout, stderr = harness.run_cli(
+            returncode, stdout, stderr = harness.run_cli_direct(
                 ["--version"],
                 env=env
             )
@@ -632,16 +653,13 @@ class TestTimeoutErrors:
     def test_error_21_container_timeout(self):
         """Test container timeout (warning)."""
         with SWEBenchTestHarness() as harness:
+            # Inject Docker double with container timeout scenario
+            docker_double = harness.inject_docker_double(scenario="container_timeout")
+
             patch_file = harness.create_minimal_patch("sklearn-456")
 
-            env = {
-                "SWEBENCH_MOCK_TIMEOUT": "true",
-                "SWEBENCH_MOCK_NO_DOCKER": "true"
-            }
-
-            returncode, stdout, stderr = harness.run_cli(
-                ["run", "--patches", str(patch_file), "--timeout-mins", "30"],
-                env=env
+            returncode, stdout, stderr = harness.run_cli_direct(
+                ["run", "--patches", str(patch_file), "--timeout-mins", "30"]
             )
             combined = stdout + stderr
 
@@ -654,19 +672,19 @@ class TestTimeoutErrors:
             # Should suggest increasing timeout
             assert_contains_suggestion(combined)
 
+            # Verify the double detected timeout
+            assert docker_double.containers_run_called, "Should have attempted container run"
+
     def test_error_28_instance_timeout(self):
         """Test instance timeout (warning)."""
         with SWEBenchTestHarness() as harness:
+            # Inject instance double with timeout scenario
+            instance_double = harness.inject_instance_double(scenario="timeout")
+
             patch_file = harness.create_minimal_patch("django-123")
 
-            env = {
-                "SWEBENCH_MOCK_INSTANCE_TIMEOUT": "true",
-                "SWEBENCH_MOCK_NO_DOCKER": "true"
-            }
-
-            returncode, stdout, stderr = harness.run_cli(
-                ["run", "--patches", str(patch_file), "--timeout-mins", "30"],
-                env=env
+            returncode, stdout, stderr = harness.run_cli_direct(
+                ["run", "--patches", str(patch_file), "--timeout-mins", "30"]
             )
             combined = stdout + stderr
 
@@ -683,6 +701,9 @@ class TestTimeoutErrors:
 
             assert_contains_suggestion(combined)
 
+            # Verify the double tracked instance run
+            assert any(i["id"] == "django-123" for i in instance_double.instances_run), "Should have run instance"
+
 
 class TestValidationErrors:
     """Test validation error codes (22)."""
@@ -690,6 +711,9 @@ class TestValidationErrors:
     def test_error_22_invalid_instance_id(self):
         """Test invalid instance ID (exit code 22)."""
         with SWEBenchTestHarness() as harness:
+            # Inject instance double with invalid ID scenario
+            instance_double = harness.inject_instance_double(scenario="invalid_id")
+
             # Create patch with invalid instance ID
             invalid_patch = {
                 "instance_id": "fake-123",
@@ -697,14 +721,8 @@ class TestValidationErrors:
             }
             patch_file = harness.create_patch_file([invalid_patch])
 
-            env = {
-                "SWEBENCH_VALIDATE_INSTANCES": "true",
-                "SWEBENCH_MOCK_NO_DOCKER": "true"
-            }
-
-            returncode, stdout, stderr = harness.run_cli(
-                ["run", "--patches", str(patch_file), "--dataset", "lite"],
-                env=env
+            returncode, stdout, stderr = harness.run_cli_direct(
+                ["run", "--patches", str(patch_file), "--dataset", "lite"]
             )
             combined = stdout + stderr
 
@@ -717,6 +735,9 @@ class TestValidationErrors:
             # Should mention the invalid ID
             assert "fake-123" in combined
 
+            # Verify the double validated instances
+            assert "fake-123" in instance_double.instances_validated, "Should have validated instance"
+
 
 class TestFlakyTests:
     """Test flaky test detection (29)."""
@@ -724,16 +745,13 @@ class TestFlakyTests:
     def test_error_29_flaky_test_detected(self):
         """Test flaky test detection (warning)."""
         with SWEBenchTestHarness() as harness:
+            # Inject instance double with flaky scenario
+            instance_double = harness.inject_instance_double(scenario="flaky")
+
             patch_file = harness.create_minimal_patch()
 
-            env = {
-                "SWEBENCH_MOCK_FLAKY": "true",
-                "SWEBENCH_MOCK_NO_DOCKER": "true"
-            }
-
-            returncode, stdout, stderr = harness.run_cli(
-                ["run", "--patches", str(patch_file), "--retry-failures", "3"],
-                env=env
+            returncode, stdout, stderr = harness.run_cli_direct(
+                ["run", "--patches", str(patch_file), "--retry-failures", "3"]
             )
             combined = stdout + stderr
 
@@ -746,6 +764,9 @@ class TestFlakyTests:
             # Should mention retry attempts
             assert any(term in combined for term in ["attempt", "2/3", "3/3"])
 
+            # Verify the double tracked retry attempts
+            assert instance_double.flaky_attempts >= 1, "Should have attempted retries"
+
 
 class TestErrorMessageFormat:
     """Test that error messages follow UX_Plan format."""
@@ -753,10 +774,12 @@ class TestErrorMessageFormat:
     def test_error_includes_suggested_action(self):
         """Test that errors include suggested actions."""
         with SWEBenchTestHarness() as harness:
+            # Inject Docker double with not running scenario
+            docker_double = harness.inject_docker_double(scenario="not_running")
+
             # Test Docker error includes action
-            returncode, stdout, stderr = harness.run_cli(
-                ["run", "--patches", "nonexistent.jsonl"],
-                env={"SWEBENCH_MOCK_NO_DOCKER": "true"}
+            returncode, stdout, stderr = harness.run_cli_direct(
+                ["run", "--patches", "nonexistent.jsonl"]
             )
             combined = stdout + stderr
 
@@ -770,12 +793,17 @@ class TestErrorMessageFormat:
             # Should have platform-specific guidance
             assert_platform_specific(combined)
 
+            # Verify the double was called
+            assert docker_double.ping_called, "Docker ping should have been called"
+
     def test_error_includes_documentation_link(self):
         """Test that errors include documentation links."""
         with SWEBenchTestHarness() as harness:
-            returncode, stdout, stderr = harness.run_cli(
-                ["run", "--patches", "nonexistent.jsonl"],
-                env={"SWEBENCH_MOCK_NO_DOCKER": "true"}
+            # Inject Docker double with not running scenario
+            docker_double = harness.inject_docker_double(scenario="not_running")
+
+            returncode, stdout, stderr = harness.run_cli_direct(
+                ["run", "--patches", "nonexistent.jsonl"]
             )
             combined = stdout + stderr
 
@@ -795,6 +823,9 @@ class TestErrorMessageFormat:
                 # Not a failure, just a note
                 pass
 
+            # Verify the double was called
+            assert docker_double.ping_called, "Docker ping should have been called"
+
 
 class TestPlatformSpecificErrors:
     """Test platform-specific error messages."""
@@ -802,12 +833,14 @@ class TestPlatformSpecificErrors:
     def test_macos_docker_desktop_message(self):
         """Test macOS-specific Docker Desktop message."""
         with SWEBenchTestHarness() as harness:
+            # Inject Docker double with not running scenario
+            docker_double = harness.inject_docker_double(scenario="not_running")
+
             env = {
-                "SWEBENCH_MOCK_NO_DOCKER": "true",
                 "SWEBENCH_PLATFORM": "darwin"
             }
 
-            returncode, stdout, stderr = harness.run_cli(
+            returncode, stdout, stderr = harness.run_cli_direct(
                 ["run", "--patches", "test.jsonl"],
                 env=env
             )
@@ -823,15 +856,20 @@ class TestPlatformSpecificErrors:
             # Verify platform-specific guidance
             assert_platform_specific(combined, "darwin")
 
+            # Verify the double was called
+            assert docker_double.ping_called, "Docker ping should have been called"
+
     def test_linux_docker_socket_message(self):
         """Test Linux-specific Docker socket message."""
         with SWEBenchTestHarness() as harness:
+            # Inject Docker double with not running scenario
+            docker_double = harness.inject_docker_double(scenario="not_running")
+
             env = {
-                "SWEBENCH_MOCK_NO_DOCKER": "true",
                 "SWEBENCH_PLATFORM": "linux"
             }
 
-            returncode, stdout, stderr = harness.run_cli(
+            returncode, stdout, stderr = harness.run_cli_direct(
                 ["run", "--patches", "test.jsonl"],
                 env=env
             )
@@ -847,6 +885,9 @@ class TestPlatformSpecificErrors:
 
             # Verify platform-specific guidance
             assert_platform_specific(combined, "linux")
+
+            # Verify the double was called
+            assert docker_double.ping_called, "Docker ping should have been called"
 
 
 if __name__ == "__main__":

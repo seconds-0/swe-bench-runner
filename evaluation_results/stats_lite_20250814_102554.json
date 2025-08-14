@@ -1,0 +1,46 @@
+{
+  "test_set_type": "lite",
+  "test_set_size": 5,
+  "selected_count": 5,
+  "evaluated_count": 5,
+  "missing_count": 0,
+  "failed_count": 5,
+  "passed_count": 0,
+  "swe_bench_score": 0.0,
+  "start_time": "2025-08-14T10:25:54.681892",
+  "end_time": "2025-08-14T10:44:19.743896",
+  "duration": 1105.062004,
+  "duration_str": "18m 25s",
+  "results": {
+    "sympy__sympy-12454": {
+      "passed": false,
+      "details": {
+        "error": "No evaluation results directory found. This usually means the harness failed early (e.g., image pull denied or environment error). Try: docker login ghcr.io or run Preflight to configure registry access."
+      }
+    },
+    "scikit-learn__scikit-learn-10949": {
+      "passed": false,
+      "details": {
+        "error": "No evaluation results directory found. This usually means the harness failed early (e.g., image pull denied or environment error). Try: docker login ghcr.io or run Preflight to configure registry access."
+      }
+    },
+    "sympy__sympy-13437": {
+      "passed": false,
+      "details": {
+        "error": "No evaluation results directory found. This usually means the harness failed early (e.g., image pull denied or environment error). Try: docker login ghcr.io or run Preflight to configure registry access."
+      }
+    },
+    "sphinx-doc__sphinx-10325": {
+      "passed": false,
+      "details": {
+        "error": "No evaluation results directory found. This usually means the harness failed early (e.g., image pull denied or environment error). Try: docker login ghcr.io or run Preflight to configure registry access."
+      }
+    },
+    "scikit-learn__scikit-learn-25747": {
+      "passed": false,
+      "details": {
+        "error": "No evaluation results directory found. This usually means the harness failed early (e.g., image pull denied or environment error). Try: docker login ghcr.io or run Preflight to configure registry access."
+      }
+    }
+  }
+}

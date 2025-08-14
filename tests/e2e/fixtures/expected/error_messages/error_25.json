@@ -1,0 +1,10 @@
+{
+  "code": 25,
+  "exit_code": 1,
+  "trigger": "Binary patch",
+  "expected_message": "`\u26d4 Binary files not allowed: assets/logo.png. Use --allow-binary`",
+  "expected_action": "Remove binary changes",
+  "key_terms": [
+    "\u26d4 Binary files not allowed: assets/logo.png. Use --allow-binary"
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "code": 6,
+  "exit_code": 1,
+  "trigger": "Patch too large for env var",
+  "expected_message": "`\u26d4 Patch 1.2 MB exceeds Docker env limit; use --patches-dir`",
+  "expected_action": "Move to directory mode",
+  "key_terms": [
+    "\u26d4 Patch 1.2 MB exceeds Docker env limit; use --patches-dir",
+    "Docker"
+  ]
+}

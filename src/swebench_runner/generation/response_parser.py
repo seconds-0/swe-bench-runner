@@ -107,6 +107,43 @@ class ResponseParser:
             PatchFormat.UNIFIED_DIFF,
         ]
 
+    def parse(self, response: str) -> ParseResult:
+        """Parse a model response to extract a patch.
+
+        This is an alias for extract_patch() for compatibility.
+
+        Args:
+            response: The model response to parse
+
+        Returns:
+            ParseResult with extracted patch and metadata
+        """
+        result = self.extract_patch(response)
+        # Enrich metadata with file paths and change counts if a patch was found
+        if result.patch:
+            metadata = dict(result.metadata)
+            files = []
+            additions = 0
+            deletions = 0
+            for line in result.patch.split('\n'):
+                if line.startswith('--- a/'):
+                    path = line[6:].strip()
+                    # Remove a/ prefix
+                    if path.startswith('a/'):
+                        path = path[2:]
+                    files.append(path)
+                elif line.startswith('+') and not line.startswith('+++'):
+                    additions += 1
+                elif line.startswith('-') and not line.startswith('---'):
+                    deletions += 1
+            if files:
+                metadata.setdefault('files', list(dict.fromkeys(files)))
+                metadata.setdefault('file_paths', list(dict.fromkeys(files)))
+            metadata.setdefault('additions', additions)
+            metadata.setdefault('deletions', deletions)
+            result.metadata = metadata
+        return result
+
     def extract_patch(
         self, response: str, instance: dict[str, Any] | None = None
     ) -> ParseResult:
@@ -176,6 +213,8 @@ class ResponseParser:
 
                     # Validate the patch
                     validation = self.validate_patch(patch)
+                    pre_fix_issues = list(validation.issues)
+                    pre_fix_warnings = list(validation.warnings)
 
                     # Auto-fix if enabled and needed
                     # (fix both invalid patches and patches with warnings)
@@ -191,12 +230,38 @@ class ResponseParser:
 
                     # Calculate final confidence
                     final_confidence = self._calculate_confidence(patch, format_type)
+                    # If truncation likely, lower confidence slightly
+                    if any(
+                        isinstance(m, str) and 'truncat' in m.lower()
+                        for m in (pre_fix_issues + pre_fix_warnings + validation.issues + validation.warnings)
+                    ):
+                        final_confidence = min(final_confidence, 0.95)
 
+                    # If patch appears truncated or has structural warnings,
+                    # surface them as issues in the ParseResult
+                    if not validation.is_valid or validation.warnings:
+                        for warn in validation.warnings:
+                            # Include line number if available
+                            msg = warn.message
+                            if getattr(warn, 'line_number', None):
+                                msg = f"Line {warn.line_number}: {msg}"
+                        # We'll attach in object below; keep per-result issues minimal
+
+                    # Build parse result
+                    combined_issues = pre_fix_issues + pre_fix_warnings + validation.issues + validation.warnings
+                    # Heuristic truncation detection on the extracted patch text
+                    if patch and not patch.endswith('\n'):
+                        last = patch.split('\n')[-1]
+                        if last and last[0] in ['+', '-', ' ']:
+                            combined_issues.append("Patch may be truncated (no trailing newline)")
+                            final_confidence = min(final_confidence, 0.7)
+                    # Deduplicate while preserving order
+                    combined_issues = list(dict.fromkeys(combined_issues))
                     results.append(ParseResult(
                         patch=patch,
                         format_detected=format_type,
                         confidence=final_confidence,
-                        issues=validation.issues,
+                        issues=combined_issues,
                         suggestions=(
                             ["Consider using unified diff format for "
                              "better compatibility"]
@@ -721,6 +786,15 @@ class ResponseParser:
         if not has_changes:
             issues.append("No actual changes found (lines starting with + or -)")
 
+        # Heuristic: patch may be truncated if it ends with a change/context line
+        # and there is no explicit newline marker at the end
+        if lines:
+            last_line = lines[-1].strip()
+            if last_line and last_line[0] in ['+', '-', ' '] and not any(
+                line.startswith('\\ No newline') for line in lines[-3:]
+            ):
+                warnings.append("Patch may be truncated (ends with change/context line)")
+
         return ValidationResult(
             is_valid=len(issues) == 0,
             issues=issues,
@@ -758,8 +832,8 @@ class ResponseParser:
 
             normalized_lines.append(line)
 
-        # Ensure single newline at end
-        result = '\n'.join(normalized_lines)
+        # Ensure single newline at end, but avoid introducing trailing space on header lines
+        result = '\n'.join(line.rstrip(' ') for line in normalized_lines)
         if not result.endswith('\n'):
             result += '\n'
 

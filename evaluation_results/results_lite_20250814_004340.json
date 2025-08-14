@@ -1,0 +1,27 @@
+[
+  {
+    "instance_id": "astropy__astropy-14995",
+    "passed": false,
+    "error": "No evaluation results directory found"
+  },
+  {
+    "instance_id": "sympy__sympy-14774",
+    "passed": false,
+    "error": "No evaluation results directory found"
+  },
+  {
+    "instance_id": "sympy__sympy-24213",
+    "passed": false,
+    "error": "No evaluation results directory found"
+  },
+  {
+    "instance_id": "sympy__sympy-24102",
+    "passed": false,
+    "error": "No evaluation results directory found"
+  },
+  {
+    "instance_id": "django__django-13964",
+    "passed": false,
+    "error": "No evaluation results directory found"
+  }
+]

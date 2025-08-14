@@ -35,7 +35,7 @@ This patch changes line 101 in `django/http/response.py` to fix a Unicode issue.
 
 ## Prerequisites
 
-- **Python 3.10+**
+- **Python 3.11+**
 - **Docker Desktop** (macOS) or Docker Engine (Linux)
 - **16GB+ RAM** allocated to Docker
 - **120GB+ free disk space** for Docker images

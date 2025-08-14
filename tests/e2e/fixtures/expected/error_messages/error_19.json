@@ -1,0 +1,11 @@
+{
+  "code": 19,
+  "exit_code": 4,
+  "trigger": "No space during run",
+  "expected_message": "`\u26d4 Docker storage full. Clean with: docker system prune`",
+  "expected_action": "Free Docker space",
+  "key_terms": [
+    "\u26d4 Docker storage full. Clean with: docker system prune",
+    "Docker"
+  ]
+}

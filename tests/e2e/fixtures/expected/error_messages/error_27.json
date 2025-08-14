@@ -1,0 +1,10 @@
+{
+  "code": 27,
+  "exit_code": 3,
+  "trigger": "HF rate limit",
+  "expected_message": "`\u26a0\ufe0f HuggingFace rate limit (10/hour). Set --hf-token or wait 45 min`",
+  "expected_action": "Authenticate with token",
+  "key_terms": [
+    "\u26a0\ufe0f HuggingFace rate limit (10/hour). Set --hf-token or wait 45 min"
+  ]
+}

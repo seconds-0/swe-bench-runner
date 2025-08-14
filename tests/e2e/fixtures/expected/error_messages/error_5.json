@@ -1,0 +1,10 @@
+{
+  "code": 5,
+  "exit_code": 1,
+  "trigger": "Invalid patch schema",
+  "expected_message": "`\u26d4 Line 12: missing 'patch' field`",
+  "expected_action": "Fix JSONL format",
+  "key_terms": [
+    "\u26d4 Line 12: missing 'patch' field"
+  ]
+}

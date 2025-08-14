@@ -1,0 +1,46 @@
+{
+  "test_set_type": "lite",
+  "test_set_size": 5,
+  "selected_count": 5,
+  "evaluated_count": 5,
+  "missing_count": 0,
+  "failed_count": 5,
+  "passed_count": 0,
+  "swe_bench_score": 0.0,
+  "start_time": "2025-08-12T09:10:27.539380",
+  "end_time": "2025-08-12T09:11:19.878491",
+  "duration": 52.339111,
+  "duration_str": "52s",
+  "results": {
+    "sympy__sympy-20639": {
+      "passed": false,
+      "details": {
+        "error": "No evaluation results directory found"
+      }
+    },
+    "django__django-11422": {
+      "passed": false,
+      "details": {
+        "error": "No evaluation results directory found"
+      }
+    },
+    "sympy__sympy-18087": {
+      "passed": false,
+      "details": {
+        "error": "No evaluation results directory found"
+      }
+    },
+    "sympy__sympy-14396": {
+      "passed": false,
+      "details": {
+        "error": "No evaluation results directory found"
+      }
+    },
+    "sympy__sympy-20442": {
+      "passed": false,
+      "details": {
+        "error": "No evaluation results directory found"
+      }
+    }
+  }
+}

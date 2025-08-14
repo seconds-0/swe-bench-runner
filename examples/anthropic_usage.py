@@ -5,7 +5,7 @@ This example demonstrates how to use the new Anthropic provider
 with both the unified interface and legacy compatibility.
 
 Requirements:
-- Python 3.10+
+- Python 3.11+
 - ANTHROPIC_API_KEY environment variable set
 """
 

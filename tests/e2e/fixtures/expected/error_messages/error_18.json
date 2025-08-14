@@ -1,0 +1,10 @@
+{
+  "code": 18,
+  "exit_code": 1,
+  "trigger": "Stale image",
+  "expected_message": "`\u26a0\ufe0f Runner image 6 months old. Run: swebench upgrade`",
+  "expected_action": "Update image",
+  "key_terms": [
+    "\u26a0\ufe0f Runner image 6 months old. Run: swebench upgrade"
+  ]
+}

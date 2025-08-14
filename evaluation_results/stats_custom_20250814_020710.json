@@ -1,0 +1,28 @@
+{
+  "test_set_type": "custom",
+  "test_set_size": 2,
+  "selected_count": 2,
+  "evaluated_count": 2,
+  "missing_count": 0,
+  "failed_count": 2,
+  "passed_count": 0,
+  "swe_bench_score": 0.0,
+  "start_time": "2025-08-14T02:07:10.835483",
+  "end_time": "2025-08-14T02:07:15.192735",
+  "duration": 4.357252,
+  "duration_str": "4s",
+  "results": {
+    "test-0": {
+      "passed": false,
+      "details": {
+        "error": "No evaluation results directory found. This usually means the harness failed early (e.g., image pull denied or environment error). Try: docker login ghcr.io or run Preflight to configure registry access."
+      }
+    },
+    "test-1": {
+      "passed": false,
+      "details": {
+        "error": "No evaluation results directory found. This usually means the harness failed early (e.g., image pull denied or environment error). Try: docker login ghcr.io or run Preflight to configure registry access."
+      }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "code": 21,
+  "exit_code": 1,
+  "trigger": "Container timeout",
+  "expected_message": "`\u26a0\ufe0f Instance sklearn-456 timed out after 30 min`",
+  "expected_action": "Increase timeout or skip",
+  "key_terms": [
+    "\u26a0\ufe0f Instance sklearn-456 timed out after 30 min"
+  ]
+}

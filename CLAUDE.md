@@ -204,7 +204,7 @@ When creating work plans, ensure:
 - **Iterate quickly**: Ship working code, then improve it
 
 ### 2. Technology Constraints
-- **Python 3.10+**: Match SWE-bench ecosystem requirements
+- **Python 3.11+**: Match SWE-bench ecosystem requirements
 - **Click for CLI**: Battle-tested, great UX primitives
 - **Docker SDK**: Official Python client
 - **Rich for UI**: Beautiful terminal output

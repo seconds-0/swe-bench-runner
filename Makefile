@@ -1,7 +1,7 @@
 # Makefile for SWE-bench Runner
 # Provides simple commands for common development tasks
 
-.PHONY: help install hooks check test pre-pr clean
+.PHONY: help install hooks check test pre-pr clean reset-cli
 
 help:  ## Show this help message
 	@echo "SWE-bench Runner Development Commands"
@@ -37,6 +37,10 @@ ci-full: pre-pr  ## Alias for pre-pr (run everything CI would run)
 clean:  ## Clean build artifacts and caches
 	rm -rf dist/ build/ *.egg-info/
 	rm -rf .coverage coverage.xml htmlcov/
+	# Remove stray coverage data files sometimes created by coverage.py / pytest-cov
+	# Includes odd filenames like '@.coverage.*' on macOS or temporary suffixed files
+	find . -type f -name ".coverage*" -delete || true
+	find . -type f -name "@.coverage*" -delete || true
 	rm -rf .pytest_cache/ .mypy_cache/ .ruff_cache/
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete
@@ -48,8 +52,28 @@ lint:  ## Run linting with auto-fix
 mypy:  ## Run type checking
 	mypy src/swebench_runner
 
+# End-to-end testing
+test-e2e:  ## Run end-to-end tests (actual CLI execution)
+	pytest tests/e2e/ -v -s
+
+test-e2e-quick:  ## Run quick E2E tests (no Docker required)
+	pytest tests/e2e/test_cli_happy_path.py -v -s -k "not docker"
+
+test-all: test test-e2e  ## Run all tests including E2E
+
 quick:  ## Quick checks before commit (lint + mypy + critical tests)
 	@echo "Running quick checks..."
 	@make lint
 	@make mypy
 	@pytest tests/test_cli_critical.py -xvs
+
+reset-cli:  ## Reinstall CLI in editable mode and verify paths
+	@[ -d ".venv" ] && . .venv/bin/activate || true; \
+	python -V; \
+	pip install -e ".[dev]"; \
+	hash -r 2>/dev/null || true; \
+	echo "swebench path: $$(which swebench || echo 'not found')"; \
+	echo "python path:   $$(which python)"; \
+	python -c "import swebench_runner, sys; print('swebench_runner module:', swebench_runner.__file__); print('sys.executable:', sys.executable)"; \
+	printf "swebench --version:\n"; swebench --version || true; \
+	printf "Direct module (--version):\n"; PYTHONPATH=src python -m swebench_runner.cli --version || true

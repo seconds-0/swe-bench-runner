@@ -64,20 +64,22 @@ class TestCLIDatasets:
         assert '--rerun-failed PATH' in result.output
 
     def test_run_command_dataset_conflicts(self) -> None:
-        """Test that run command rejects conflicting source options."""
+        """Test that run command validates patches against dataset when both provided."""
         runner = CliRunner()
 
-        # Test dataset + patches conflict
+        # Test dataset + patches validation - instance not in dataset
         with runner.isolated_filesystem():
-            # Create a dummy patches file
+            # Create a patches file with invalid instance ID
             with open('patches.jsonl', 'w') as f:
                 f.write('{"instance_id": "test", "patch": "test"}\n')
 
             result = runner.invoke(
-                cli, ['run', '--patches', 'patches.jsonl', '-d', 'lite']
+                cli, ['run', '--patches', 'patches.jsonl', '-d', 'lite', '--no-input']
             )
+            # Should fail because instance_id "test" is not in the lite dataset
             assert result.exit_code != 0
-            assert 'Cannot provide multiple sources' in result.output
+            # The actual error is that the instance is not found in the dataset
+            assert 'Missing IDs' in result.output or 'not found in dataset' in result.output
 
     @patch('datasets.load_dataset')
     def test_run_command_dataset_no_matches(self, mock_load_dataset: Mock) -> None:

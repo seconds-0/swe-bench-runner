@@ -1,0 +1,10 @@
+{
+  "code": 16,
+  "exit_code": 3,
+  "trigger": "Git rate limit",
+  "expected_message": "`\u26a0\ufe0f GitHub rate limit hit. Retrying in 60s... (attempt 2/5)`",
+  "expected_action": "Wait or use token",
+  "key_terms": [
+    "\u26a0\ufe0f GitHub rate limit hit. Retrying in 60s... (attempt 2/5)"
+  ]
+}

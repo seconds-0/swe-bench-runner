@@ -1,0 +1,10 @@
+{
+  "code": 14,
+  "exit_code": 1,
+  "trigger": "Patch conflict",
+  "expected_message": "`\u26a0\ufe0f Patch failed to apply cleanly. See logs/django-123/patch.log`",
+  "expected_action": "Manual patch fix needed",
+  "key_terms": [
+    "\u26a0\ufe0f Patch failed to apply cleanly. See logs/django-123/patch.log"
+  ]
+}

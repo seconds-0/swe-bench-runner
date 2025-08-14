@@ -1,0 +1,10 @@
+{
+  "code": 23,
+  "exit_code": 1,
+  "trigger": "Patch encoding error",
+  "expected_message": "`\u26d4 Patch contains invalid UTF-8 at line 145`",
+  "expected_action": "Fix encoding to UTF-8",
+  "key_terms": [
+    "\u26d4 Patch contains invalid UTF-8 at line 145"
+  ]
+}

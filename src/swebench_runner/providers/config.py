@@ -8,12 +8,17 @@ import os
 from pathlib import Path
 from typing import Any
 
-try:
-    import keyring
-    KEYRING_AVAILABLE = True
-except ImportError:
+# Check if keyring should be disabled (for testing/CI)
+if os.environ.get("SWEBENCH_DISABLE_KEYRING", "").lower() in ("true", "1", "yes"):
     keyring = None  # type: ignore[assignment]
     KEYRING_AVAILABLE = False
+else:
+    try:
+        import keyring
+        KEYRING_AVAILABLE = True
+    except ImportError:
+        keyring = None  # type: ignore[assignment]
+        KEYRING_AVAILABLE = False
 
 from .base import ProviderConfig
 from .exceptions import ProviderConfigurationError
@@ -201,6 +206,9 @@ class ProviderConfigManager:
         Returns:
             ProviderConfig if found, None otherwise
         """
+        # Skip keyring access in test mode to avoid prompts
+        if os.getenv("SWEBENCH_TEST_MODE") or os.getenv("PYTEST_CURRENT_TEST"):
+            return None
         if not KEYRING_AVAILABLE:
             return None
 
@@ -286,8 +294,9 @@ class ProviderConfigManager:
         """
         provider_name = config.name
 
-        # Save to keyring if available
-        if save_to_keyring and KEYRING_AVAILABLE and config.api_key:
+        # Save to keyring if available (skip in test mode)
+        test_mode = os.getenv("SWEBENCH_TEST_MODE") or os.getenv("PYTEST_CURRENT_TEST")
+        if save_to_keyring and KEYRING_AVAILABLE and config.api_key and not test_mode:
             try:
                 keyring.set_password(
                     self.SERVICE_NAME,
@@ -402,8 +411,9 @@ class ProviderConfigManager:
         # Clear from cache
         self._cache.pop(provider_name, None)
 
-        # Clear from keyring
-        if KEYRING_AVAILABLE:
+        # Clear from keyring (skip in test mode)
+        test_mode = os.getenv("SWEBENCH_TEST_MODE") or os.getenv("PYTEST_CURRENT_TEST")
+        if KEYRING_AVAILABLE and not test_mode:
             try:
                 keyring.delete_password(self.SERVICE_NAME, f"{provider_name}_api_key")
                 keyring.delete_password(self.SERVICE_NAME, f"{provider_name}_model")

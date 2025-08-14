@@ -74,11 +74,14 @@ class TransformPipeline:
         # Validate and set default model if needed
         if not request.model:
             request.model = self.config.default_model
-
+        # Allow dynamic models: if transformer rejects, but provider supports
+        # dynamic acceptance (i.e., model present in capabilities.supported_models),
+        # then pass through. Otherwise, raise.
         if not self.transformer.validate_model(request.model):
-            msg = (f"Model '{request.model}' not supported by "
-                   f"{self.config.provider_name}")
-            raise ValueError(msg)
+            if request.model not in self.config.supported_models:
+                msg = (f"Model '{request.model}' not supported by "
+                       f"{self.config.provider_name}")
+                raise ValueError(msg)
 
         # Validate parameters
         self._validate_request_parameters(request)
@@ -143,11 +146,19 @@ class OpenAIRequestTransformer(RequestTransformer):
         openai_request: dict[str, Any] = {
             "model": unified_request.model,
             "messages": self._build_messages(unified_request),
-            "temperature": unified_request.temperature,
             "stream": unified_request.stream
         }
 
+        # Only include temperature for legacy models. Some newer models (e.g., GPT-5
+        # series) only support the default temperature and reject overrides.
+        model_id = (unified_request.model or "").lower()
+        if not model_id.startswith("gpt-5") and unified_request.temperature is not None:
+            openai_request["temperature"] = unified_request.temperature
+
         if unified_request.max_tokens:
+            # Chat Completions API uses 'max_tokens'.
+            # If/when we add the Responses API path, we will map to
+            # 'max_output_tokens' there.
             openai_request["max_tokens"] = unified_request.max_tokens
         if unified_request.stop_sequences:
             openai_request["stop"] = unified_request.stop_sequences

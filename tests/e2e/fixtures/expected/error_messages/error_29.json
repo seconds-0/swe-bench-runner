@@ -1,0 +1,10 @@
+{
+  "code": 29,
+  "exit_code": 1,
+  "trigger": "Flaky test detected",
+  "expected_message": "`\u26a0\ufe0f Instance passed on retry 2/3 (flaky test suspected)`",
+  "expected_action": "No action needed",
+  "key_terms": [
+    "\u26a0\ufe0f Instance passed on retry 2/3 (flaky test suspected)"
+  ]
+}

@@ -1,0 +1,27 @@
+[
+  {
+    "instance_id": "sympy__sympy-20639",
+    "passed": false,
+    "error": "No evaluation results directory found"
+  },
+  {
+    "instance_id": "django__django-11422",
+    "passed": false,
+    "error": "No evaluation results directory found"
+  },
+  {
+    "instance_id": "sympy__sympy-18087",
+    "passed": false,
+    "error": "No evaluation results directory found"
+  },
+  {
+    "instance_id": "sympy__sympy-14396",
+    "passed": false,
+    "error": "No evaluation results directory found"
+  },
+  {
+    "instance_id": "sympy__sympy-20442",
+    "passed": false,
+    "error": "No evaluation results directory found"
+  }
+]

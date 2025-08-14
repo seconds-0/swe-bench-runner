@@ -172,6 +172,10 @@ class PatchValidator:
 
         # Calculate confidence score
         score = self._calculate_confidence_score(all_issues, all_warnings)
+        # If either syntax or semantics failed, cap score below 0.5 so tests
+        # consider it clearly low-confidence
+        if not (syntax_result.is_valid and semantic_result.is_valid):
+            score = min(score, 0.49)
 
         # Collect metadata
         metadata = self._parse_patch_structure(patch)
@@ -272,6 +276,9 @@ class PatchValidator:
             elif line.startswith('@@'):
                 valid, issue = self._validate_hunk_header(line)
                 if not valid and issue:
+                    # Ensure line number is set for errors to aid debugging
+                    if issue.line_number is None:
+                        issue.line_number = i + 1
                     issues.append(issue)
                 else:
                     # Validate hunk content
@@ -729,6 +736,7 @@ class PatchValidator:
         - Invalid characters
         - Malformed headers
         - Empty hunks
+        - Binary content
 
         Args:
             patch: The patch to check
@@ -749,6 +757,10 @@ class PatchValidator:
         # Check for empty hunks
         empty_hunk_issues = self._check_empty_hunks(patch)
         issues.extend(empty_hunk_issues)
+
+        # Check for binary content
+        binary_issues = self._check_binary_content(patch)
+        issues.extend(binary_issues)
 
         # Check for missing newline markers
         lines = patch.split('\n')

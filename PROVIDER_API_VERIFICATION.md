@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-**CRITICAL FINDING**: ALL integration tests (OpenAI, Anthropic, and Ollama) are using the WRONG API. They are testing an API that doesn't exist in the codebase. None of these integration tests would work if actually run.
+**NOTE (Updated)**: We standardized on OpenAI Chat Completions for text generation. Our transformer now always uses `max_tokens` for Chat. If/when we add the Responses API path, we will map to `max_output_tokens` there. Dynamic model allowance remains in place for newly released models.
 
 ## API Mismatch Details
 

@@ -16,17 +16,21 @@ try:
     from docker.errors import APIError, DockerException
 except ImportError:
     # Create mock classes for testing without docker installed
-    class DockerException(Exception):
+    class DockerError(Exception):  # Changed to Error suffix
         pass
+
+    DockerException = DockerError  # Alias for compatibility
 
     class APIError(Exception):
         pass
 
-    class docker:
+    class Docker:
         errors = type('errors', (), {
             'DockerException': DockerException,
             'APIError': APIError
         })()
+
+    docker = Docker  # Create module-like alias
 
 
 class DockerClientDouble:

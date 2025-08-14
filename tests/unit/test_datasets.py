@@ -8,14 +8,12 @@ Tests specifically for:
 
 import pytest
 
-from swebench_runner.datasets import (
-    get_helpful_error_message
-)
+from swebench_runner.datasets import get_helpful_error_message
 from swebench_runner.exceptions import (
     DatasetAuthenticationError,
     DatasetNetworkError,
     DatasetNotFoundError,
-    RegexValidationError
+    RegexValidationError,
 )
 
 
@@ -24,12 +22,12 @@ class TestDatasetErrorMessages:
 
     def test_authentication_error_includes_token_setup(self):
         """Authentication errors should explain token setup.
-        
+
         Why: Users need clear instructions to fix auth issues quickly.
         """
         error = DatasetAuthenticationError("Auth failed")
         message = get_helpful_error_message(error, {"dataset": "full"})
-        
+
         # Should include HuggingFace token URL
         assert "https://huggingface.co/settings/tokens" in message
         # Should include export command
@@ -39,12 +37,12 @@ class TestDatasetErrorMessages:
 
     def test_network_error_suggests_offline_mode(self):
         """Network errors should suggest offline mode.
-        
+
         Why: Users may have cached data and not need network.
         """
         error = DatasetNetworkError("Connection failed")
         message = get_helpful_error_message(error, {"dataset": "lite", "offline": False})
-        
+
         # Should suggest offline flag
         assert "--offline" in message
         # Should suggest checking cache
@@ -52,12 +50,12 @@ class TestDatasetErrorMessages:
 
     def test_dataset_not_found_lists_available(self):
         """Dataset not found should list available datasets.
-        
+
         Why: Users may not know valid dataset names.
         """
         error = DatasetNotFoundError("Dataset 'invalid' not found")
         message = get_helpful_error_message(error)
-        
+
         # Should list available datasets
         assert "lite" in message
         assert "verified" in message
@@ -67,12 +65,12 @@ class TestDatasetErrorMessages:
 
     def test_regex_error_suggests_simpler_patterns(self):
         """Regex errors should suggest alternatives.
-        
+
         Why: Complex regex can cause ReDoS vulnerabilities.
         """
         error = RegexValidationError("Pattern too complex")
         message = get_helpful_error_message(error)
-        
+
         # Should suggest glob patterns
         assert "django__*" in message or "glob" in message.lower()
         # Should warn about nested quantifiers

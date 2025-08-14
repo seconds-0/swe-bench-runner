@@ -13,6 +13,8 @@
 - Automatic dataset fetching from HuggingFace
 - Docker-based execution using official SWE-bench harness
 - Support for Epoch AI optimized images (x86_64)
+- **NEW: ARM64/Apple Silicon support with local Docker builds**
+- Real-time progress tracking for long-running operations
 - Comprehensive error handling and recovery
 
 **✅ Multiple Model Providers**
@@ -47,6 +49,11 @@ pip install -e .
 - Docker Desktop (macOS) or Docker Engine (Linux)
 - 16GB+ RAM recommended
 - 120GB+ free disk space for Docker images
+
+**ARM64/Apple Silicon Users:**
+- First run will build Docker images locally (30-60+ minutes per repository)
+- Subsequent runs use cached images (fast)
+- Automatic detection and configuration - no manual setup required!
 
 ### Basic Usage
 

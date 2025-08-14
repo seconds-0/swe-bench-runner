@@ -163,6 +163,42 @@ class OpenAIProvider(ModelProvider):
         self._models_last_fetched: float | None = None
         self._models_cache_duration = 3600  # 1 hour
 
+        # Schedule a one-time non-blocking model fetch on instantiation
+        self._models_fetch_scheduled: bool = False
+        self._maybe_schedule_models_fetch()
+
+    def _validate_config(self) -> None:
+        """Relax strict model whitelist to allow newly released models.
+
+        We still require an API key, but for models not present in our
+        static supported list, we allow pass-through by appending the model
+        to supported_models so downstream components accept it. Pricing and
+        token limits will fall back to safe defaults until refreshed.
+        """
+        # API key required
+        if self.requires_api_key and not self.config.api_key:
+            from .exceptions import ProviderConfigurationError
+
+            raise ProviderConfigurationError(
+                f"{self.name} provider requires an API key. "
+                f"Set it via environment variable or configuration."
+            )
+
+        # Allow unknown models (e.g., newly released). Warn and accept.
+        model = self.config.model
+        if model and model not in self.supported_models:
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "OpenAI model '%s' not in static list; allowing dynamically.", model
+            )
+            try:
+                # Append so other components referencing supported_models accept it
+                self.supported_models.append(model)
+            except Exception:
+                # Best-effort; if list is immutable, ignore
+                pass
+
     def _init_unified_components(self) -> None:
         """Initialize unified abstraction layer components."""
         # Authentication strategy
@@ -780,6 +816,64 @@ class OpenAIProvider(ModelProvider):
             logger.warning(f"Failed to fetch available models: {e}")
             # Return default list if API call fails
             return self.supported_models
+
+    def _merge_supported_models(self, model_ids: list[str]) -> None:
+        """Merge fetched model IDs into supported_models without duplicates."""
+        try:
+            existing = set(self.supported_models)
+            for mid in model_ids:
+                if mid not in existing:
+                    self.supported_models.append(mid)
+                    existing.add(mid)
+        except Exception:
+            # Best-effort; ignore merge issues
+            pass
+
+    def _maybe_schedule_models_fetch(self) -> None:
+        """Schedule a single, non-blocking models fetch on init.
+
+        Rules:
+        - Disabled if SWEBENCH_OPENAI_FETCH_MODELS=0
+        - Enabled for default base URL (https://api.openai.com/v1)
+        - For non-default base URL, only enabled if SWEBENCH_OPENAI_FETCH_MODELS=1
+        - Never blocks init; uses create_task if an event loop is running
+        """
+        env_toggle = os.getenv("SWEBENCH_OPENAI_FETCH_MODELS")
+        if env_toggle == "0":
+            return
+
+        is_default_base = self.base_url == "https://api.openai.com/v1"
+        if not is_default_base and env_toggle != "1":
+            return
+
+        # Try scheduling; if no running loop, skip silently
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+
+        async def _fetch_once() -> None:
+            url = f"{self.base_url}/models"
+            headers = self._prepare_headers()
+            try:
+                # Use a very short timeout so we never block startup noticeably
+                short_timeout = aiohttp.ClientTimeout(total=1.0)
+                async with aiohttp.ClientSession(timeout=short_timeout) as session:
+                    async with session.get(url, headers=headers) as resp:
+                        if resp.status != 200:
+                            return
+                        payload = await self._safe_json(resp)
+                        model_ids = [m.get("id") for m in payload.get("data", []) if m.get("id")]
+                        if model_ids:
+                            self._available_models = model_ids
+                            self._models_last_fetched = time.time()
+                            self._merge_supported_models(model_ids)
+            except Exception:
+                # Non-fatal: ignore any errors
+                return
+
+        loop.create_task(_fetch_once())
+        self._models_fetch_scheduled = True
 
     def estimate_cost(self, prompt_tokens: int, max_tokens: int) -> float:
         """Estimate the cost of a generation.

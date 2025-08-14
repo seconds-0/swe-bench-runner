@@ -190,11 +190,16 @@ class TestCLIHappyPath:
 
     def test_cli_provider_list(self):
         """Test that provider list command works."""
+        # Set up environment to disable keyring (prevents macOS keychain prompts)
+        env = os.environ.copy()
+        env["SWEBENCH_DISABLE_KEYRING"] = "true"
+
         result = subprocess.run(
             [sys.executable, "-m", "swebench_runner", "provider", "list"],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
+            env=env
         )
 
         assert result.returncode == 0

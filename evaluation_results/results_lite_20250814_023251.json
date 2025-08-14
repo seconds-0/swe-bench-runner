@@ -1,0 +1,27 @@
+[
+  {
+    "instance_id": "sphinx-doc__sphinx-7738",
+    "passed": false,
+    "error": "No evaluation results directory found. This usually means the harness failed early (e.g., image pull denied or environment error). Try: docker login ghcr.io or run Preflight to configure registry access."
+  },
+  {
+    "instance_id": "sympy__sympy-23191",
+    "passed": false,
+    "error": "No evaluation results directory found. This usually means the harness failed early (e.g., image pull denied or environment error). Try: docker login ghcr.io or run Preflight to configure registry access."
+  },
+  {
+    "instance_id": "django__django-11630",
+    "passed": false,
+    "error": "No evaluation results directory found. This usually means the harness failed early (e.g., image pull denied or environment error). Try: docker login ghcr.io or run Preflight to configure registry access."
+  },
+  {
+    "instance_id": "sympy__sympy-12171",
+    "passed": false,
+    "error": "No evaluation results directory found. This usually means the harness failed early (e.g., image pull denied or environment error). Try: docker login ghcr.io or run Preflight to configure registry access."
+  },
+  {
+    "instance_id": "sympy__sympy-13471",
+    "passed": false,
+    "error": "No evaluation results directory found. This usually means the harness failed early (e.g., image pull denied or environment error). Try: docker login ghcr.io or run Preflight to configure registry access."
+  }
+]

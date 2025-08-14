@@ -63,7 +63,9 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "--cov=swebench_runner --cov-report=term-missing --cov-report=html -m 'not integration'"
+# Keep local pytest runs fast and avoid generating coverage artifacts by default.
+# Coverage is still enforced via Makefile/scripts and CI workflows.
+addopts = "-m 'not integration'"
 # Coverage requirement removed - we prioritize meaningful tests over coverage metrics
 markers = [
     "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",

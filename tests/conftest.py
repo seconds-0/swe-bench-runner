@@ -16,14 +16,16 @@ import pytest
 def simple_test_env(monkeypatch):
     """
     Simple environment setup for unit tests that don't need CLI mocking.
-    
+
     This fixture only sets basic environment variables without importing
     any swebench_runner modules.
     """
     # Force CI mode to skip resource checks
     monkeypatch.setenv("CI", "true")
     monkeypatch.setenv("SWEBENCH_SKIP_RESOURCE_CHECK", "true")
-    
+    # Disable keyring to prevent keychain password prompts during tests
+    monkeypatch.setenv("SWEBENCH_DISABLE_KEYRING", "true")
+
     # Use temp cache to avoid polluting real cache
     import tempfile
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -35,7 +37,7 @@ def simple_test_env(monkeypatch):
 def isolated_test_environment(monkeypatch, tmp_path):
     """
     Fixture that provides complete test isolation.
-    
+
     NOTE: This is NOT autouse - only tests that need CLI isolation should use it.
     Unit tests should not need this fixture.
 
@@ -62,9 +64,12 @@ def isolated_test_environment(monkeypatch, tmp_path):
     # Force CI mode to disable interactive prompts
     monkeypatch.setenv("CI", "true")
 
+    # Disable keyring to prevent keychain password prompts during tests
+    monkeypatch.setenv("SWEBENCH_DISABLE_KEYRING", "true")
+
     # Lazy import to avoid import issues
     from unittest.mock import patch
-    
+
     # Mock bootstrap functions to prevent first-run checks
     with patch("swebench_runner.cli.check_and_prompt_first_run", return_value=False), \
          patch("swebench_runner.cli.suggest_patches_file", return_value=None):

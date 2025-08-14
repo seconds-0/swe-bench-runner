@@ -159,3 +159,4 @@ test-install-env/
 
 # Test outputs
 test-model.test-run-*.json
+.cleanup_temp/

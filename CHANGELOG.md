@@ -8,17 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **ARM64/Apple Silicon Support**: Full support for ARM64 architecture with automatic detection and local Docker image building
+- **Real-time Progress Tracking**: Live progress updates during Docker builds with phase detection
+- **Interactive Setup Wizard**: Improved TUI with better ARM64 handling and flow
 - Comprehensive E2E test infrastructure with test doubles
 - Documentation consolidation and cleanup
 - Unit test coverage improvements
 - Python 3.11+ migration and compatibility
 
 ### Changed
-- Updated README to reflect actual working features
+- Updated README to reflect actual working features and ARM64 support
 - Improved test infrastructure with dependency injection
 - Enhanced error handling and user experience
+- Docker namespace handling for architecture-specific builds
 
 ### Fixed
+- TUI flow issues with early returns in preflight wizard
+- Rich markup errors in console output
 - Test hanging issues in CI environment
 - Python version compatibility issues
 - Resource management and cleanup

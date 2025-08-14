@@ -53,7 +53,7 @@ def list_providers(detailed: bool) -> None:
         table.add_column("Status", style="green")
         table.add_column("API Key", style="yellow")
 
-    providers_info = registry.list_providers()
+    providers_info = registry.list_provider_details()
 
     # Sort by provider name
     for provider_info in sorted(providers_info, key=lambda x: x['name']):

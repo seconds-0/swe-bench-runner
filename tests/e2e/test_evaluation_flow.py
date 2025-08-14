@@ -53,7 +53,7 @@ class TestHappyPathEvaluation:
             )
 
             # Should detect predictions.jsonl or fail appropriately
-            combined = stdout + stderr
+            stdout + stderr
             # Should either find the file or ask for --patches
 
     def test_progress_tracking_output(self):
@@ -72,7 +72,7 @@ class TestHappyPathEvaluation:
             )
 
             # Look for progress indicators
-            combined = stdout + stderr
+            stdout + stderr
             # Might show "Evaluating N instances" or progress bar
 
     def test_success_celebration(self):
@@ -93,7 +93,7 @@ class TestHappyPathEvaluation:
             )
 
             # Look for success indicators (if implemented)
-            combined = stdout + stderr
+            stdout + stderr
             # Might show "SUCCESS" or completion message
 
     def test_html_report_generation(self):
@@ -150,7 +150,7 @@ class TestSubsettingWorkflows:
                 env={"SWEBENCH_MOCK_NO_DOCKER": "true"}
             )
 
-            combined = stdout + stderr
+            stdout + stderr
             # Should process only Django instances
             # Look for instance filtering messages
 
@@ -171,7 +171,7 @@ class TestSubsettingWorkflows:
                 env={"SWEBENCH_MOCK_NO_DOCKER": "true"}
             )
 
-            combined = stdout + stderr
+            stdout + stderr
             # Should select subset of instances
 
     def test_count_limiting(self):
@@ -188,7 +188,7 @@ class TestSubsettingWorkflows:
                 env={"SWEBENCH_MOCK_NO_DOCKER": "true"}
             )
 
-            combined = stdout + stderr
+            stdout + stderr
             # Should process only 3 instances
 
     def test_rerun_failed(self):
@@ -210,7 +210,7 @@ class TestSubsettingWorkflows:
                 env={"SWEBENCH_MOCK_NO_DOCKER": "true"}
             )
 
-            combined = stdout + stderr
+            stdout + stderr
             # Should attempt to rerun failures
 
 
@@ -257,7 +257,7 @@ class TestValidation:
             )
 
             # Should report validation errors
-            combined = stdout + stderr
+            stdout + stderr
             # Should mention invalid format
 
     def test_validate_large_patches(self):
@@ -275,7 +275,7 @@ class TestValidation:
                 env={}
             )
 
-            combined = stdout + stderr
+            stdout + stderr
             # Should warn about large patch
 
 
@@ -292,7 +292,7 @@ class TestRetryBehavior:
                 env={"SWEBENCH_MOCK_NO_DOCKER": "true"}
             )
 
-            combined = stdout + stderr
+            stdout + stderr
             # Should mention retry configuration
 
 
@@ -309,7 +309,7 @@ class TestTimeoutConfiguration:
                 env={"SWEBENCH_MOCK_NO_DOCKER": "true"}
             )
 
-            combined = stdout + stderr
+            stdout + stderr
             # Should acknowledge timeout setting
 
     def test_global_timeout(self):
@@ -327,7 +327,7 @@ class TestTimeoutConfiguration:
                 env={"SWEBENCH_MOCK_NO_DOCKER": "true"}
             )
 
-            combined = stdout + stderr
+            stdout + stderr
             # Should mention global timeout
 
 
@@ -343,7 +343,7 @@ class TestMaintenanceCommands:
             )
 
             # Should show diagnostic information
-            combined = stdout + stderr
+            stdout + stderr
             # Might show Docker status, disk space, etc.
 
     def test_clean_command(self):
@@ -360,7 +360,7 @@ class TestMaintenanceCommands:
             )
 
             # Should show what would be cleaned
-            combined = stdout + stderr
+            stdout + stderr
             # Should mention dry-run
 
     def test_status_command(self):
@@ -372,7 +372,7 @@ class TestMaintenanceCommands:
             )
 
             # Should show status even without Docker
-            combined = stdout + stderr
+            stdout + stderr
 
 
 class TestDatasetOptions:
@@ -388,7 +388,7 @@ class TestDatasetOptions:
                 env={"SWEBENCH_MOCK_NO_DOCKER": "true"}
             )
 
-            combined = stdout + stderr
+            stdout + stderr
             # Should mention lite dataset or use it by default
 
     def test_verified_dataset(self):
@@ -401,7 +401,7 @@ class TestDatasetOptions:
                 env={"SWEBENCH_MOCK_NO_DOCKER": "true"}
             )
 
-            combined = stdout + stderr
+            stdout + stderr
             # Should use verified dataset
 
     def test_full_dataset(self):
@@ -414,7 +414,7 @@ class TestDatasetOptions:
                 env={"SWEBENCH_MOCK_NO_DOCKER": "true"}
             )
 
-            combined = stdout + stderr
+            stdout + stderr
             # Should use full dataset
 
     def test_custom_dataset_path(self):
@@ -433,7 +433,7 @@ class TestDatasetOptions:
                 env={"SWEBENCH_MOCK_NO_DOCKER": "true"}
             )
 
-            combined = stdout + stderr
+            stdout + stderr
             # Should use custom dataset
 
 

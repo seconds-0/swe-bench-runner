@@ -3,8 +3,8 @@
 This configuration avoids complex fixtures that could cause import issues.
 """
 
+
 import pytest
-import os
 
 
 @pytest.fixture
@@ -13,7 +13,7 @@ def temp_dir(tmp_path):
     return tmp_path
 
 
-@pytest.fixture 
+@pytest.fixture
 def mock_env(monkeypatch):
     """Provide environment variable mocking."""
     # Set CI mode to avoid resource checks

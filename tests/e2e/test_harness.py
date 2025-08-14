@@ -16,7 +16,8 @@ from typing import Any
 
 try:
     # When run as part of tests package
-    from tests.e2e.test_doubles import (
+    # Import others only if needed to avoid unused import warnings
+    from tests.e2e.test_doubles import (  # noqa: F401
         DockerClientDouble,
         FileSystemDouble,
         HuggingFaceDouble,
@@ -78,16 +79,50 @@ class SWEBenchTestHarness:
             "NO_COLOR": "1",  # Disable color output for predictable assertions
         }
 
-        # Create cache directory
-        cache_dir = self.temp_dir / "cache"
-        cache_dir.mkdir(parents=True, exist_ok=True)
-
         return self.temp_dir
 
     def teardown(self):
         """Clean up all resources created during testing."""
         # Restore original factories
         self._restore_factories()
+
+        # Reset injected abstractions to avoid leaking into other tests
+        try:
+            from swebench_runner.hf_abstraction import set_hf_client  # type: ignore
+            set_hf_client(None)
+        except Exception:
+            pass
+        try:
+            from swebench_runner.fs_abstraction import set_filesystem  # type: ignore
+            set_filesystem(None)
+        except Exception:
+            pass
+        try:
+            from swebench_runner.patch_validation import (
+                set_patch_validator,  # type: ignore
+            )
+            set_patch_validator(None)
+        except Exception:
+            pass
+        try:
+            from swebench_runner.network_abstraction import (
+                set_network_client,  # type: ignore
+            )
+            set_network_client(None)
+        except Exception:
+            pass
+        try:
+            from swebench_runner.instance_abstraction import (
+                set_instance_client,  # type: ignore
+            )
+            set_instance_client(None)
+        except Exception:
+            pass
+        try:
+            import swebench_runner.docker_client as docker_client  # type: ignore
+            docker_client.reset_docker_client_factory()
+        except Exception:
+            pass
 
         # Kill any running processes
         for proc in self.processes:
@@ -155,8 +190,13 @@ class SWEBenchTestHarness:
         from tests.e2e.test_doubles import TestDoubleFactory
         double = TestDoubleFactory.create_patch_double(scenario)
 
-        # TODO: Hook up to actual patch validation once abstraction exists
-        # For now, just store for test verification
+        # Hook into the runner's validation seam
+        try:
+            from swebench_runner.patch_validation import set_patch_validator
+            set_patch_validator(double)
+        except Exception:
+            pass
+
         self.injected_doubles["patch"] = double
         return double
 
@@ -172,8 +212,13 @@ class SWEBenchTestHarness:
         from tests.e2e.test_doubles import TestDoubleFactory
         double = TestDoubleFactory.create_network_double(scenario)
 
-        # TODO: Hook up to actual network calls once abstraction exists
-        # For now, just store for test verification
+        # Hook into network abstraction
+        try:
+            from swebench_runner.network_abstraction import set_network_client
+            set_network_client(double)
+        except Exception:
+            pass
+
         self.injected_doubles["network"] = double
         return double
 
@@ -189,8 +234,13 @@ class SWEBenchTestHarness:
         from tests.e2e.test_doubles import TestDoubleFactory
         double = TestDoubleFactory.create_filesystem_double(scenario)
 
-        # TODO: Hook up to actual filesystem operations once abstraction exists
-        # For now, just store for test verification
+        # Hook into runner filesystem abstraction
+        try:
+            from swebench_runner.fs_abstraction import set_filesystem
+            set_filesystem(double)
+        except Exception:
+            pass
+
         self.injected_doubles["filesystem"] = double
         return double
 
@@ -206,8 +256,13 @@ class SWEBenchTestHarness:
         from tests.e2e.test_doubles import TestDoubleFactory
         double = TestDoubleFactory.create_huggingface_double(scenario)
 
-        # TODO: Hook up to actual HF operations once abstraction exists
-        # For now, just store for test verification
+        # Hook into HF abstraction so dataset fetches use the double
+        try:
+            from swebench_runner.hf_abstraction import set_hf_client
+            set_hf_client(double)
+        except Exception:
+            pass
+
         self.injected_doubles["huggingface"] = double
         return double
 
@@ -241,8 +296,15 @@ class SWEBenchTestHarness:
         from tests.e2e.test_doubles import TestDoubleFactory
         double = TestDoubleFactory.create_instance_double(scenario)
 
-        # TODO: Hook up to actual instance operations once abstraction exists
-        # For now, just store for test verification
+        # Hook into runner instance abstraction so validations are exercised
+        try:
+            from swebench_runner.instance_abstraction import (
+                set_instance_client,  # type: ignore
+            )
+            set_instance_client(double)
+        except Exception:
+            pass
+
         self.injected_doubles["instance"] = double
         return double
 
@@ -379,7 +441,27 @@ class SWEBenchTestHarness:
                 if "--no-input" not in args and "setup" not in args:
                     sys.argv.append("--no-input")
 
+                # In direct mode, do not force Docker-not-running unless explicitly tested
+                os.environ["SWEBENCH_MOCK_NO_DOCKER"] = "false"
+
                 # Call CLI directly
+                # Ensure a default Docker double is present if none injected
+                try:
+                    from swebench_runner.docker_client import (
+                        is_custom_factory_set as _factory_set,
+                    )
+                    from swebench_runner.docker_client import (
+                        set_docker_client_factory as _set_docker_factory,
+                    )
+                    if not _factory_set():
+                        # Lazy import to avoid circular issues
+                        from tests.e2e.test_doubles import (
+                            DockerClientDouble,  # type: ignore
+                        )
+                        _set_docker_factory(lambda: DockerClientDouble("success"))
+                except Exception:
+                    pass
+
                 cli.cli()
 
         except SystemExit as e:

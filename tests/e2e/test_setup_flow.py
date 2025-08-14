@@ -89,7 +89,7 @@ class TestFirstTimeSetup:
             )
 
             # With --yes, should skip prompts
-            combined = stdout + stderr
+            stdout + stderr
             # Check if welcome message appears (if implemented)
             # "Welcome to SWE-bench Runner" might appear
 
@@ -110,7 +110,7 @@ class TestFirstTimeSetup:
             )
 
             # Should show anonymous access warning if downloading
-            combined = stdout + stderr
+            stdout + stderr
             # Look for indicators of dataset handling
             # "anonymous" or "token" might appear in warnings
 
@@ -131,7 +131,7 @@ class TestFirstTimeSetup:
             )
 
             # Should not show anonymous warning
-            combined = stdout + stderr
+            stdout + stderr
             # Should not warn about anonymous access
             # (actual behavior depends on implementation)
 
@@ -166,7 +166,7 @@ class TestFirstTimeSetup:
         with SWEBenchTestHarness() as harness:
             # Set up paths
             config_dir = harness.temp_dir / ".swebench"
-            config_file = config_dir / "config.toml"
+            config_dir / "config.toml"
 
             env = {
                 "SWEBENCH_CONFIG_DIR": str(config_dir),
@@ -216,7 +216,7 @@ class TestFirstTimeSetup:
             )
 
             # Look for image reference in output
-            combined = stdout + stderr
+            stdout + stderr
             # "ghcr.io/swebench/runner" might appear
 
     def test_upgrade_path(self):
@@ -237,7 +237,7 @@ class TestFirstTimeSetup:
             )
 
             # Might warn about version mismatch
-            combined = stdout + stderr
+            stdout + stderr
             # Look for upgrade-related messages
 
     def test_no_input_mode(self):
@@ -310,7 +310,7 @@ class TestHuggingFaceAuth:
                 env=env
             )
 
-            combined = stdout + stderr
+            stdout + stderr
             # Should mention rate limits or token
             # Actual implementation may vary
 
@@ -352,7 +352,7 @@ class TestHuggingFaceAuth:
             )
 
             # Flag should override environment
-            combined = stdout + stderr
+            stdout + stderr
             # Should use the provided token
 
 
@@ -376,7 +376,7 @@ class TestErrorRecovery:
             )
 
             # Should show retry attempts
-            combined = stdout + stderr
+            stdout + stderr
             # Look for "retry" or "attempt" in output
 
     def test_corrupted_cache_recovery(self):

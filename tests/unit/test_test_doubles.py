@@ -34,7 +34,7 @@ class TestDockerClientDouble:
 
         # Test container run
         containers = double.containers()
-        result = containers.run("test-image", "echo test")
+        containers.run("test-image", "echo test")
         assert double.containers_run_called is True
         assert len(double.containers_run) == 1
         assert double.containers_run[0]["image"] == "test-image"

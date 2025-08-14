@@ -86,3 +86,10 @@ class CircuitBreakerError(ProviderError):
     ):
         super().__init__(message, provider)
         self.wait_time = wait_time
+
+
+class ProviderAlreadyRegisteredError(ProviderError):
+    """Raised when attempting to register an already registered provider."""
+
+    def __init__(self, message: str, provider: str | None = None):
+        super().__init__(message, provider)

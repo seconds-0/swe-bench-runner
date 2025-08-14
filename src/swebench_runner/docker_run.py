@@ -71,10 +71,12 @@ def check_docker_running() -> None:
         client = docker.from_env() if docker is not None else None
         _check_docker_running(client)
     except Exception:
-        # If we fail to create a client at all, classify as not running with platform-specific guidance
+        # If we fail to create a client at all, classify as not running with 
+        # platform-specific guidance
         plat = os.getenv("SWEBENCH_PLATFORM", platform.system())
         if str(plat).lower().startswith("darwin"):
-            print("⛔ Docker Desktop not running. Start it from Applications and wait for whale icon.")
+            print("⛔ Docker Desktop not running. Start it from Applications "
+                  "and wait for whale icon.")
         else:
             print("⛔ Docker daemon unreachable at /var/run/docker.sock")
             print("Try: systemctl start docker or set DOCKER_HOST")
@@ -238,8 +240,8 @@ def load_first_patch(patch_source: str, max_size_mb: int = 5) -> Patch:
                     if patch_size_kb > 500:
                         print(f"ℹ️  Note: {patch_size_kb:.0f}KB patch may exceed "
                               "Docker environment limits")
-                        print("   Consider using smaller patches or "
-                              "file-based patch application")
+                        print("   Consider using smaller patches or file-based "
+                              "patch application")
 
                     return patch
             raise ValueError("No patches found in file")

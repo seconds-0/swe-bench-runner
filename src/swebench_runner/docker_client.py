@@ -75,11 +75,13 @@ def check_docker_running(client: DockerClientProtocol | None = None) -> None:
     """
     # Test harness compatibility: allow env flag to force not-running behavior
     # BUT honor a custom factory if one is set (tests inject doubles via factory)
-    if os.getenv("SWEBENCH_MOCK_NO_DOCKER", "false").lower() == "true" and _docker_client_factory is None:
+    if (os.getenv("SWEBENCH_MOCK_NO_DOCKER", "false").lower() == "true" and 
+        _docker_client_factory is None):
         # Honor platform overrides used by tests
         platform_hint = os.getenv("SWEBENCH_PLATFORM", platform.system())
         if platform_hint.lower().startswith("darwin"):
-            print("⛔ Docker Desktop not running. Start it from Applications and wait for whale icon.")
+            print("⛔ Docker Desktop not running. Start it from Applications "
+                  "and wait for whale icon.")
         else:
             print("⛔ Docker daemon unreachable at /var/run/docker.sock")
             print("Try: systemctl start docker or set DOCKER_HOST")

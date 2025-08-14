@@ -56,7 +56,8 @@ def get_helpful_error_message(
         offline_mode = context.get('offline', False)
         error_text = str(error).lower()
         # Special-case HuggingFace rate limits
-        if any(term in error_text for term in ["rate limit", "429", "too many requests"]):
+        if any(term in error_text for term in
+               ["rate limit", "429", "too many requests"]):
             return (
                 "❌ HuggingFace rate limit reached (10/hour)\n"
                 "\n"
@@ -136,7 +137,8 @@ def get_helpful_error_message(
     elif isinstance(error, DatasetError):
         # Provide actionable guidance for general dataset errors
         msg_lower = str(error).lower()
-        if any(term in msg_lower for term in ["corrupt", "corrupted", "invalid json", "checksum"]):
+        if any(term in msg_lower for term in
+               ["corrupt", "corrupted", "invalid json", "checksum"]):
             dataset = context.get('dataset', 'dataset')
             return (
                 f"❌ Detected corrupted dataset cache for {dataset}.\n"
@@ -383,7 +385,8 @@ class DatasetManager:
         except Exception as e:
             error_msg = str(e).lower()
             # Treat obvious cache corruption as a general dataset error (exit 1)
-            if "corrupt" in error_msg or "corrupted" in error_msg or "invalid json" in error_msg:
+            if ("corrupt" in error_msg or "corrupted" in error_msg or 
+                "invalid json" in error_msg):
                 raise DatasetError(
                     f"Detected corrupted dataset cache for {dataset_name}."
                 ) from e
@@ -396,8 +399,9 @@ class DatasetManager:
                     f"Dataset {dataset_name} not available in offline mode. "
                     f"Run without --offline to download it first."
                 ) from e
-            elif ("rate limit" in error_msg or "429" in error_msg or "too many requests" in error_msg
-                  or "huggingface" in error_msg or "hf" in error_msg):
+            elif ("rate limit" in error_msg or "429" in error_msg or 
+                  "too many requests" in error_msg or "huggingface" in error_msg or 
+                  "hf" in error_msg):
                 if offline:
                     raise DatasetError(
                         f"Dataset {dataset_name} not cached locally. "

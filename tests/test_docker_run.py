@@ -1,6 +1,7 @@
 """Tests for docker_run module."""
 
 import json
+import os
 import subprocess
 from unittest.mock import Mock, patch
 
@@ -241,7 +242,7 @@ class TestCreatePredictionsFile:
             data = json.load(f)
 
         assert data["instance_id"] == "test__repo-123"
-        assert data["model_name_or_path"] == "swebench-runner-mvp"
+        assert data["model_name_or_path"] == "swebench-runner"
         assert data["model_patch"] == "diff --git a/file.py b/file.py\n+test"
 
 
@@ -280,16 +281,21 @@ class TestDetectPlatform:
 class TestRunSWEBenchHarness:
     """Test SWE-bench harness execution."""
 
+    @patch.dict(os.environ, {"SWEBENCH_DISABLE_PROGRESS": "1"}, clear=False)
     @patch("swebench_runner.docker_run.detect_platform")
     @patch("swebench_runner.docker_run.subprocess.run")
     def test_run_harness_x86_64(self, mock_run, mock_detect_platform, tmp_path):
         """Test running harness on x86_64."""
+        # Clear any env namespace that might have been set
+        os.environ.pop("SWEBENCH_DOCKER_NAMESPACE", None)
         mock_detect_platform.return_value = "x86_64"
-        mock_run.return_value.returncode = 0
+        # Create a mock CompletedProcess
+        from subprocess import CompletedProcess
+        mock_run.return_value = CompletedProcess(args=[], returncode=0, stdout="", stderr="")
 
         patch = Patch("test__repo-123", "diff --git a/file.py b/file.py\n+test")
         predictions_file = tmp_path / "predictions.jsonl"
-        predictions_file.write_text("{}")
+        predictions_file.write_text('{"instance_id": "test__repo-123", "model_patch": "diff"}')
 
         result = run_swebench_harness(predictions_file, tmp_path, patch)
 
@@ -300,24 +306,30 @@ class TestRunSWEBenchHarness:
         assert "--namespace" in call_args
         assert "ghcr.io/epoch-research" in call_args
 
+    @patch.dict(os.environ, {"SWEBENCH_DOCKER_NAMESPACE": "", "SWEBENCH_DISABLE_PROGRESS": "1"}, clear=False)
     @patch("swebench_runner.docker_run.detect_platform")
     @patch("swebench_runner.docker_run.subprocess.run")
     def test_run_harness_arm64(self, mock_run, mock_detect_platform, tmp_path):
         """Test running harness on ARM64."""
         mock_detect_platform.return_value = "arm64"
-        mock_run.return_value.returncode = 0
+        # Create a mock CompletedProcess
+        from subprocess import CompletedProcess
+        mock_run.return_value = CompletedProcess(args=[], returncode=0, stdout="", stderr="")
 
         patch = Patch("test__repo-123", "diff --git a/file.py b/file.py\n+test")
         predictions_file = tmp_path / "predictions.jsonl"
-        predictions_file.write_text("{}")
+        predictions_file.write_text('{"instance_id": "test__repo-123", "model_patch": "diff"}')
 
         result = run_swebench_harness(predictions_file, tmp_path, patch)
 
         assert result.returncode == 0
-        # Check that namespace was NOT added for ARM64
+        # Check that namespace was added for ARM64 (empty string to trigger local builds)
         mock_run.assert_called_once()
         call_args = mock_run.call_args[0][0]  # First positional argument (command)
-        assert "--namespace" not in call_args
+        assert "--namespace" in call_args
+        # On ARM64 with empty namespace env var, should use "none"
+        namespace_index = call_args.index("--namespace")
+        assert call_args[namespace_index + 1] == "none"
 
 
 class TestParseHarnessResults:

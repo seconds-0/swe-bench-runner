@@ -37,16 +37,16 @@ from swebench_runner.models import Patch
 class TestDockerRunResourceChecking:
     """Test resource checking to prevent failures."""
 
-    @patch('swebench_runner.docker_run.shutil.disk_usage')
+    @patch('swebench_runner.docker_run.get_free_disk_gb')
     @patch('swebench_runner.docker_run.psutil')
-    def test_checks_minimum_memory_requirements(self, mock_psutil, mock_disk):
+    def test_checks_minimum_memory_requirements(self, mock_psutil, mock_get_free_disk):
         """Check minimum memory before running.
 
         Why: Insufficient memory causes Docker containers to crash with OOM.
         """
         # Mock 4GB available (below default 8GB requirement)
         mock_psutil.virtual_memory.return_value = Mock(available=4 * 1024**3)
-        mock_disk.return_value = Mock(free=100 * 1024**3)
+        mock_get_free_disk.return_value = 100  # 100GB disk space (plenty)
 
         with pytest.raises(SystemExit) as exc_info:
             check_resources()
@@ -54,16 +54,16 @@ class TestDockerRunResourceChecking:
         # Should exit with resource error
         assert exc_info.value.code == exit_codes.RESOURCE_ERROR
 
-    @patch('swebench_runner.docker_run.shutil.disk_usage')
+    @patch('swebench_runner.docker_run.get_free_disk_gb')
     @patch('swebench_runner.docker_run.psutil')
-    def test_checks_minimum_disk_space(self, mock_psutil, mock_disk):
+    def test_checks_minimum_disk_space(self, mock_psutil, mock_get_free_disk):
         """Check disk space before downloading images.
 
         Why: Docker images are large (14GB+) and need sufficient space.
         """
         mock_psutil.virtual_memory.return_value = Mock(available=16 * 1024**3)
         # Mock 20GB free (below default 50GB requirement)
-        mock_disk.return_value = Mock(free=20 * 1024**3)
+        mock_get_free_disk.return_value = 20
 
         with pytest.raises(SystemExit) as exc_info:
             check_resources()

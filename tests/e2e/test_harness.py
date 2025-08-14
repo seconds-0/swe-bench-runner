@@ -73,6 +73,7 @@ class SWEBenchTestHarness:
         # Set up isolated environment variables
         self.env_vars = {
             "SWEBENCH_TEST_MODE": "true",
+            "SWEBENCH_NO_INPUT": "1",  # Disable first-time setup wizard for tests
             "SWEBENCH_CACHE_DIR": str(self.temp_dir / "cache"),
             "SWEBENCH_MOCK_NO_DOCKER": "true",  # Default to no Docker for safety
             "PYTHONPATH": str(Path.cwd()),

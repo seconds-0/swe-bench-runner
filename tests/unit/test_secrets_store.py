@@ -45,15 +45,19 @@ def test_env_var_precedence_over_keyring(monkeypatch):
 
 
 def test_set_and_clear_key(monkeypatch):
+    # Unset test mode env vars so keyring functions work
+    monkeypatch.delenv("SWEBENCH_TEST_MODE", raising=False)
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+
     secrets_store, store = reload_with_fake_keyring(monkeypatch)
 
     ok = secrets_store.set_api_key("anthropic", "  abc123\n")
     assert ok is True
-    assert store[("swebench-runner", "anthropic")] == "abc123"
+    assert store[("swebench-runner", "anthropic:default")] == "abc123"
 
     ok2 = secrets_store.clear_api_key("anthropic")
     assert ok2 is True
-    assert ("swebench-runner", "anthropic") not in store
+    assert ("swebench-runner", "anthropic:default") not in store
 
 
 def test_get_returns_none_when_missing(monkeypatch):

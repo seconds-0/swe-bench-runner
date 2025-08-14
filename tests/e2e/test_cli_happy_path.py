@@ -17,6 +17,12 @@ import pytest
 class TestCLIHappyPath:
     """Test the actual CLI binary execution - no mocks."""
 
+    @pytest.fixture(autouse=True)
+    def setup(self, monkeypatch):
+        """Set up environment for tests."""
+        # Disable first-time setup wizard for tests
+        monkeypatch.setenv("SWEBENCH_NO_INPUT", "1")
+
     @pytest.fixture
     def fixtures_dir(self):
         """Path to E2E test fixtures."""
@@ -225,6 +231,12 @@ class TestCLIHappyPath:
 class TestCLIWithEnvironmentVars:
     """Test CLI behavior with environment variables."""
 
+    @pytest.fixture(autouse=True)
+    def setup(self, monkeypatch):
+        """Set up environment for tests."""
+        # Disable first-time setup wizard for tests
+        monkeypatch.setenv("SWEBENCH_NO_INPUT", "1")
+
     def test_cli_respects_provider_env_var(self):
         """Test that SWEBENCH_PROVIDER environment variable is respected."""
         env = os.environ.copy()
@@ -270,6 +282,12 @@ class TestCLIWithEnvironmentVars:
 
 class TestCLIErrorHandling:
     """Test CLI error handling and exit codes."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self, monkeypatch):
+        """Set up environment for tests."""
+        # Disable first-time setup wizard for tests
+        monkeypatch.setenv("SWEBENCH_NO_INPUT", "1")
 
     def test_cli_invalid_command(self):
         """Test that invalid commands fail properly."""

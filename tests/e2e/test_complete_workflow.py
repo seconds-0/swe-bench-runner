@@ -14,6 +14,12 @@ import pytest
 class TestCompleteUserWorkflow:
     """Test the complete user workflow from installation to evaluation."""
 
+    @pytest.fixture(autouse=True)
+    def setup(self, monkeypatch):
+        """Set up environment for tests."""
+        # Disable first-time setup wizard for tests
+        monkeypatch.setenv("SWEBENCH_NO_INPUT", "1")
+
     def test_cli_is_installed(self):
         """Verify the CLI is installed and responds."""
         result = subprocess.run(
@@ -162,6 +168,12 @@ class TestCompleteUserWorkflow:
 class TestCriticalUserPaths:
     """Test critical user paths that must work."""
 
+    @pytest.fixture(autouse=True)
+    def setup(self, monkeypatch):
+        """Set up environment for tests."""
+        # Disable first-time setup wizard for tests
+        monkeypatch.setenv("SWEBENCH_NO_INPUT", "1")
+
     def test_first_time_user_experience(self):
         """Test what a first-time user would experience."""
         # 1. Check version
@@ -219,6 +231,12 @@ class TestCriticalUserPaths:
 
 class TestErrorRecovery:
     """Test that the CLI handles errors gracefully."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self, monkeypatch):
+        """Set up environment for tests."""
+        # Disable first-time setup wizard for tests
+        monkeypatch.setenv("SWEBENCH_NO_INPUT", "1")
 
     def test_malformed_json_patch(self):
         """Test handling of malformed JSON in patch file."""

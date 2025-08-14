@@ -825,9 +825,16 @@ class TestCLIIntegration:
 
             result = runner.invoke(
                 cli,
-                ['run', '-d', 'lite', '--provider', 'openai', '--count', '1'],
+                ['run', '-d', 'lite', '--provider', 'openai', '--count', '1', '--no-input'],
                 catch_exceptions=False
             )
+
+            # Debug output if test fails
+            if result.exit_code != 0:
+                print(f"Exit code: {result.exit_code}")
+                print(f"Output: {result.output}")
+                if result.exception:
+                    print(f"Exception: {result.exception}")
 
             assert result.exit_code == 0
             assert "PASSED" in result.output or "Patches generated successfully" in result.output

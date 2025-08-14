@@ -3,7 +3,6 @@
 import json
 import os
 import subprocess
-from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -214,19 +213,21 @@ class TestHarnessExecution:
         with pred_file.open() as f:
             data = json.load(f)
             assert data["instance_id"] == "test-123"
-            assert data["model_name_or_path"] == "swebench-runner-mvp"
+            assert data["model_name_or_path"] == "swebench-runner"
             assert data["model_patch"] == "test patch"
 
+    @patch.dict(os.environ, {"SWEBENCH_DISABLE_PROGRESS": "1"}, clear=False)
     @patch("subprocess.run")
-    def test_run_harness_timeout(self, mock_run):
+    def test_run_harness_timeout(self, mock_run, tmp_path):
         """Test harness timeout handling."""
         mock_run.side_effect = subprocess.TimeoutExpired("cmd", 4200)
 
         patch = Patch(instance_id="test-123", patch="test")
-        pred_file = Path("/tmp/predictions.jsonl")
+        pred_file = tmp_path / "predictions.jsonl"
+        pred_file.write_text('{"instance_id": "test-123", "model_patch": "test"}')
 
         with pytest.raises(subprocess.TimeoutExpired):
-            docker_run.run_swebench_harness(pred_file, Path("/tmp"), patch)
+            docker_run.run_swebench_harness(pred_file, tmp_path, patch)
 
     def test_parse_results_no_directory(self, tmp_path):
         """Test parsing results when directory doesn't exist."""
@@ -280,6 +281,7 @@ class TestHarnessExecution:
 class TestRunEvaluationIntegration:
     """Test full evaluation flow integration."""
 
+    @patch.dict(os.environ, {"SWEBENCH_DISABLE_PROGRESS": "1"}, clear=False)
     @patch("swebench_runner.docker_run.check_docker_running")
     @patch("swebench_runner.docker_run.check_resources")
     @patch("swebench_runner.docker_run.check_swebench_installed")
@@ -306,6 +308,7 @@ class TestRunEvaluationIntegration:
         assert not result.passed
         assert "Network error" in result.error
 
+    @patch.dict(os.environ, {"SWEBENCH_DISABLE_PROGRESS": "1"}, clear=False)
     @patch("swebench_runner.docker_run.check_docker_running")
     @patch("swebench_runner.docker_run.check_resources")
     @patch("swebench_runner.docker_run.check_swebench_installed")

@@ -4,6 +4,7 @@ This test verifies the actual CLI works as expected from a user perspective.
 It uses subprocess to test the real CLI, not mocked components.
 """
 
+import os
 import subprocess
 import tempfile
 from pathlib import Path
@@ -22,11 +23,14 @@ class TestCompleteUserWorkflow:
 
     def test_cli_is_installed(self):
         """Verify the CLI is installed and responds."""
+        env = os.environ.copy()
+        env["SWEBENCH_NO_INPUT"] = "1"
         result = subprocess.run(
             ['swebench', '--version'],
             capture_output=True,
             text=True,
-            timeout=5
+            timeout=5,
+            env=env
         )
         assert result.returncode == 0
         assert 'swebench' in result.stdout.lower()
@@ -35,11 +39,14 @@ class TestCompleteUserWorkflow:
     def test_help_commands_work(self):
         """Verify help commands provide useful information."""
         # Main help
+        env = os.environ.copy()
+        env["SWEBENCH_NO_INPUT"] = "1"
         result = subprocess.run(
             ['swebench', '--help'],
             capture_output=True,
             text=True,
-            timeout=5
+            timeout=5,
+            env=env
         )
         assert result.returncode == 0
         assert 'Commands:' in result.stdout
@@ -51,7 +58,8 @@ class TestCompleteUserWorkflow:
             ['swebench', 'run', '--help'],
             capture_output=True,
             text=True,
-            timeout=5
+            timeout=5,
+            env=env
         )
         assert result.returncode == 0
         assert '--patches' in result.stdout
@@ -59,22 +67,28 @@ class TestCompleteUserWorkflow:
 
     def test_dataset_info_works(self):
         """Verify dataset info command works (no Docker needed)."""
+        env = os.environ.copy()
+        env["SWEBENCH_NO_INPUT"] = "1"
         result = subprocess.run(
             ['swebench', 'info', '-d', 'lite'],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
+            env=env
         )
         assert result.returncode == 0
         assert 'lite' in result.stdout.lower() or '300' in result.stdout
 
     def test_provider_list_works(self):
         """Verify provider list command works."""
+        env = os.environ.copy()
+        env["SWEBENCH_NO_INPUT"] = "1"
         result = subprocess.run(
             ['swebench', 'provider', 'list'],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
+            env=env
         )
         assert result.returncode == 0
         # Should show provider table or list
@@ -83,11 +97,14 @@ class TestCompleteUserWorkflow:
     def test_patch_validation_without_docker(self):
         """Test patch file validation when Docker is not running."""
         # Test with sample patch
+        env = os.environ.copy()
+        env["SWEBENCH_NO_INPUT"] = "1"
         result = subprocess.run(
             ['swebench', 'run', '--patches', 'tests/fixtures/sample.jsonl'],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
+            env=env
         )
 
         # Should fail gracefully when Docker is not running
@@ -104,11 +121,14 @@ class TestCompleteUserWorkflow:
 
     def test_invalid_patch_file_handling(self):
         """Test handling of invalid patch files."""
+        env = os.environ.copy()
+        env["SWEBENCH_NO_INPUT"] = "1"
         result = subprocess.run(
             ['swebench', 'run', '--patches', 'nonexistent.jsonl'],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
+            env=env
         )
         assert result.returncode != 0
         # Should show error about missing file
@@ -118,11 +138,14 @@ class TestCompleteUserWorkflow:
 
     def test_empty_patch_file_handling(self):
         """Test handling of empty patch files."""
+        env = os.environ.copy()
+        env["SWEBENCH_NO_INPUT"] = "1"
         result = subprocess.run(
             ['swebench', 'run', '--patches', 'tests/fixtures/empty.jsonl'],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
+            env=env
         )
         # Should handle empty file gracefully
         assert result.returncode != 0
@@ -134,12 +157,15 @@ class TestCompleteUserWorkflow:
 
     def test_dataset_validation(self):
         """Test dataset name validation."""
+        env = os.environ.copy()
+        env["SWEBENCH_NO_INPUT"] = "1"
         result = subprocess.run(
             ['swebench', 'run', '--patches', 'tests/fixtures/sample.jsonl',
              '--dataset', 'invalid_dataset_name'],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
+            env=env
         )
         # Should reject invalid dataset
         result.stdout + result.stderr
@@ -152,12 +178,15 @@ class TestCompleteUserWorkflow:
     )
     def test_with_docker_available(self):
         """Test actual evaluation when Docker is available."""
+        env = os.environ.copy()
+        env["SWEBENCH_NO_INPUT"] = "1"
         result = subprocess.run(
             ['swebench', 'run', '--patches', 'tests/fixtures/sample.jsonl',
              '--dataset', 'lite', '--count', '1'],
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=60,
+            env=env
         )
         # Should at least try to run
         assert result.returncode in [0, 1]  # 0 = success, 1 = evaluation failed
@@ -177,19 +206,30 @@ class TestCriticalUserPaths:
     def test_first_time_user_experience(self):
         """Test what a first-time user would experience."""
         # 1. Check version
-        result = subprocess.run(['swebench', '--version'], capture_output=True, text=True)
+        env = os.environ.copy()
+        env["SWEBENCH_NO_INPUT"] = "1"
+        result = subprocess.run(['swebench', '--version'], capture_output=True, text=True,
+            env=env
+        )
         assert result.returncode == 0
 
         # 2. Get help
-        result = subprocess.run(['swebench', '--help'], capture_output=True, text=True)
+        env = os.environ.copy()
+        env["SWEBENCH_NO_INPUT"] = "1"
+        result = subprocess.run(['swebench', '--help'], capture_output=True, text=True,
+            env=env
+        )
         assert result.returncode == 0
         assert len(result.stdout) > 100  # Substantial help text
 
         # 3. Try to run (will fail without Docker, but should be helpful)
+        env = os.environ.copy()
+        env["SWEBENCH_NO_INPUT"] = "1"
         result = subprocess.run(
             ['swebench', 'run', '--patches', 'tests/fixtures/sample.jsonl'],
             capture_output=True,
-            text=True
+            text=True,
+            env=env
         )
         combined = result.stdout + result.stderr
         # Should give clear guidance
@@ -199,31 +239,40 @@ class TestCriticalUserPaths:
     def test_provider_initialization_flow(self):
         """Test provider initialization workflow."""
         # List providers
+        env = os.environ.copy()
+        env["SWEBENCH_NO_INPUT"] = "1"
         result = subprocess.run(
             ['swebench', 'provider', 'list'],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
+            env=env
         )
         assert result.returncode == 0
 
         # Try to get help on initializing a provider
+        env = os.environ.copy()
+        env["SWEBENCH_NO_INPUT"] = "1"
         result = subprocess.run(
             ['swebench', 'provider', 'init', '--help'],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
+            env=env
         )
         # Should show help or indicate the command exists
         assert result.returncode == 0 or 'init' in result.stdout
 
     def test_clean_command_exists(self):
         """Test that clean command is available."""
+        env = os.environ.copy()
+        env["SWEBENCH_NO_INPUT"] = "1"
         result = subprocess.run(
             ['swebench', 'clean', '--help'],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
+            env=env
         )
         assert result.returncode == 0
         assert 'clean' in result.stdout.lower()
@@ -245,11 +294,14 @@ class TestErrorRecovery:
             temp_path = f.name
 
         try:
+            env = os.environ.copy()
+            env["SWEBENCH_NO_INPUT"] = "1"
             result = subprocess.run(
                 ['swebench', 'run', '--patches', temp_path],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=10,
+                env=env
             )
             assert result.returncode != 0
             combined = result.stdout + result.stderr
@@ -266,11 +318,14 @@ class TestErrorRecovery:
         # verify the command starts and can be terminated
         import time
 
+        env = os.environ.copy()
+        env["SWEBENCH_NO_INPUT"] = "1"
         proc = subprocess.Popen(
             ['swebench', '--help'],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True
+            text=True,
+            env=env
         )
 
         # Give it a moment to start
@@ -288,30 +343,39 @@ class TestErrorRecovery:
 def test_minimum_viable_functionality():
     """Single test to verify the absolute minimum functionality works."""
     # Can we even run the CLI?
+    env = os.environ.copy()
+    env["SWEBENCH_NO_INPUT"] = "1"
     result = subprocess.run(
         ['swebench', '--version'],
         capture_output=True,
         text=True,
-        timeout=5
+        timeout=5,
+        env=env
     )
     assert result.returncode == 0, "CLI won't even show version"
 
     # Can we get help?
+    env = os.environ.copy()
+    env["SWEBENCH_NO_INPUT"] = "1"
     result = subprocess.run(
         ['swebench', '--help'],
         capture_output=True,
         text=True,
-        timeout=5
+        timeout=5,
+        env=env
     )
     assert result.returncode == 0, "CLI won't show help"
     assert len(result.stdout) > 50, "Help text is too short"
 
     # Does it handle missing Docker gracefully?
+    env = os.environ.copy()
+    env["SWEBENCH_NO_INPUT"] = "1"
     result = subprocess.run(
         ['swebench', 'run', '--patches', 'tests/fixtures/sample.jsonl'],
         capture_output=True,
         text=True,
-        timeout=10
+        timeout=10,
+        env=env
     )
     # Should exit with error code but not crash
     assert result.returncode in [0, 1, 2], f"Unexpected exit code: {result.returncode}"

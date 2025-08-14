@@ -620,7 +620,7 @@ def run(
     # In test harness subprocess runs, avoid any first-run side-effects that
     # could prolong execution
     is_first_run = check_and_prompt_first_run(
-        no_input=(no_input or os.getenv("SWEBENCH_TEST_MODE", "").lower() == "true")
+        no_input=(no_input or os.getenv("SWEBENCH_TEST_MODE", "").lower() == "true" or os.getenv("SWEBENCH_NO_INPUT") == "1")
     )
 
     # Early Docker availability gate for clear UX and correct exit codes in test doubles

@@ -1,0 +1,76 @@
+{
+  "test_set_type": "custom",
+  "test_set_size": 10,
+  "selected_count": 10,
+  "evaluated_count": 10,
+  "missing_count": 0,
+  "failed_count": 10,
+  "passed_count": 0,
+  "swe_bench_score": 0.0,
+  "start_time": "2025-08-14T13:09:36.653676",
+  "end_time": "2025-08-14T13:10:00.268249",
+  "duration": 23.614573,
+  "duration_str": "23s",
+  "results": {
+    "test-0": {
+      "passed": false,
+      "details": {
+        "error": "No evaluation results directory found. This usually means the harness failed early (e.g., image pull denied or environment error). Try: docker login ghcr.io or run Preflight to configure registry access."
+      }
+    },
+    "test-1": {
+      "passed": false,
+      "details": {
+        "error": "No evaluation results directory found. This usually means the harness failed early (e.g., image pull denied or environment error). Try: docker login ghcr.io or run Preflight to configure registry access."
+      }
+    },
+    "test-2": {
+      "passed": false,
+      "details": {
+        "error": "No evaluation results directory found. This usually means the harness failed early (e.g., image pull denied or environment error). Try: docker login ghcr.io or run Preflight to configure registry access."
+      }
+    },
+    "test-3": {
+      "passed": false,
+      "details": {
+        "error": "No evaluation results directory found. This usually means the harness failed early (e.g., image pull denied or environment error). Try: docker login ghcr.io or run Preflight to configure registry access."
+      }
+    },
+    "test-4": {
+      "passed": false,
+      "details": {
+        "error": "No evaluation results directory found. This usually means the harness failed early (e.g., image pull denied or environment error). Try: docker login ghcr.io or run Preflight to configure registry access."
+      }
+    },
+    "test-5": {
+      "passed": false,
+      "details": {
+        "error": "No evaluation results directory found. This usually means the harness failed early (e.g., image pull denied or environment error). Try: docker login ghcr.io or run Preflight to configure registry access."
+      }
+    },
+    "test-6": {
+      "passed": false,
+      "details": {
+        "error": "No evaluation results directory found. This usually means the harness failed early (e.g., image pull denied or environment error). Try: docker login ghcr.io or run Preflight to configure registry access."
+      }
+    },
+    "test-7": {
+      "passed": false,
+      "details": {
+        "error": "No evaluation results directory found. This usually means the harness failed early (e.g., image pull denied or environment error). Try: docker login ghcr.io or run Preflight to configure registry access."
+      }
+    },
+    "test-8": {
+      "passed": false,
+      "details": {
+        "error": "No evaluation results directory found. This usually means the harness failed early (e.g., image pull denied or environment error). Try: docker login ghcr.io or run Preflight to configure registry access."
+      }
+    },
+    "test-9": {
+      "passed": false,
+      "details": {
+        "error": "No evaluation results directory found. This usually means the harness failed early (e.g., image pull denied or environment error). Try: docker login ghcr.io or run Preflight to configure registry access."
+      }
+    }
+  }
+}

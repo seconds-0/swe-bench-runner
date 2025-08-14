@@ -118,12 +118,15 @@ class TestCLIHappyPath:
             temp_file = f.name
 
         try:
+            env = os.environ.copy()
+            env["SWEBENCH_NO_INPUT"] = "1"  # Disable first-time setup wizard
             result = subprocess.run(
                 [sys.executable, "-m", "swebench_runner", "run",
                  "--patches", temp_file],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=10,
+                env=env
             )
 
             # Should fail with empty file error
@@ -297,11 +300,14 @@ class TestCLIErrorHandling:
 
     def test_cli_invalid_command(self):
         """Test that invalid commands fail properly."""
+        env = os.environ.copy()
+        env["SWEBENCH_NO_INPUT"] = "1"  # Disable first-time setup wizard
         result = subprocess.run(
             [sys.executable, "-m", "swebench_runner", "invalid-command"],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
+            env=env
         )
 
         assert result.returncode != 0
@@ -309,11 +315,14 @@ class TestCLIErrorHandling:
 
     def test_cli_invalid_flag(self):
         """Test that invalid flags fail properly."""
+        env = os.environ.copy()
+        env["SWEBENCH_NO_INPUT"] = "1"  # Disable first-time setup wizard
         result = subprocess.run(
             [sys.executable, "-m", "swebench_runner", "run", "--invalid-flag"],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
+            env=env
         )
 
         assert result.returncode != 0
@@ -322,12 +331,15 @@ class TestCLIErrorHandling:
     def test_cli_patches_dir_empty(self):
         """Test that empty patches directory fails properly."""
         with tempfile.TemporaryDirectory() as temp_dir:
+            env = os.environ.copy()
+            env["SWEBENCH_NO_INPUT"] = "1"  # Disable first-time setup wizard
             result = subprocess.run(
                 [sys.executable, "-m", "swebench_runner", "run",
                  "--patches-dir", temp_dir],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=10,
+                env=env
             )
 
             assert result.returncode != 0
@@ -374,11 +386,14 @@ class TestCLIErrorHandling:
 def test_module_is_executable():
     """Test that the module can be executed directly."""
     # This is the most basic E2E test - can we even run the module?
+    env = os.environ.copy()
+    env["SWEBENCH_NO_INPUT"] = "1"  # Disable first-time setup wizard
     result = subprocess.run(
         [sys.executable, "-m", "swebench_runner"],
         capture_output=True,
         text=True,
-        timeout=10
+        timeout=10,
+        env=env
     )
 
     # Should show help or usage when run without arguments

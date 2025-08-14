@@ -75,7 +75,7 @@ def check_docker_running(client: DockerClientProtocol | None = None) -> None:
     """
     # Test harness compatibility: allow env flag to force not-running behavior
     # BUT honor a custom factory if one is set (tests inject doubles via factory)
-    if (os.getenv("SWEBENCH_MOCK_NO_DOCKER", "false").lower() == "true" and 
+    if (os.getenv("SWEBENCH_MOCK_NO_DOCKER", "false").lower() == "true" and
         _docker_client_factory is None):
         # Honor platform overrides used by tests
         platform_hint = os.getenv("SWEBENCH_PLATFORM", platform.system())

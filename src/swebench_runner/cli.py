@@ -115,6 +115,7 @@ def profiles() -> None:
               help="Provider name (openai, anthropic, openrouter, etc)")
 @click.option("--json", "json_out", is_flag=True, help="Output as JSON for scripting")
 def profiles_list(provider: str, json_out: bool) -> None:
+    """List all profiles for a provider."""
     profiles = secrets_list_profiles(provider)
     active = secrets_get_active_profile(provider)
     data = {"provider": provider, "active": active, "profiles": profiles}
@@ -134,6 +135,7 @@ def profiles_list(provider: str, json_out: bool) -> None:
 @click.option("--profile", required=True)
 @click.option("--active", is_flag=True, help="Set as active after creation")
 def profiles_create(provider: str, profile: str, active: bool) -> None:
+    """Create a new profile for a provider."""
     secrets_add_profile(provider, profile)
     if active:
         secrets_set_active_profile(provider, profile)
@@ -144,6 +146,7 @@ def profiles_create(provider: str, profile: str, active: bool) -> None:
 @click.option("--provider", required=True)
 @click.option("--profile", required=True)
 def profiles_set_active_cmd(provider: str, profile: str) -> None:
+    """Set the active profile for a provider."""
     secrets_set_active_profile(provider, profile)
     click.echo(f"Active profile for {provider} set to '{profile}'")
 
@@ -153,6 +156,7 @@ def profiles_set_active_cmd(provider: str, profile: str) -> None:
 @click.option("--profile", required=True)
 @click.option("--key", required=True, help="API key value (input via env in CI)")
 def profiles_set_key(provider: str, profile: str, key: str) -> None:
+    """Set the API key for a profile."""
     ok = secrets_set_api_key(provider, key, profile=profile)
     if not ok:
         click.echo("Failed to store key (no keyring available "
@@ -165,6 +169,7 @@ def profiles_set_key(provider: str, profile: str, key: str) -> None:
 @click.option("--provider", required=True)
 @click.option("--profile", required=True)
 def profiles_clear_key(provider: str, profile: str) -> None:
+    """Clear the API key for a profile."""
     ok = secrets_clear_api_key(provider, profile)
     if not ok:
         click.echo("Failed to clear key (no keyring available?)", err=True)
@@ -177,6 +182,7 @@ def profiles_clear_key(provider: str, profile: str) -> None:
 @click.option("--from", "old", required=True)
 @click.option("--to", "new", required=True)
 def profiles_rename(provider: str, old: str, new: str) -> None:
+    """Rename a profile."""
     from .secrets_store import rename_profile as secrets_rename_profile
     ok = secrets_rename_profile(provider, old, new)
     if not ok:
@@ -189,6 +195,7 @@ def profiles_rename(provider: str, old: str, new: str) -> None:
 @click.option("--provider", required=True)
 @click.option("--profile", required=True)
 def profiles_delete(provider: str, profile: str) -> None:
+    """Delete a profile."""
     secrets_remove_profile(provider, profile)
     click.echo(f"Deleted profile '{profile}' for {provider}")
 

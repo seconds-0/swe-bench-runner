@@ -245,7 +245,6 @@ class ResponseParser:
                             msg = warn.message
                             if getattr(warn, 'line_number', None):
                                 msg = f"Line {warn.line_number}: {msg}"
-                            results_issues = []
                         # We'll attach in object below; keep per-result issues minimal
 
                     # Build parse result
@@ -792,7 +791,7 @@ class ResponseParser:
         if lines:
             last_line = lines[-1].strip()
             if last_line and last_line[0] in ['+', '-', ' '] and not any(
-                l.startswith('\\ No newline') for l in lines[-3:]
+                line.startswith('\\ No newline') for line in lines[-3:]
             ):
                 warnings.append("Patch may be truncated (ends with change/context line)")
 

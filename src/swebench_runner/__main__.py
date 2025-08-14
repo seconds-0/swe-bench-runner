@@ -8,6 +8,7 @@ from .cli import cli
 
 
 def main() -> None:
+    """Entry point for the swebench CLI."""
     cli()
 
 

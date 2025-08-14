@@ -67,7 +67,7 @@ async def test_openai_models_fetch_on_init_disabled(monkeypatch):
 
     # Ensure no network call by asserting ClientSession is not created
     with mock.patch("aiohttp.ClientSession") as session_mock:
-        provider = OpenAIProvider(config)
+        OpenAIProvider(config)
         await asyncio.sleep(0.02)
         session_mock.assert_not_called()
 
@@ -84,7 +84,7 @@ async def test_openai_models_fetch_on_init_non_default_base_requires_opt_in(monk
     )
 
     with mock.patch("aiohttp.ClientSession") as session_mock:
-        provider = OpenAIProvider(config)
+        OpenAIProvider(config)
         await asyncio.sleep(0.02)
         session_mock.assert_not_called()
 

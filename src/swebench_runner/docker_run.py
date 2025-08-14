@@ -71,7 +71,7 @@ def check_docker_running() -> None:
         client = docker.from_env() if docker is not None else None
         _check_docker_running(client)
     except Exception:
-        # If we fail to create a client at all, classify as not running with 
+        # If we fail to create a client at all, classify as not running with
         # platform-specific guidance
         plat = os.getenv("SWEBENCH_PLATFORM", platform.system())
         if str(plat).lower().startswith("darwin"):
@@ -164,8 +164,10 @@ def load_first_patch(patch_source: str, max_size_mb: int = 5) -> Patch:
                 # reference the user-provided --max-patch-size in messaging.
                 if "environment variable" in m:
                     print("❌ Patch Too Large for environment variables")
-                    print("Tip: Consider --patches-dir to mount files instead of env vars")
-                    print("     Or reduce size / split the patch; --max-patch-size can help in some cases")
+                    print("Tip: Consider --patches-dir to mount files instead of "
+                          "env vars")
+                    print("     Or reduce size / split the patch; --max-patch-size "
+                          "can help in some cases")
                     sys.exit(exit_codes.GENERAL_ERROR)
                 if "encoding" in m or isinstance(file_val, UnicodeDecodeError):
                     print("Error: Patch encoding issue detected (UTF-8). Line 1")
@@ -175,7 +177,8 @@ def load_first_patch(patch_source: str, max_size_mb: int = 5) -> Patch:
                     sys.exit(exit_codes.GENERAL_ERROR)
                 if "schema" in m or "invalid" in m:
                     print("Error: Invalid patch format (schema)")
-                    print("Hint: Ensure each JSONL line has 'instance_id' and 'patch' fields")
+                    print("Hint: Ensure each JSONL line has 'instance_id' and "
+                          "'patch' fields")
                     print("See docs: https://github.com/princeton-nlp/SWE-bench")
                     sys.exit(exit_codes.GENERAL_ERROR)
 
@@ -201,16 +204,20 @@ def load_first_patch(patch_source: str, max_size_mb: int = 5) -> Patch:
                     if content_val or apply_val:
                         msg = str(content_val or apply_val).lower()
                         if 'encoding' in msg or 'utf-8' in msg or 'utf8' in msg:
-                            print("Error: Patch encoding issue detected (UTF-8). Line 1")
+                            print("Error: Patch encoding issue detected (UTF-8). "
+                                  "Line 1")
                             print("Hint: Ensure JSONL file is UTF-8 encoded")
                             print("Please check your editor encoding settings")
-                            print("Try: iconv -f utf-16 -t utf-8 < bad.jsonl > fixed.jsonl")
+                            print("Try: iconv -f utf-16 -t utf-8 < bad.jsonl > "
+                                  "fixed.jsonl")
                             sys.exit(exit_codes.GENERAL_ERROR)
                         if 'conflict' in msg or 'hunk' in msg or 'apply failed' in msg:
-                            print(f"Error: Patch apply failed due to conflict for {patch.instance_id} (hunk/context mismatch)")
+                            print(f"Error: Patch apply failed due to conflict for "
+                                  f"{patch.instance_id} (hunk/context mismatch)")
                             print("See logs/patch.log for details")
                             print("Hint: Check hunk line numbers and context")
-                            print("Tip: Try regenerating the patch for only affected files or reduce context")
+                            print("Tip: Try regenerating the patch for only affected "
+                                  "files or reduce context")
                             print("please check the conflicting hunks and adjust context lines")
                             sys.exit(exit_codes.GENERAL_ERROR)
 
@@ -227,7 +234,8 @@ def load_first_patch(patch_source: str, max_size_mb: int = 5) -> Patch:
                         or '@@@' in lower_content
                         or '<<<<<<<' in lower_content
                         or '>>>>>>>' in lower_content):
-                        print(f"Error: Patch apply failed due to conflict for {patch.instance_id} (hunk/context mismatch)")
+                        print(f"Error: Patch apply failed due to conflict for "
+                              f"{patch.instance_id} (hunk/context mismatch)")
                         print("See logs/patch.log for details")
                         print("Hint: Check hunk line numbers and context")
                         print("Tip: Try regenerating the patch for only affected files or reduce context")
@@ -817,7 +825,6 @@ def run_swebench_harness(predictions_file: Path, temp_dir: Path,
         # Try to import rich for better progress display
         try:
             from rich.console import Console
-            from rich.live import Live
             from rich.progress import (
                 Progress,
                 SpinnerColumn,
@@ -914,7 +921,7 @@ def run_swebench_harness(predictions_file: Path, temp_dir: Path,
         else:
             # Fallback progress display without rich
             print("\n   Build Phases:")
-            for key, phase in phases.items():
+            for _key, phase in phases.items():
                 print(f"   • {phase['name']}: ⏳ waiting")
             print()
 
@@ -945,7 +952,8 @@ def run_swebench_harness(predictions_file: Path, temp_dir: Path,
 
                     # Update spinner
                     if time.time() - last_output_time > 0.5:
-                        print(f"\r   {spinner_chars[spinner_idx]} Building... [{mins:02d}:{secs:02d}]", end="", flush=True)
+                        print(f"\r   {spinner_chars[spinner_idx]} Building... "
+                              f"[{mins:02d}:{secs:02d}]", end="", flush=True)
                         spinner_idx = (spinner_idx + 1) % len(spinner_chars)
                         last_output_time = time.time()
                 except:

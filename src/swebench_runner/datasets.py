@@ -385,7 +385,7 @@ class DatasetManager:
         except Exception as e:
             error_msg = str(e).lower()
             # Treat obvious cache corruption as a general dataset error (exit 1)
-            if ("corrupt" in error_msg or "corrupted" in error_msg or 
+            if ("corrupt" in error_msg or "corrupted" in error_msg or
                 "invalid json" in error_msg):
                 raise DatasetError(
                     f"Detected corrupted dataset cache for {dataset_name}."
@@ -399,8 +399,8 @@ class DatasetManager:
                     f"Dataset {dataset_name} not available in offline mode. "
                     f"Run without --offline to download it first."
                 ) from e
-            elif ("rate limit" in error_msg or "429" in error_msg or 
-                  "too many requests" in error_msg or "huggingface" in error_msg or 
+            elif ("rate limit" in error_msg or "429" in error_msg or
+                  "too many requests" in error_msg or "huggingface" in error_msg or
                   "hf" in error_msg):
                 if offline:
                     raise DatasetError(

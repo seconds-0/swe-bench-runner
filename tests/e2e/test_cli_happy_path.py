@@ -95,12 +95,15 @@ class TestCLIHappyPath:
 
     def test_cli_run_nonexistent_file(self):
         """Test that run command fails properly with nonexistent file."""
+        env = os.environ.copy()
+        env["SWEBENCH_NO_INPUT"] = "1"  # Disable first-time setup wizard
         result = subprocess.run(
             [sys.executable, "-m", "swebench_runner", "run",
              "--patches", "/tmp/nonexistent_patches_file.jsonl"],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
+            env=env
         )
 
         # Should fail with file not found error
@@ -144,6 +147,7 @@ class TestCLIHappyPath:
         # Set environment to mock no Docker for predictable failure
         env = os.environ.copy()
         env["SWEBENCH_MOCK_NO_DOCKER"] = "true"
+        env["SWEBENCH_NO_INPUT"] = "1"  # Disable first-time setup wizard
 
         result = subprocess.run(
             [sys.executable, "-m", "swebench_runner", "run",
@@ -165,6 +169,7 @@ class TestCLIHappyPath:
         # Set environment to mock no Docker for predictable output
         env = os.environ.copy()
         env["SWEBENCH_MOCK_NO_DOCKER"] = "true"
+        env["SWEBENCH_NO_INPUT"] = "1"  # Disable first-time setup wizard
 
         result = subprocess.run(
             [sys.executable, "-m", "swebench_runner", "run",
@@ -242,6 +247,7 @@ class TestCLIWithEnvironmentVars:
         env = os.environ.copy()
         env["SWEBENCH_PROVIDER"] = "mock"
         env["SWEBENCH_MOCK_NO_DOCKER"] = "true"
+        env["SWEBENCH_NO_INPUT"] = "1"  # Disable first-time setup wizard
 
         # Create a minimal instance file
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
@@ -344,6 +350,7 @@ class TestCLIErrorHandling:
             # Set environment to skip Docker check
             env = os.environ.copy()
             env["SWEBENCH_MOCK_NO_DOCKER"] = "true"
+            env["SWEBENCH_NO_INPUT"] = "1"  # Disable first-time setup wizard
 
             result = subprocess.run(
                 [sys.executable, "-m", "swebench_runner", "run",

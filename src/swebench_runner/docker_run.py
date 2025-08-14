@@ -795,7 +795,8 @@ def run_swebench_harness(predictions_file: Path, temp_dir: Path,
             print(f"🔍 Debug: Running command: {' '.join(cmd_to_run)}")
 
         # For local builds, run with real-time output monitoring
-        if will_build_locally:
+        # Unless disabled for testing
+        if will_build_locally and not os.getenv("SWEBENCH_DISABLE_PROGRESS"):
             return _invoke_with_progress(cmd_to_run, temp_dir, patch.instance_id)
         else:
             return subprocess.run(  # noqa: S603

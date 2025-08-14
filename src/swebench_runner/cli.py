@@ -84,7 +84,8 @@ def cli(ctx: click.Context, debug: bool) -> None:
     # If run without a subcommand: if interactive TTY, open Home; otherwise print help
     if ctx.invoked_subcommand is None:
         try:
-            if sys.stdin.isatty() and sys.stdout.isatty() and os.getenv("TERM", "").lower() != "dumb":
+            if (sys.stdin.isatty() and sys.stdout.isatty() and 
+                os.getenv("TERM", "").lower() != "dumb"):
                 from .tui import run_home
                 run_home()
                 ctx.exit(0)
@@ -110,7 +111,8 @@ def profiles() -> None:
 
 
 @profiles.command("list")
-@click.option("--provider", required=True, help="Provider name (openai, anthropic, openrouter, huggingface)")
+@click.option("--provider", required=True, 
+              help="Provider name (openai, anthropic, openrouter, etc)")
 @click.option("--json", "json_out", is_flag=True, help="Output as JSON for scripting")
 def profiles_list(provider: str, json_out: bool) -> None:
     profiles = secrets_list_profiles(provider)
@@ -153,7 +155,8 @@ def profiles_set_active_cmd(provider: str, profile: str) -> None:
 def profiles_set_key(provider: str, profile: str, key: str) -> None:
     ok = secrets_set_api_key(provider, key, profile=profile)
     if not ok:
-        click.echo("Failed to store key (no keyring available or invalid key)", err=True)
+        click.echo("Failed to store key (no keyring available "
+                   "or invalid key)", err=True)
         sys.exit(exit_codes.GENERAL_ERROR)
     click.echo(f"Key stored for {provider}:{profile}")
 
@@ -375,14 +378,16 @@ def run(
 
     # Priority: explicit patches file > dataset selection > auto-detection (opt-in)
     if not patches and not patches_dir and not dataset and not rerun_failed:
-        # Only auto-detect when explicitly enabled to avoid surprising behavior in CI/tests
+        # Only auto-detect when explicitly enabled to avoid surprising 
+        # behavior in CI/tests
         if os.getenv("SWEBENCH_AUTODETECT_PATCHES", "false").lower() == "true":
             detected = detect_patches_file()
             if detected:
                 patches = detected
                 if not json_output:
                     click.echo(f"💡 Using {patches}")
-        elif not no_input and (sys.stdin.isatty() and sys.stdout.isatty()) and os.getenv("CI") != "1" and os.getenv("TERM", "").lower() != "dumb":
+        elif (not no_input and sys.stdin.isatty() and sys.stdout.isatty() and 
+              os.getenv("CI") != "1" and os.getenv("TERM", "").lower() != "dumb"):
             # Best-effort suggestion in interactive mode
             suggested_file = suggest_patches_file()
             if suggested_file:
@@ -559,7 +564,8 @@ def run(
             )
             sys.exit(exit_codes.GENERAL_ERROR)
 
-    # Validate patches file if provided (defer existence errors to runtime to preserve Docker checks)
+    # Validate patches file if provided (defer existence errors to runtime 
+    # to preserve Docker checks)
     if patches is not None:
         try:
             patch_path_obj = Path(patches)
@@ -571,7 +577,8 @@ def run(
                     click.echo("Error: Patches file is empty", err=True)
                     sys.exit(exit_codes.GENERAL_ERROR)
         except Exception:
-            # If any filesystem error occurs here, let downstream handling surface clearer messages
+            # If any filesystem error occurs here, let downstream handling 
+            # surface clearer messages
             pass
 
         patch_source = str(patches)
@@ -603,16 +610,21 @@ def run(
         click.echo("== End Snapshot ==\n")
 
     # Check for first-time setup after argument validation
-    # In test harness subprocess runs, avoid any first-run side-effects that could prolong execution
-    is_first_run = check_and_prompt_first_run(no_input=(no_input or os.getenv("SWEBENCH_TEST_MODE", "").lower() == "true"))
+    # In test harness subprocess runs, avoid any first-run side-effects that 
+    # could prolong execution
+    is_first_run = check_and_prompt_first_run(
+        no_input=(no_input or os.getenv("SWEBENCH_TEST_MODE", "").lower() == "true")
+    )
 
     # Early Docker availability gate for clear UX and correct exit codes in test doubles
     # Only perform when not explicitly generating-only and not in batch rerun path
     if not generate_only:
-        # Honor test harness env flag to force Docker-not-running without importing docker
+        # Honor test harness env flag to force Docker-not-running without 
+        # importing docker
         if os.getenv("SWEBENCH_MOCK_NO_DOCKER", "false").lower() == "true":
             if sys.platform == "darwin":
-                click.echo("⛔ Docker Desktop not running. Start it from Applications and wait for whale icon.")
+                click.echo("⛔ Docker Desktop not running. Start it from Applications "
+                           "and wait for whale icon.")
             else:
                 click.echo("⛔ Docker daemon unreachable at /var/run/docker.sock")
                 click.echo("Try: systemctl start docker or set DOCKER_HOST")
@@ -655,8 +667,10 @@ def run(
                 click.echo(tail)
                 click.echo("\nHow to fix:")
                 click.echo("  • Ensure Docker is running")
-                click.echo("  • Run: docker login ghcr.io (requires GitHub token with read:packages)")
-                click.echo("  • Or run: gh auth login --web -s read:packages; then re-run swebench")
+                click.echo("  • Run: docker login ghcr.io "
+                           "(requires GitHub token with read:packages)")
+                click.echo("  • Or run: gh auth login --web -s read:packages; "
+                           "then re-run swebench")
                 code = classify_error(tail)
                 sys.exit(code)
             else:
@@ -664,7 +678,8 @@ def run(
         except Exception as e:
             # Fail safe with clear guidance when preflight infra itself errors
             click.echo(f"❌ Preflight could not run: {e}")
-            click.echo("Try: swebench setup (interactive) or use --no-preflight to bypass (not recommended)")
+            click.echo("Try: swebench setup (interactive) or use --no-preflight "
+                       "to bypass (not recommended)")
             # Do not mask Docker error doubles in tests; continue
 
     # Determine if we should use batch evaluation
@@ -743,13 +758,15 @@ def run(
         else:
             # Single patch evaluation (backward compatibility)
             # Show a spinner while evaluating a single instance in interactive mode
-            interactive = sys.stdin.isatty() and sys.stdout.isatty() and os.getenv("TERM", "").lower() != "dumb"
+            interactive = (sys.stdin.isatty() and sys.stdout.isatty() and 
+                          os.getenv("TERM", "").lower() != "dumb")
             if interactive:
                 from rich.console import Console
                 console = Console()
                 with console.status(f"Evaluating {patch_source}...", spinner="dots"):
                     result = run_evaluation(
-                        patch_source, no_input=no_input, max_patch_size_mb=max_patch_size,
+                        patch_source, no_input=no_input, 
+                        max_patch_size_mb=max_patch_size,
                         timeout_mins=timeout_mins
                     )
             else:
@@ -907,7 +924,8 @@ def setup() -> None:
     """
     # Use Live TUI wizard by default in an interactive TTY
     try:
-        if sys.stdin.isatty() and sys.stdout.isatty() and os.getenv("TERM", "").lower() != "dumb":
+        if (sys.stdin.isatty() and sys.stdout.isatty() and 
+            os.getenv("TERM", "").lower() != "dumb"):
             from .tui import run_wizard
             run_wizard()
             return
@@ -1213,7 +1231,8 @@ def generate(
         result_path = asyncio.run(
             integration.generate_patches_for_evaluation(
                 instances=[instance_data],
-                provider_name=provider or os.environ.get('SWEBENCH_PROVIDER') or 'openai',
+                provider_name=(provider or os.environ.get('SWEBENCH_PROVIDER') 
+                               or 'openai'),
                 model=model,
                 output_path=output,
                 max_workers=1,

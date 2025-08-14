@@ -9,6 +9,7 @@ Tests specifically for:
 """
 
 import json
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -308,6 +309,9 @@ class TestDockerRunSWEBenchIntegration:
 
         Why: Incorrect arguments cause harness to fail silently.
         """
+        # Disable progress tracking for tests
+        os.environ["SWEBENCH_DISABLE_PROGRESS"] = "1"
+        
         mock_run.return_value = Mock(returncode=0, stdout="", stderr="")
 
         patch = Patch(instance_id="test-123", patch="diff")
@@ -318,11 +322,15 @@ class TestDockerRunSWEBenchIntegration:
             run_swebench_harness(pred_file, Path(tmpdir), patch)
 
             # Check arguments
+            assert mock_run.called, "subprocess.run should have been called"
             call_args = mock_run.call_args[0][0]
             assert "--dataset_name" in call_args
             assert "SWE-bench_Lite" in call_args
             assert "--max_workers" in call_args
             assert "1" in call_args  # Single worker for determinism
+        
+        # Clean up env var
+        os.environ.pop("SWEBENCH_DISABLE_PROGRESS", None)
 
     def test_parses_successful_harness_results(self):
         """Parse successful evaluation results.

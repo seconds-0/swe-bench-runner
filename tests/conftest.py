@@ -25,6 +25,8 @@ def simple_test_env(monkeypatch):
     monkeypatch.setenv("SWEBENCH_SKIP_RESOURCE_CHECK", "true")
     # Disable keyring to prevent keychain password prompts during tests
     monkeypatch.setenv("SWEBENCH_DISABLE_KEYRING", "true")
+    # Disable progress tracking for tests
+    monkeypatch.setenv("SWEBENCH_DISABLE_PROGRESS", "true")
 
     # Use temp cache to avoid polluting real cache
     import tempfile
@@ -66,6 +68,9 @@ def isolated_test_environment(monkeypatch, tmp_path):
 
     # Disable keyring to prevent keychain password prompts during tests
     monkeypatch.setenv("SWEBENCH_DISABLE_KEYRING", "true")
+    
+    # Disable progress tracking for tests
+    monkeypatch.setenv("SWEBENCH_DISABLE_PROGRESS", "true")
 
     # Lazy import to avoid import issues
     from unittest.mock import patch

@@ -84,7 +84,7 @@ def cli(ctx: click.Context, debug: bool) -> None:
     # If run without a subcommand: if interactive TTY, open Home; otherwise print help
     if ctx.invoked_subcommand is None:
         try:
-            if (sys.stdin.isatty() and sys.stdout.isatty() and 
+            if (sys.stdin.isatty() and sys.stdout.isatty() and
                 os.getenv("TERM", "").lower() != "dumb"):
                 from .tui import run_home
                 run_home()
@@ -111,7 +111,7 @@ def profiles() -> None:
 
 
 @profiles.command("list")
-@click.option("--provider", required=True, 
+@click.option("--provider", required=True,
               help="Provider name (openai, anthropic, openrouter, etc)")
 @click.option("--json", "json_out", is_flag=True, help="Output as JSON for scripting")
 def profiles_list(provider: str, json_out: bool) -> None:
@@ -378,7 +378,7 @@ def run(
 
     # Priority: explicit patches file > dataset selection > auto-detection (opt-in)
     if not patches and not patches_dir and not dataset and not rerun_failed:
-        # Only auto-detect when explicitly enabled to avoid surprising 
+        # Only auto-detect when explicitly enabled to avoid surprising
         # behavior in CI/tests
         if os.getenv("SWEBENCH_AUTODETECT_PATCHES", "false").lower() == "true":
             detected = detect_patches_file()
@@ -386,7 +386,7 @@ def run(
                 patches = detected
                 if not json_output:
                     click.echo(f"💡 Using {patches}")
-        elif (not no_input and sys.stdin.isatty() and sys.stdout.isatty() and 
+        elif (not no_input and sys.stdin.isatty() and sys.stdout.isatty() and
               os.getenv("CI") != "1" and os.getenv("TERM", "").lower() != "dumb"):
             # Best-effort suggestion in interactive mode
             suggested_file = suggest_patches_file()
@@ -564,7 +564,7 @@ def run(
             )
             sys.exit(exit_codes.GENERAL_ERROR)
 
-    # Validate patches file if provided (defer existence errors to runtime 
+    # Validate patches file if provided (defer existence errors to runtime
     # to preserve Docker checks)
     if patches is not None:
         try:
@@ -577,7 +577,7 @@ def run(
                     click.echo("Error: Patches file is empty", err=True)
                     sys.exit(exit_codes.GENERAL_ERROR)
         except Exception:
-            # If any filesystem error occurs here, let downstream handling 
+            # If any filesystem error occurs here, let downstream handling
             # surface clearer messages
             pass
 
@@ -610,7 +610,7 @@ def run(
         click.echo("== End Snapshot ==\n")
 
     # Check for first-time setup after argument validation
-    # In test harness subprocess runs, avoid any first-run side-effects that 
+    # In test harness subprocess runs, avoid any first-run side-effects that
     # could prolong execution
     is_first_run = check_and_prompt_first_run(
         no_input=(no_input or os.getenv("SWEBENCH_TEST_MODE", "").lower() == "true")
@@ -619,7 +619,7 @@ def run(
     # Early Docker availability gate for clear UX and correct exit codes in test doubles
     # Only perform when not explicitly generating-only and not in batch rerun path
     if not generate_only:
-        # Honor test harness env flag to force Docker-not-running without 
+        # Honor test harness env flag to force Docker-not-running without
         # importing docker
         if os.getenv("SWEBENCH_MOCK_NO_DOCKER", "false").lower() == "true":
             if sys.platform == "darwin":
@@ -758,14 +758,14 @@ def run(
         else:
             # Single patch evaluation (backward compatibility)
             # Show a spinner while evaluating a single instance in interactive mode
-            interactive = (sys.stdin.isatty() and sys.stdout.isatty() and 
+            interactive = (sys.stdin.isatty() and sys.stdout.isatty() and
                           os.getenv("TERM", "").lower() != "dumb")
             if interactive:
                 from rich.console import Console
                 console = Console()
                 with console.status(f"Evaluating {patch_source}...", spinner="dots"):
                     result = run_evaluation(
-                        patch_source, no_input=no_input, 
+                        patch_source, no_input=no_input,
                         max_patch_size_mb=max_patch_size,
                         timeout_mins=timeout_mins
                     )
@@ -924,7 +924,7 @@ def setup() -> None:
     """
     # Use Live TUI wizard by default in an interactive TTY
     try:
-        if (sys.stdin.isatty() and sys.stdout.isatty() and 
+        if (sys.stdin.isatty() and sys.stdout.isatty() and
             os.getenv("TERM", "").lower() != "dumb"):
             from .tui import run_wizard
             run_wizard()
@@ -1231,7 +1231,7 @@ def generate(
         result_path = asyncio.run(
             integration.generate_patches_for_evaluation(
                 instances=[instance_data],
-                provider_name=(provider or os.environ.get('SWEBENCH_PROVIDER') 
+                provider_name=(provider or os.environ.get('SWEBENCH_PROVIDER')
                                or 'openai'),
                 model=model,
                 output_path=output,

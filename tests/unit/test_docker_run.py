@@ -311,7 +311,7 @@ class TestDockerRunSWEBenchIntegration:
         """
         # Disable progress tracking for tests
         os.environ["SWEBENCH_DISABLE_PROGRESS"] = "1"
-        
+
         mock_run.return_value = Mock(returncode=0, stdout="", stderr="")
 
         patch = Patch(instance_id="test-123", patch="diff")
@@ -328,7 +328,7 @@ class TestDockerRunSWEBenchIntegration:
             assert "SWE-bench_Lite" in call_args
             assert "--max_workers" in call_args
             assert "1" in call_args  # Single worker for determinism
-        
+
         # Clean up env var
         os.environ.pop("SWEBENCH_DISABLE_PROGRESS", None)
 

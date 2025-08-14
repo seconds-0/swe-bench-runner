@@ -68,7 +68,7 @@ def isolated_test_environment(monkeypatch, tmp_path):
 
     # Disable keyring to prevent keychain password prompts during tests
     monkeypatch.setenv("SWEBENCH_DISABLE_KEYRING", "true")
-    
+
     # Disable progress tracking for tests
     monkeypatch.setenv("SWEBENCH_DISABLE_PROGRESS", "true")
 

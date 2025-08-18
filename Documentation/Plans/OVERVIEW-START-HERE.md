@@ -1,15 +1,19 @@
 # OVERVIEW - START HERE
 
-**Last Updated**: 2025-01-30 (Verified and Updated)
-**Current Branch**: pr-11-rebase
-**Latest Commit**: (Check git log for latest)
-**Status**: Core functionality complete, needs documentation and test coverage
+**Last Updated**: 2025-08-18 (Critical CLI/TUI fixes completed)
+**Current Branch**: fix/run-ability
+**Latest Commit**: cd98efb (TUI reliability improvements)
+**Status**: Core functionality complete with critical UX fixes, needs test coverage and packaging
 
 ## 🎯 Project Status Summary
 
 The SWE-bench Runner project is **functionally complete**. All core features are implemented and working. Remaining work is documentation and test coverage.
 
-**Latest Update (2025-08-07)**: 
+**Latest Update (2025-08-18)**:
+- **CLI/TUI Reliability Fixes** - Completed critical user experience improvements
+  - Smart menu defaults: Quick Run (1) if configured, Setup (2) for new users
+  - Direct function calls: Eliminated subprocess architecture issues in TUI
+  - Enhanced consistency between CLI and TUI workflows
 - Phase 2.1-2.3: Test infrastructure improvements complete (test doubles, unit tests, documentation consolidation)
 - Phase 2.4: Python 3.11 migration complete - resolved version compatibility issues
 
@@ -48,22 +52,31 @@ The SWE-bench Runner project is **functionally complete**. All core features are
    - ~20% performance improvement
    - Clean, maintainable test infrastructure
 
-### 🔴 What Needs Work
-1. **Test Coverage** - Currently 1-13% (needs 60%+ for CI)
-   - Tests are hanging due to Docker/CLI mocking issues
-   - Need to create simpler unit tests that work
-   - Focus on pure functions and business logic first
+6. **CLI/TUI Reliability** - COMPLETE (2025-08-18)
+   - Smart menu defaults based on user configuration
+   - Direct function calls eliminate subprocess architecture issues
+   - Consistent Docker checking patterns
+   - Enhanced user experience and reliability
 
-2. **Documentation** - MINIMAL
+### 🔴 What Needs Work
+1. **Test Coverage** - Currently 58% (needs 60%+ for CI)
+   - Need just 2% more coverage to meet minimum threshold
+   - Focus on covering uncovered functions and edge cases
+   - Priority for v1.0 release readiness
+
+2. **PyPI Packaging** - NOT STARTED
+   - Need to create setup.py/pyproject.toml configuration
+   - Test installation in clean environment
+   - Release automation
+
+3. **Documentation** - MINIMAL
    - ✅ Provider setup guides complete
    - ✅ Getting started guide exists
-   - ❌ No API reference documentation
-   - ❌ No code examples directory
-   - ❌ CLI reference needs expansion
-   - ❌ No troubleshooting guide
+   - ❌ API reference documentation (defer to v1.1)
+   - ❌ Code examples directory (defer to v1.1)
 
-3. **Examples** - NONE
-   - Need basic usage examples
+4. **Examples** - NONE (defer to v1.1)
+   - Basic usage examples
    - Provider comparison examples
    - Batch processing examples
 
@@ -125,10 +138,10 @@ The SWE-bench Runner project is **functionally complete**. All core features are
 - **Providers Implemented**: 4/4 ✅
 - **Integration Tests**: Fixed ✅
 - **Test Coverage**: 58% ⚠️ (need 60%)
-- **Documentation**: ~20% 🔴
-- **Examples**: 0% 🔴
+- **PyPI Packaging**: 0% 🔴
+- **Documentation**: ~20% 🔴 (sufficient for v1.0)
 - **CI Status**: All passing (except coverage)
-- **Time to v1.0**: 4-7 days
+- **Time to v1.0**: 1-2 days (just coverage + packaging)
 
 ## 🔗 Important Files
 
@@ -140,15 +153,16 @@ The SWE-bench Runner project is **functionally complete**. All core features are
 ## 💡 Key Insights
 
 1. **Implementation is Complete** - All planned features are implemented and working
-2. **Planning Documents Were Outdated** - Many "incomplete" plans were actually finished
-3. **Quality Over Theatre** - Focus on real gaps (docs, tests) not creating more plans
-4. **Launch Ready** - With 4-7 days on docs and tests, v1.0 can ship
+2. **UX Issues Resolved** - Critical CLI/TUI reliability fixes completed (2025-08-18)
+3. **Almost Launch Ready** - Just need 2% more test coverage and PyPI packaging
+4. **Quality Over Theatre** - Focus on real gaps (coverage, packaging) not more features
 
 ## 📋 Verification Notes
 
 - All core MVP plans (CLI, Docker, Output, Dataset) verified as complete
 - Provider system fully implemented with 4 providers
 - Integration tests fixed and comprehensive
-- Remaining work is polish, not features
+- CLI/TUI reliability fixes completed (2025-08-18)
+- Remaining work is minimal: 2% test coverage + PyPI packaging
 
 Always check this document first when starting work on the project!

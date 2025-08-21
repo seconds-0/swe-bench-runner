@@ -22,6 +22,7 @@ from .exceptions import (
     ProviderTokenLimitError,
 )
 from .registry import register_provider
+from .unified_models import UnifiedRequest, UnifiedResponse
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ class OpenRouterProvider(ModelProvider):
     api_version = "1.0"
     requires_api_key = True
     supports_streaming = True
-    default_model = "anthropic/claude-3-sonnet"
+    default_model = "qwen/qwen3-coder:free"
 
     # Default list of supported models (will be updated dynamically)
     supported_models = [
@@ -76,6 +77,10 @@ class OpenRouterProvider(ModelProvider):
         "nousresearch/nous-hermes-2-mixtral-8x7b-dpo",
         "phind/phind-codellama-34b-v2",
         "deepseek/deepseek-coder-33b-instruct",
+        # Qwen models (free)
+        "qwen/qwen3-coder:free",
+        "qwen/qwq-32b:free",
+        "qwen/qwen3-8b:free",
     ]
 
     # Required headers for OpenRouter
@@ -124,6 +129,47 @@ class OpenRouterProvider(ModelProvider):
             supported_models=self.supported_models,
             cost_per_1k_prompt_tokens=0.001,  # Will be updated per model
             cost_per_1k_completion_tokens=0.002,  # Will be updated per model
+        )
+
+    async def generate_unified(self, request: UnifiedRequest) -> UnifiedResponse:
+        """Generate response using unified interface.
+
+        Args:
+            request: Unified request format
+
+        Returns:
+            Unified response format
+        """
+        from .unified_models import TokenUsage, UnifiedResponse
+
+        # Convert UnifiedRequest to legacy generate() parameters
+        response = await self.generate(
+            prompt=request.prompt,
+            model=request.model,
+            messages=[
+                {"role": "system", "content": request.system_message} if request.system_message else None,
+                {"role": "user", "content": request.prompt}
+            ],
+            max_tokens=request.max_tokens,
+            temperature=request.temperature,
+            stream=request.stream,
+            stop=request.stop_sequences
+        )
+
+        # Convert ModelResponse to UnifiedResponse
+        return UnifiedResponse(
+            content=response.content,
+            model=response.model,
+            usage=TokenUsage(
+                prompt_tokens=response.usage.get("prompt_tokens", 0) if response.usage else 0,
+                completion_tokens=response.usage.get("completion_tokens", 0) if response.usage else 0,
+                total_tokens=response.usage.get("total_tokens", 0) if response.usage else 0
+            ),
+            latency_ms=response.latency_ms or 0,
+            finish_reason=response.finish_reason or "stop",
+            provider=response.provider or self.name,
+            cost=response.cost,
+            raw_response=response.raw_response or {}
         )
 
     async def generate(self, prompt: str, **kwargs: Any) -> ModelResponse:

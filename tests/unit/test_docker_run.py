@@ -327,7 +327,7 @@ class TestDockerRunSWEBenchIntegration:
             assert mock_run.called, "subprocess.run should have been called"
             call_args = mock_run.call_args[0][0]
             assert "--dataset_name" in call_args
-            assert "SWE-bench_Lite" in call_args
+            assert ("SWE-bench_Lite" in call_args or "SWE-bench/SWE-bench_Lite" in call_args)
             assert "--max_workers" in call_args
             assert "1" in call_args  # Single worker for determinism
 

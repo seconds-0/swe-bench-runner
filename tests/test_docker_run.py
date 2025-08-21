@@ -389,7 +389,7 @@ class TestParseHarnessResults:
 
         assert result.instance_id == "test__repo-123"
         assert result.passed is False
-        assert "No evaluation results directory found" in result.error
+        assert "Docker images built successfully but no evaluation results generated" in result.error
 
     def test_parse_no_result_files(self, tmp_path):
         """Test parsing when no result files exist."""

@@ -1140,12 +1140,27 @@ def run_wizard() -> None:
             console.print("Command: " + " ".join(cmd))
             if Confirm.ask("Run now?", default=True):
                 console.print("\n[cyan]Starting evaluation...[/cyan]\n")
-                # Make sure we flush console output before running subprocess
-                console.print("")  # Force flush
-                # Run the command directly
-                result = subprocess.run(cmd, check=False)  # noqa: S603 - Safe: cmd built from controlled inputs
-                # Exit with the same code as the subprocess
-                sys.exit(result.returncode)
+                # Import and call evaluate function directly instead of subprocess
+                from .cli import evaluate
+                try:
+                    evaluate(
+                        patches=None,
+                        patches_dir=None,
+                        dataset=dataset,
+                        count=count,
+                        subset=None,
+                        timeout=60,  # Default timeout
+                        workers=None,  # Auto-detect
+                        no_cache=False,
+                        no_preflight=False,
+                        output_dir=None,
+                        provider=None,  # Use environment variables
+                        model=None,    # Use environment variables
+                        temperature=None,
+                        max_tokens=None
+                    )
+                except SystemExit as e:
+                    sys.exit(e.code)
             else:
                 console.print("\nYou can run the command above anytime.")
             return
@@ -1522,7 +1537,10 @@ def run_home() -> None:
             table.add_row(str(i), opt)
         console.print(table)
 
-        choice = IntPrompt.ask("Enter number", default=2)
+        # Smart default: if user has config, default to Quick Run (1), otherwise Setup (2)
+        has_config = bool(_env("SWEBENCH_PROVIDER") and _env("SWEBENCH_MODEL"))
+        default_choice = 1 if has_config else 2
+        choice = IntPrompt.ask("Enter number", default=default_choice)
 
         # Exit should return immediately without showing Help
         if choice == 5:
@@ -1557,8 +1575,27 @@ def run_home() -> None:
             if count:
                 cmd += ["--count", count]
             console.print("\n[cyan]Starting evaluation...[/cyan]\n")
-            # Exit the TUI and run the command
-            sys.exit(subprocess.call(cmd))  # noqa: S603 - Safe: cmd built from controlled inputs
+            # Import and call evaluate function directly instead of subprocess
+            from .cli import evaluate
+            try:
+                evaluate(
+                    patches=None,
+                    patches_dir=None,
+                    dataset=dataset,
+                    count=int(count) if count else None,
+                    subset=None,
+                    timeout=60,  # Default timeout
+                    workers=None,  # Auto-detect
+                    no_cache=False,
+                    no_preflight=False,
+                    output_dir=None,
+                    provider=None,  # Use environment variables
+                    model=None,    # Use environment variables
+                    temperature=None,
+                    max_tokens=None
+                )
+            except SystemExit as e:
+                sys.exit(e.code)
 
         if choice == 2:
             run_wizard()
